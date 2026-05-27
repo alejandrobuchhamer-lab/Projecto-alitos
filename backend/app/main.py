@@ -13,7 +13,7 @@ from app.routers import mobile_auth as mobile_auth_router
 from app.routers import pos as pos_router
 from app.services.auth_service import verify_session_token
 
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Paths that don't need auth (starts-with check)
 _PUBLIC = ("/auth/", "/static/", "/health", "/favicon", "/pos/")
@@ -62,7 +62,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory=str(PROJECT_ROOT / "frontend" / "static")), name="static")
+_static_dir = PROJECT_ROOT / "frontend" / "static"
+if _static_dir.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 app.include_router(auth_router.router)
 app.include_router(admin_router.router)
