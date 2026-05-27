@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}Análisis de Precios{% endblock %}
+{% block page_title %}Analítica{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📈 Análisis de Precios de Insumos</h1>
+    <div class="subtitle">Evolución de costos, tendencias y recomendaciones de precio de venta</div>
+  </div>
+  <a href="/ia/asistente" class="btn btn-primary">🤖 Consultar con ALITO</a>
+</div>
+
+{% set subiendo = analisis|selectattr('tendencia','eq','sube')|list %}
+{% set bajando  = analisis|selectattr('tendencia','eq','baja')|list %}
+{% set estables = analisis|selectattr('tendencia','eq','estable')|list %}
+
+<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+  <div class="kpi-card" style="--kpi-color:var(--color-warning)">
+    <div class="kpi-label">Precios en Alza</div>
+    <div class="kpi-value">{{ subiendo|length }}</div>
+    <div class="kpi-sub text-muted">insumos más caros</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-success)">
+    <div class="kpi-label">Precios a la Baja</div>
+    <div class="kpi-value">{{ bajando|length }}</div>
+    <div class="kpi-sub text-muted">oportunidad de margen</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-info)">
+    <div class="kpi-label">Precios Estables</div>
+    <div class="kpi-value">{{ estables|length }}</div>
+    <div class="kpi-sub text-muted">sin cambios significativos</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-primary)">
+    <div class="kpi-label">Total Insumos</div>
+    <div class="kpi-value">{{ analisis|length }}</div>
+    <div class="kpi-sub text-muted">monitoreados</div>
+  </div>
+</div>
+
+{% if subiendo %}
+<!-- ALERTAS DE AUMENTO -->
+<div class="card mb-3" style="border-left:3px solid var(--color-warning)">
+  <div class="card-header" style="padding:14px 20px">
+    <span class="fw-600">⚠️ Insumos con costos en aumento — Acción recomendada</span>
+  </div>
+  <div class="card-body" style="padding:0">
+    <table class="table">
+      <thead>
+        <tr><th>Insumo</th><th>Precio Anterior</th><th>Precio Actual</th><th>Variación</th><th>Productos Afectados</th><th>Recomendación</th></tr>
+      </thead>
+      <tbody>
+        {% for a in subiendo %}
+        <tr>
+          <td class="fw-600">{{ a.insumo_nombre }}
+            <div class="text-muted text-xs">{{ a.unidad_medida }}</div>
+          </td>
+          <td class="text-muted">${{ "{:,.2f}".format(a.precio_anterior) if a.precio_anterior else '—' }}</td>
+          <td class="fw-600">${{ "{:,.2f}".format(a.precio_actual) }}</td>
+          <td>
+            {% if a.variacion_pct > 0 %}
+            <span class="badge badge-danger">▲ +{{ a.variacion_pct }}%</span>
+            {% endif %}
+          </td>
+          <td class="text-sm">
+            {% if a.productos_afectados %}
+              {{ a.productos_afectados|join(', ') }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="text-sm" style="color:var(--color-warning);max-width:250px">{{ a.recomendacion }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- TABLA COMPLETA -->
+<div class="card">
+  <div class="card-header" style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+    <span class="fw-600">Historial de precios por insumo</span>
+    <input class="form-control" id="filtro" placeholder="Buscar insumo..." style="max-width:200px" oninput="filtrar()">
+  </div>
+  <div class="card-body" style="padding:0">
+    <table class="table" id="tabla-precios">
+      <thead>
+        <tr>
+          <th>Insumo</th>
+          <th>Último Precio</th>
+          <th>Precio Anterior</th>
+          <th>Variación</th>
+          <th>Tendencia</th>
+          <th>Última Compra</th>
+          <th>Proveedor</th>
+          <th>Compras</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in analisis %}
+        <tr class="fila-precio" data-nombre="{{ a.insumo_nombre|lower }}">
+          <td class="fw-600">
+            {{ a.insumo_nombre }}
+            {% if a.productos_afectados %}
+            <div class="text-muted text-xs">Afecta: {{ a.productos_afectados|join(', ') }}</div>
+            {% endif %}
+          </td>
+          <td class="fw-bold">${{ "{:,.2f}".format(a.precio_actual) }}/{{ a.unidad_medida }}</td>
+          <td class="text-muted">${{ "{:,.2f}".format(a.precio_anterior) if a.precio_anterior else '—' }}</td>
+          <td>
+            {% if a.variacion_pct > 2 %}
+              <span class="badge badge-danger">▲ +{{ a.variacion_pct }}%</span>
+            {% elif a.variacion_pct < -2 %}
+              <span class="badge badge-success">▼ {{ a.variacion_pct }}%</span>
+            {% elif a.precio_anterior %}
+              <span class="badge badge-muted">≈ estable</span>
+            {% else %}
+              <span class="text-muted text-xs">sin hist.</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if a.tendencia == 'sube' %}
+              <span style="color:var(--color-danger)">📈 Sube</span>
+            {% elif a.tendencia == 'baja' %}
+              <span style="color:var(--color-success)">📉 Baja</span>
+            {% elif a.tendencia == 'estable' %}
+              <span style="color:var(--color-info)">➡ Estable</span>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="text-muted text-sm">{{ a.ultima_compra.strftime('%d/%m/%Y') }}</td>
+          <td class="text-muted text-sm">{{ a.ultimo_proveedor or '—' }}</td>
+          <td>
+            <span class="badge badge-muted">{{ a.compras_count }}</span>
+          </td>
+          <td>
+            <button class="btn btn-outline btn-sm"
+              data-iid="{{ a.insumo_id }}"
+              data-nombre="{{ a.insumo_nombre }}"
+              onclick="verHistorial(this.dataset.iid, this.dataset.nombre)">
+              📊 Ver
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL HISTORIAL DETALLE -->
+<div class="modal-overlay" id="modal-historial">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h3 id="modal-historial-titulo">Historial de precios</h3>
+      <button class="btn-icon" onclick="closeModal('modal-historial')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-historial-body">
+      <div class="text-muted">Cargando...</div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filtrar() {
+  const q = document.getElementById('filtro').value.toLowerCase();
+  document.querySelectorAll('.fila-precio').forEach(r => {
+    r.style.display = r.dataset.nombre.includes(q) ? '' : 'none';
+  });
+}
+
+async function verHistorial(insumoId, nombre) {
+  document.getElementById('modal-historial-titulo').textContent = `📊 ${nombre} — Historial de precios`;
+  document.getElementById('modal-historial-body').innerHTML = '<div class="text-muted">Cargando...</div>';
+  openModal('modal-historial');
+
+  try {
+    const data = await apiGet(`/ia/api/precio-historia/${insumoId}`);
+    if (!data.length) {
+      document.getElementById('modal-historial-body').innerHTML = '<div class="text-muted">Sin historial de compras</div>';
+      return;
+    }
+
+    let prev = null;
+    const rows = data.map((l, i) => {
+      let variacion = '';
+      if (prev !== null && prev > 0) {
+        const pct = ((l.costo_unitario - prev) / prev * 100).toFixed(1);
+        variacion = pct > 0
+          ? `<span class="badge badge-danger">▲ +${pct}%</span>`
+          : pct < 0
+            ? `<span class="badge badge-success">▼ ${pct}%</span>`
+            : `<span class="badge badge-muted">≈</span>`;
+      }
+      prev = l.costo_unitario;
+      return `
+        <tr>
+          <td class="text-muted text-sm">${new Date(l.fecha).toLocaleDateString('es-AR')}</td>
+          <td>${l.numero_lote}</td>
+          <td>${l.proveedor || '—'}</td>
+          <td>${l.cantidad}</td>
+          <td class="fw-600">$${l.costo_unitario.toLocaleString('es-AR', {minimumFractionDigits:2})}</td>
+          <td>$${l.costo_total.toLocaleString('es-AR', {maximumFractionDigits:0})}</td>
+          <td>${variacion}</td>
+        </tr>`;
+    });
+
+    document.getElementById('modal-historial-body').innerHTML = `
+      <div style="overflow-x:auto">
+        <table class="table">
+          <thead><tr><th>Fecha</th><th>Lote</th><th>Proveedor</th><th>Cantidad</th><th>Precio Unit.</th><th>Total</th><th>Var.</th></tr></thead>
+          <tbody>${rows.join('')}</tbody>
+        </table>
+      </div>
+    `;
+  } catch(e) {
+    document.getElementById('modal-historial-body').innerHTML = '<div class="text-danger">Error al cargar datos</div>';
+  }
+}
+</script>
+{% endblock %}

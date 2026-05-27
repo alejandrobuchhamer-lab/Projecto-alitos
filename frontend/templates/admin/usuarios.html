@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Admin — Usuarios{% endblock %}
+{% block page_title %}Administración{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>⚙️ Gestión de Usuarios</h1>
+    <div class="subtitle">Control de acceso y permisos del sistema</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-nuevo-usuario')">+ Nuevo Usuario</button>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Nombre</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th>Creado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in usuarios %}
+        <tr>
+          <td>
+            <span class="fw-600">{{ u.username }}</span>
+            {% if u.id == current_user.id %}
+            <span class="badge" style="background:rgba(212,160,23,0.15);color:var(--color-accent);font-size:0.7rem;margin-left:6px">Tú</span>
+            {% endif %}
+          </td>
+          <td>{{ u.nombre }}</td>
+          <td>
+            {% if u.rol == 'admin' %}
+              <span class="badge badge-primary">Administrador</span>
+            {% elif u.rol == 'produccion' %}
+              <span class="badge badge-warning">Produccion</span>
+            {% else %}
+              <span class="badge badge-success">Vendedor</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.activo %}
+              <span class="badge badge-success">Activo</span>
+            {% else %}
+              <span class="badge badge-danger">Inactivo</span>
+            {% endif %}
+          </td>
+          <td class="text-muted text-sm">{{ u.created_at.strftime('%d/%m/%Y') }}</td>
+          <td style="text-align:right">
+            {% if u.id != current_user.id %}
+            <button class="btn btn-outline btn-sm"
+              data-uid="{{ u.id }}"
+              data-nombre="{{ u.nombre }}"
+              data-rol="{{ u.rol }}"
+              data-activo="{{ 'true' if u.activo else 'false' }}"
+              onclick="abrirEditar(this)">
+              Editar
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- INFO ROLES -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px">
+  <div class="card">
+    <div class="card-body">
+      <div class="fw-600 mb-2">⚡ Administrador</div>
+      <ul class="text-sm text-muted" style="padding-left:16px;line-height:1.8">
+        <li>Acceso completo al sistema</li>
+        <li>Gestionar usuarios y permisos</li>
+        <li>Ver todos los módulos</li>
+        <li>Configuración del sistema</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <div class="fw-600 mb-2">💰 Vendedor</div>
+      <ul class="text-sm text-muted" style="padding-left:16px;line-height:1.8">
+        <li>Acceso al sistema completo</li>
+        <li>Registrar ventas y pedidos</li>
+        <li>Consultar clientes y productos</li>
+        <li>Sin acceso a administración</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <div class="fw-600 mb-2">🏭 Produccion</div>
+      <ul class="text-sm text-muted" style="padding-left:16px;line-height:1.8">
+        <li>Acceso al sistema completo</li>
+        <li>Registrar producciones</li>
+        <li>Gestionar insumos y lotes</li>
+        <li>Sin acceso a administración</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVO USUARIO -->
+<div class="modal-overlay" id="modal-nuevo-usuario">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>+ Nuevo Usuario</h3>
+      <button class="btn-icon" onclick="closeModal('modal-nuevo-usuario')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Username *</label>
+        <input class="form-control" id="nu-username" placeholder="ej. maria_v">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre completo *</label>
+        <input class="form-control" id="nu-nombre" placeholder="ej. María Vélez">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña *</label>
+        <input class="form-control" id="nu-password" type="password" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rol</label>
+        <select class="form-control" id="nu-rol">
+          <option value="vendedor">Vendedor</option>
+          <option value="produccion">Produccion</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="crearUsuario()">Crear Usuario</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-nuevo-usuario')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR USUARIO -->
+<div class="modal-overlay" id="modal-editar-usuario">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>Editar Usuario</h3>
+      <button class="btn-icon" onclick="closeModal('modal-editar-usuario')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eu-id">
+      <div class="form-group">
+        <label class="form-label">Nombre completo</label>
+        <input class="form-control" id="eu-nombre">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rol</label>
+        <select class="form-control" id="eu-rol">
+          <option value="vendedor">Vendedor</option>
+          <option value="produccion">Produccion</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Estado</label>
+        <select class="form-control" id="eu-activo">
+          <option value="true">Activo</option>
+          <option value="false">Inactivo</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nueva Contraseña <span class="text-muted">(dejar vacío para no cambiar)</span></label>
+        <input class="form-control" id="eu-password" type="password" placeholder="••••••••">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="guardarEdicion()">Guardar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-editar-usuario')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function crearUsuario() {
+  const username = document.getElementById('nu-username').value.trim();
+  const nombre   = document.getElementById('nu-nombre').value.trim();
+  const password = document.getElementById('nu-password').value;
+  const rol      = document.getElementById('nu-rol').value;
+  if (!username || !nombre || !password) { toast('Completá todos los campos', 'error'); return; }
+  if (password.length < 6) { toast('La contraseña debe tener al menos 6 caracteres', 'error'); return; }
+  try {
+    await apiPost('/admin/api/usuarios', { username, nombre, password, rol });
+    toast('Usuario creado', 'success');
+    closeModal('modal-nuevo-usuario');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function abrirEditar(btn) {
+  document.getElementById('eu-id').value      = btn.dataset.uid;
+  document.getElementById('eu-nombre').value  = btn.dataset.nombre;
+  document.getElementById('eu-rol').value     = btn.dataset.rol;
+  document.getElementById('eu-activo').value  = btn.dataset.activo;
+  document.getElementById('eu-password').value = '';
+  openModal('modal-editar-usuario');
+}
+
+async function guardarEdicion() {
+  const id      = parseInt(document.getElementById('eu-id').value);
+  const nombre  = document.getElementById('eu-nombre').value.trim();
+  const rol     = document.getElementById('eu-rol').value;
+  const activo  = document.getElementById('eu-activo').value === 'true';
+  const password = document.getElementById('eu-password').value || null;
+  if (!nombre) { toast('El nombre es requerido', 'error'); return; }
+  try {
+    const payload = { nombre, rol, activo };
+    if (password) payload.password = password;
+    await fetch(`/admin/api/usuarios/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then(async r => {
+      if (!r.ok) { const d = await r.json(); throw new Error(d.detail || 'Error'); }
+    });
+    toast('Usuario actualizado', 'success');
+    closeModal('modal-editar-usuario');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+</script>
+{% endblock %}

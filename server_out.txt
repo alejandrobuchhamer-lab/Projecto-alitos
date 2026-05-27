@@ -1,0 +1,469 @@
+INFO:     127.0.0.1:60882 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60882 - "GET /static/img/logo1.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:60883 - "GET /static/js/main.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:60882 - "GET /static/css/main.css?v=9 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:60882 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60882 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60882 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60882 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60882 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60883 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60882 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60882 - "GET /produccion/api/lotes/masa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60884 - "GET /produccion/api/lotes/masa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60890 - "POST /produccion/api/iniciar HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:60891 - "POST /produccion/api/iniciar HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:60895 - "POST /produccion/api/iniciar HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:60900 - "GET /alertas/ HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:60900 - "GET /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60900 - "GET /produccion/ HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:60900 - "GET /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60902 - "GET /alertas/ HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:60902 - "GET /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60902 - "GET /produccion/ HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:60902 - "GET /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60904 - "DELETE /produccion/api/99999 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60908 - "DELETE /produccion/api/99999 HTTP/1.1" 404 Not Found
+  INFO:     127.0.0.1:60934 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60934 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60935 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60934 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60934 - "GET /produccion/api/lotes/masa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60984 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60984 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60985 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60984 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60984 - "GET /produccion/api/lotes/masa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60986 - "POST /produccion/api/iniciar HTTP/1.1" 201 Created
+INFO:     127.0.0.1:60986 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60986 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60986 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60986 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60986 - "GET /produccion/api/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60986 - "GET /produccion/api/4/origen-masa HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:61083 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61083 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61084 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61083 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:61086 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61086 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61086 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61086 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:55334 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55334 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55335 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55334 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:55336 - "POST /produccion/api/4/guardar-pesaje-cruda HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55336 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55336 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55336 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55336 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55544 - "GET /produccion/api/4/insumos-usados HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55545 - "GET /produccion/api/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55546 - "GET /recetas/api/6/ficha-tecnica?cantidad_objetivo=200.0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55560 - "GET /produccion/api/1 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58710 - "GET /produccion/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58715 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58715 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58716 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58715 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58716 - "GET /produccion/api/4/insumos-usados HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58715 - "GET /produccion/api/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58717 - "GET /produccion/api/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58717 - "GET /produccion/api/3/insumos-usados HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56383 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56383 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56384 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56383 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56383 - "GET /produccion/api/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56384 - "GET /produccion/api/3/insumos-usados HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56391 - "GET /produccion/api/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56396 - "GET /produccion/api/4/insumos-usados HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56395 - "GET /produccion/api/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56397 - "GET /alertas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56397 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56397 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56399 - "POST /alertas/api/14/resolver HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56399 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56399 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56399 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56399 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56399 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56402 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56402 - "GET /insumos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56402 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56403 - "GET /insumos/api/resumen HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:56402 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56402 - "GET /productos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56402 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56402 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:58939 - "GET /produccion/ HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:58939 - "GET /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58969 - "GET /insumos/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58971 - "GET /produccion/ HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:58971 - "GET /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58989 - "GET /productos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58989 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58989 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58989 - "GET /productos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58989 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58989 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58989 - "GET /productos/api/1/lotes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58990 - "GET /productos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58990 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58990 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58990 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58990 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58991 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58990 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:59003 - "GET /produccion/api/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59004 - "GET /produccion/api/4/insumos-usados HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59005 - "GET /recetas/api/6/ficha-tecnica?cantidad_objetivo=200.0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59011 - "GET /insumos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59011 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59011 - "GET /insumos/api/resumen HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:59011 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59013 - "GET /insumos/api/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59013 - "PUT /insumos/api/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59013 - "GET /insumos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59014 - "GET /insumos/api/resumen HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:59013 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59013 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59013 - "GET /productos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59013 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59013 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59015 - "GET /productos/api/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59019 - "GET /recetas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59019 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59019 - "GET /insumos/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59019 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59019 - "GET /productos/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59019 - "GET /recetas/api/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /insumos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59023 - "GET /insumos/api/resumen HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:59022 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59023 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /alertas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /ia/precios-insumos HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59022 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59024 - "GET /ia/asistente HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59024 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59024 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59024 - "GET /ia/api/precios-insumos HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59025 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59025 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59025 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59025 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59025 - "GET /openapi.json HTTP/1.1" 200 OK
+    INFO:     127.0.0.1:57626 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57626 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57626 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57627 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57627 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57627 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57627 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57628 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57628 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57628 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57639 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57639 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57639 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57639 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57639 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57639 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57639 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57688 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57689 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57690 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57726 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57726 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57726 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57726 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57776 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57777 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:57778 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+ INFO:     127.0.0.1:53209 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53209 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53209 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53209 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53226 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53226 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53226 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53226 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53226 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53226 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53226 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53227 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "GET /auth/logout HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:53227 - "GET /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "GET /static/css/main.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "POST /auth/login HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:53227 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53227 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53248 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53249 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53252 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53254 - "GET /finanzas/api/caja-hoy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53257 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53257 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53257 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53259 - "GET /finanzas/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53261 - "GET /alertas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53261 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53261 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53261 - "GET /ventas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53261 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53264 - "GET /ventas/api/analytics/top HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53261 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53271 - "GET /finanzas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53271 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53272 - "GET /finanzas/api/caja-hoy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53271 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:53294 - "GET /finanzas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53294 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53295 - "GET /finanzas/api/caja-hoy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53294 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:53296 - "GET /finanzas/api/resumen?desde=2026-05-18&hasta=2026-05-23 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53305 - "GET /finanzas/api/resumen?desde=2026-05-01&hasta=2026-05-23 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53305 - "GET /finanzas/api/resumen?desde=2026-04-01&hasta=2026-04-30 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53305 - "GET /finanzas/api/resumen?desde=2026-05-23&hasta=2026-05-23 HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:53326 - "GET /finanzas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53326 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53327 - "GET /finanzas/api/caja-hoy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53326 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53327 - "GET /finanzas/api/capital-invertido HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53330 - "GET /finanzas/api/capital-invertido HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53333 - "GET /finanzas/api/flujo-diario?desde=2026-05-01&hasta=2026-05-23 HTTP/1.1" 200 OK
+    INFO:     127.0.0.1:53394 - "GET /finanzas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53394 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53395 - "GET /finanzas/api/caja-hoy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53394 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53395 - "GET /finanzas/api/capital-invertido HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:53396 - "GET /finanzas/api/resumen?desde=2026-05-18&hasta=2026-05-23 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53396 - "GET /finanzas/api/flujo-diario?desde=2026-05-18&hasta=2026-05-23 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53396 - "GET /finanzas/api/cuenta-corriente HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53408 - "GET /insumos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53408 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53408 - "GET /insumos/api/resumen HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:53408 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53410 - "GET /insumos/api/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53411 - "GET /productos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53411 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53411 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53411 - "GET /recetas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53411 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53411 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /insumos/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /productos/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /ventas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53411 - "GET /ventas/api/analytics/top HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /ventas/pedidos HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53411 - "GET /productos/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /clientes/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /stock/conteo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53412 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53411 - "GET /stock/api/historial-ajustes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53415 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53420 - "GET /stock/api/items-conteo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53424 - "GET /stock/api/items-conteo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53436 - "GET /insumos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53436 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53436 - "GET /insumos/api/resumen HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:53436 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53436 - "GET /stock/conteo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53436 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53438 - "GET /stock/api/historial-ajustes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53436 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53436 - "GET /stock/conteo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53436 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53438 - "GET /stock/api/historial-ajustes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53439 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53439 - "GET /stock/conteo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53439 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53438 - "GET /stock/api/historial-ajustes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53436 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /stock/conteo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53445 - "GET /stock/api/historial-ajustes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /insumos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53445 - "GET /insumos/api/resumen HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /stock/api/historial-ajustes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /sensorial/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /ia/asistente HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /ia/api/precios-insumos HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /finanzas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /finanzas/api/caja-hoy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /finanzas/api/capital-invertido HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /clientes/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /finanzas/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53446 - "GET /finanzas/api/caja-hoy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53444 - "GET /finanzas/api/capital-invertido HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53478 - "GET /insumos/ HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:53478 - "GET /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53489 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53489 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53489 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53489 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53498 - "GET /produccion/api/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53499 - "GET /produccion/api/3/insumos-usados HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:53521 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53521 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53522 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53521 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:53523 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53523 - "GET /static/css/main.css?v=9 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53523 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53528 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53523 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:53564 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53564 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53565 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53564 - "GET /alertas/api HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:53566 - "GET /produccion/api/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53566 - "GET /produccion/api/3/insumos-usados HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53574 - "GET /produccion/api/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53574 - "GET /produccion/api/4/insumos-usados HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53576 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53576 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53576 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53576 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53576 - "GET /produccion/api/4/registros-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53587 - "GET /produccion/ HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:53587 - "GET /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53610 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /productos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /insumos/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53610 - "GET /stock/api/historial-ajustes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53611 - "GET /insumos/api/resumen HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:53609 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /stock/api/items-conteo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53609 - "GET /stock/api/items-conteo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53620 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53620 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53620 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53620 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53620 - "GET /produccion/api/4/registros-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53622 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53622 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53623 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53624 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53633 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53633 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53634 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53633 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53633 - "GET /produccion/api/4/registros-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:53635 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53639 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53639 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53640 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53639 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53640 - "GET /produccion/api/4/insumos-usados HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53639 - "GET /produccion/api/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53641 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53646 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53646 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53647 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53646 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55570 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55570 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55571 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55570 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55570 - "GET /produccion/api/4/registros-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55577 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55578 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55581 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55583 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55584 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55587 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55588 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55599 - "POST /produccion/api/2/agregar-registro-tapas HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55601 - "GET /produccion/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55606 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55607 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55610 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55612 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55613 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55616 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55618 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55620 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55621 - "GET /produccion/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55621 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55621 - "GET /produccion/api/analytics/tapas HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55621 - "GET /alertas/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55621 - "GET /produccion/api/4/registros-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55624 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55625 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55628 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55630 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55631 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55634 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55637 - "GET /produccion/api HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55648 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55654 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55657 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:55671 - "POST /produccion/api/4/agregar-registro-tapas HTTP/1.1" 500 Internal Server Error
+ INFO:     127.0.0.1:55672 - "GET /recetas/api/6/ficha-tecnica?cantidad_objetivo=200.0 HTTP/1.1" 200 OK

@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% block title %}Pedidos{% endblock %}
+{% block page_title %}Pedidos{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>🛒 Pedidos</h1>
+    <div class="subtitle">Gestión de órdenes de clientes con stock inmovilizado</div>
+  </div>
+  <button class="btn btn-primary" onclick="abrirNuevoPedido()">+ Nuevo Pedido</button>
+</div>
+
+<!-- KPIs -->
+{% set pendientes = pedidos|selectattr('estado','eq','pendiente')|list %}
+{% set confirmados = pedidos|selectattr('estado','eq','confirmado')|list %}
+{% set entregados = pedidos|selectattr('estado','eq','entregado')|list %}
+
+<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+  <div class="kpi-card" style="--kpi-color:var(--color-warning)">
+    <div class="kpi-label">Pendientes</div>
+    <div class="kpi-value">{{ pendientes|length }}</div>
+    <div class="kpi-sub text-muted">sin confirmar</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-info)">
+    <div class="kpi-label">Confirmados</div>
+    <div class="kpi-value">{{ confirmados|length }}</div>
+    <div class="kpi-sub text-muted">en preparación</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-success)">
+    <div class="kpi-label">Entregados</div>
+    <div class="kpi-value">{{ entregados|length }}</div>
+    <div class="kpi-sub text-muted">completados</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-accent)">
+    <div class="kpi-label">Total Estimado</div>
+    <div class="kpi-value" style="font-size:1.2rem">${{ "{:,.0f}".format((pendientes + confirmados)|sum(attribute='total_estimado')) }}</div>
+    <div class="kpi-sub text-muted">en curso</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header" style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+    <span class="fw-600">Historial de Pedidos</span>
+    <select class="form-control btn-sm" id="filtro-estado-ped" onchange="filtrarPedidos()" style="width:auto">
+      <option value="">Todos</option>
+      <option value="pendiente">Pendientes</option>
+      <option value="confirmado">Confirmados</option>
+      <option value="entregado">Entregados</option>
+      <option value="cancelado">Cancelados</option>
+    </select>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="table" id="tabla-pedidos">
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Cliente</th>
+          <th>Fecha</th>
+          <th>Entrega</th>
+          <th>Estado</th>
+          <th>Stock</th>
+          <th>Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if pedidos %}
+          {% for p in pedidos %}
+          <tr class="fila-pedido" data-estado="{{ p.estado }}">
+            <td class="fw-600 text-accent">{{ p.numero_pedido }}</td>
+            <td>{{ p.cliente.nombre_completo }}</td>
+            <td class="text-muted text-sm">{{ p.fecha_pedido.strftime('%d/%m/%Y') }}</td>
+            <td>
+              {% if p.fecha_entrega_requerida %}
+                <span class="{% if p.fecha_entrega_requerida < now %}text-danger fw-600{% else %}text-muted{% endif %}">
+                  {{ p.fecha_entrega_requerida.strftime('%d/%m/%Y') }}
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if p.estado == 'entregado' %}<span class="badge badge-success">✓ Entregado</span>
+              {% elif p.estado == 'listo' %}<span class="badge badge-accent">Listo</span>
+              {% elif p.estado == 'en_preparacion' %}<span class="badge badge-info">En Prep.</span>
+              {% elif p.estado == 'confirmado' %}<span class="badge badge-info">Confirmado</span>
+              {% elif p.estado == 'cancelado' %}<span class="badge badge-danger">Cancelado</span>
+              {% else %}<span class="badge badge-warning">Pendiente</span>{% endif %}
+            </td>
+            <td>
+              {% if p.detalles|length > 0 %}
+                <span class="badge badge-warning">🔒 Reservado</span>
+              {% else %}
+                <span class="text-muted text-xs">—</span>
+              {% endif %}
+            </td>
+            <td class="fw-bold">${{ "{:,.2f}".format(p.total_estimado) }}</td>
+            <td style="display:flex;gap:4px">
+              <button class="btn btn-outline btn-sm" onclick="verDetallePedido({{ p.id }})">🔍</button>
+              {% if p.estado not in ['cancelado', 'entregado'] %}
+              <button class="btn btn-danger btn-sm" title="Cancelar y liberar stock"
+                onclick="cancelarPedido({{ p.id }}, '{{ p.numero_pedido }}')">✕</button>
+              {% endif %}
+              {% if p.detalles|length > 0 and p.estado not in ['cancelado', 'entregado'] %}
+              <button class="btn btn-outline btn-sm" title="Liberar reserva sin cancelar"
+                onclick="liberarReserva({{ p.id }}, '{{ p.numero_pedido }}')">🔓</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="8">
+            <div class="empty-state">
+              <div class="icon">🛒</div>
+              <h3>Sin pedidos registrados</h3>
+              <button class="btn btn-primary" onclick="abrirNuevoPedido()">+ Nuevo Pedido</button>
+            </div>
+          </td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL NUEVO PEDIDO -->
+<div class="modal-overlay" id="modal-pedido">
+  <div class="modal" style="max-width:740px">
+    <div class="modal-header">
+      <h3>🛒 Nuevo Pedido</h3>
+      <button class="btn-icon" onclick="closeModal('modal-pedido')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Cliente *</label>
+          <select class="form-control" id="ped-cliente">
+            <option value="">Seleccionar cliente...</option>
+            {% for c in clientes %}
+            <option value="{{ c.id }}">{{ c.nombre_completo }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha de Entrega Requerida</label>
+          <input class="form-control" id="ped-entrega" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas</label>
+        <textarea class="form-control" id="ped-notas" rows="2" placeholder="Instrucciones especiales, dirección, etc."></textarea>
+      </div>
+
+      <hr style="border-color:var(--color-border);margin:16px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="fw-600">Productos del Pedido</div>
+        <button class="btn btn-outline btn-sm" onclick="agregarItemPedido()">+ Agregar producto</button>
+      </div>
+      <div id="items-pedido"></div>
+      <div id="reserva-info" style="display:none" class="card mt-2" style="background:var(--color-bg-elevated);padding:10px;border-radius:8px;font-size:0.82rem;color:var(--color-warning)">
+        🔒 Al confirmar, el stock de estos productos quedará inmovilizado para este pedido.
+      </div>
+      <div style="margin-top:12px;text-align:right;font-size:0.9rem">
+        Total estimado: <strong id="ped-total" style="font-size:1.1rem;color:var(--color-accent)">$0</strong>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="crearPedido()">🛒 Confirmar Pedido</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-pedido')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE PEDIDO -->
+<div class="modal-overlay" id="modal-detalle-ped">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h3 id="det-ped-titulo">Detalle del Pedido</h3>
+      <button class="btn-icon" onclick="closeModal('modal-detalle-ped')">✕</button>
+    </div>
+    <div class="modal-body" id="det-ped-body">Cargando...</div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let productosDisponibles = [];
+let itemCount = 0;
+
+async function cargarProductos() {
+  try { productosDisponibles = await apiGet('/productos/api'); } catch(_) {}
+}
+
+cargarProductos();
+
+function filtrarPedidos() {
+  const estado = document.getElementById('filtro-estado-ped').value;
+  document.querySelectorAll('.fila-pedido').forEach(r => {
+    r.style.display = !estado || r.dataset.estado === estado ? '' : 'none';
+  });
+}
+
+async function abrirNuevoPedido() {
+  document.getElementById('items-pedido').innerHTML = '';
+  document.getElementById('ped-cliente').value = '';
+  document.getElementById('ped-entrega').value = '';
+  document.getElementById('ped-notas').value = '';
+  document.getElementById('ped-total').textContent = '$0';
+  document.getElementById('reserva-info').style.display = 'none';
+  itemCount = 0;
+  await cargarProductos();
+  agregarItemPedido();
+  openModal('modal-pedido');
+}
+
+function agregarItemPedido() {
+  const id = ++itemCount;
+  const opts = productosDisponibles.map(p =>
+    `<option value="${p.id}" data-precio="${p.precio_venta_base}" data-stock="${p.stock_actual}">
+      ${p.nombre} (stock: ${p.stock_actual})
+    </option>`
+  ).join('');
+  const div = document.createElement('div');
+  div.id = `item-ped-${id}`;
+  div.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:end';
+  div.innerHTML = `
+    <div>
+      <label class="form-label">Producto</label>
+      <select class="form-control" id="ip-prod-${id}" onchange="onPedidoProductoChange(${id})">
+        <option value="">— Seleccionar —</option>${opts}
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Cantidad</label>
+      <input class="form-control" id="ip-cant-${id}" type="number" step="1" min="1" value="1" oninput="calcTotalPedido()">
+    </div>
+    <div>
+      <label class="form-label">Precio Unit.</label>
+      <input class="form-control" id="ip-precio-${id}" type="number" step="0.01" value="0" oninput="calcTotalPedido()">
+    </div>
+    <button class="btn btn-danger btn-sm" style="height:38px"
+      onclick="document.getElementById('item-ped-${id}').remove();calcTotalPedido()">✕</button>`;
+  document.getElementById('items-pedido').appendChild(div);
+  document.getElementById('reserva-info').style.display = 'block';
+}
+
+function onPedidoProductoChange(id) {
+  const sel = document.getElementById(`ip-prod-${id}`);
+  const opt = sel.selectedOptions[0];
+  if (opt && opt.value) {
+    document.getElementById(`ip-precio-${id}`).value = parseFloat(opt.dataset.precio) || 0;
+    calcTotalPedido();
+  }
+}
+
+function calcTotalPedido() {
+  let total = 0;
+  document.querySelectorAll('[id^="item-ped-"]').forEach(row => {
+    const num = row.id.split('-')[2];
+    const cant  = parseFloat(document.getElementById(`ip-cant-${num}`)?.value) || 0;
+    const precio = parseFloat(document.getElementById(`ip-precio-${num}`)?.value) || 0;
+    total += cant * precio;
+  });
+  document.getElementById('ped-total').textContent = '$' + total.toLocaleString('es-AR', {minimumFractionDigits:2});
+}
+
+async function crearPedido() {
+  const clienteId = document.getElementById('ped-cliente').value;
+  if (!clienteId) { toast('Seleccioná un cliente', 'error'); return; }
+
+  const detalles = [];
+  let ok = true;
+  document.querySelectorAll('[id^="item-ped-"]').forEach(row => {
+    const num = row.id.split('-')[2];
+    const prodId  = parseInt(document.getElementById(`ip-prod-${num}`)?.value);
+    const cant    = parseFloat(document.getElementById(`ip-cant-${num}`)?.value);
+    const precio  = parseFloat(document.getElementById(`ip-precio-${num}`)?.value);
+    if (!prodId || !cant || cant <= 0) { ok = false; return; }
+    detalles.push({ producto_id: prodId, cantidad: cant, precio_unitario: precio || 0 });
+  });
+
+  if (!ok || !detalles.length) { toast('Completá al menos un producto válido', 'error'); return; }
+
+  try {
+    const entrega = document.getElementById('ped-entrega').value;
+    const r = await apiPost('/ventas/pedidos/api', {
+      cliente_id: parseInt(clienteId),
+      fecha_entrega_requerida: entrega ? new Date(entrega).toISOString() : null,
+      notas: document.getElementById('ped-notas').value || null,
+      detalles,
+    });
+    toast(`Pedido ${r.numero_pedido} confirmado — stock inmovilizado`, 'success');
+    closeModal('modal-pedido');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function cancelarPedido(id, numero) {
+  if (!confirm(`¿Cancelar pedido ${numero} y liberar el stock reservado?`)) return;
+  try {
+    const r = await apiPost(`/ventas/pedidos/api/${id}/cancelar`, {});
+    toast(`Pedido cancelado — ${r.reservas_liberadas} lotes liberados`, 'success');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function liberarReserva(id, numero) {
+  if (!confirm(`¿Liberar la reserva de stock del pedido ${numero} sin cancelarlo?`)) return;
+  try {
+    const r = await apiPost(`/ventas/pedidos/api/${id}/liberar-reserva`, {});
+    toast(`Reserva liberada — ${r.reservas_liberadas} lotes disponibles`, 'success');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function verDetallePedido(id) {
+  document.getElementById('det-ped-body').innerHTML = '<div class="text-muted">Cargando...</div>';
+  openModal('modal-detalle-ped');
+  try {
+    const d = await apiGet(`/ventas/pedidos/api/${id}/detalle`);
+    document.getElementById('det-ped-titulo').textContent = `Pedido ${d.numero_pedido}`;
+    const entrega = d.fecha_entrega_requerida ? new Date(d.fecha_entrega_requerida).toLocaleDateString('es-AR') : '—';
+    document.getElementById('det-ped-body').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:0.85rem">
+        <div><span class="text-muted">Cliente:</span> <strong>${d.cliente}</strong></div>
+        <div><span class="text-muted">Estado:</span> <strong>${d.estado}</strong></div>
+        <div><span class="text-muted">Entrega req.:</span> <strong>${entrega}</strong></div>
+        <div><span class="text-muted">Stock:</span> ${d.stock_reservado ? '<span class="badge badge-warning">🔒 Reservado</span>' : '<span class="text-muted">Sin reserva</span>'}</div>
+      </div>
+      ${d.notas ? `<div class="text-muted text-sm mb-3">📝 ${d.notas}</div>` : ''}
+      <table class="table" style="font-size:0.82rem">
+        <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unit.</th><th>Subtotal</th></tr></thead>
+        <tbody>
+          ${d.detalles.map(det => `
+            <tr>
+              <td>${det.producto}</td>
+              <td>${det.cantidad}</td>
+              <td>$${(det.precio_unitario||0).toLocaleString('es-AR',{minimumFractionDigits:2})}</td>
+              <td class="fw-600">$${(det.subtotal||0).toLocaleString('es-AR',{minimumFractionDigits:2})}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="text-align:right;margin-top:12px;font-size:1rem;font-weight:700;color:var(--color-accent)">
+        Total: $${(d.total_estimado||0).toLocaleString('es-AR',{minimumFractionDigits:2})}
+      </div>`;
+  } catch(e) { document.getElementById('det-ped-body').innerHTML = '<div class="text-danger">Error cargando detalle</div>'; }
+}
+</script>
+{% endblock %}

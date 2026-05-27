@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Alertas{% endblock %}
+{% block page_title %}Alertas{% endblock %}
+
+{% block content %}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  <div>
+    <h2 style="margin:0;font-size:1.1rem;font-weight:700">Alertas activas</h2>
+    <p class="text-muted text-sm" style="margin:2px 0 0">Stock bajo mínimo y otras notificaciones del sistema</p>
+  </div>
+  <button class="btn btn-outline" onclick="verificarYRecargar()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-right:5px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    Actualizar alertas
+  </button>
+</div>
+
+{% if alertas %}
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Prioridad</th>
+          <th>Módulo</th>
+          <th>Mensaje</th>
+          <th>Fecha</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tabla-alertas">
+        {% for a in alertas %}
+        <tr id="row-alerta-{{ a.id }}">
+          <td>
+            {% if a.prioridad == 'alta' %}
+              <span class="badge badge-danger">Alta</span>
+            {% elif a.prioridad == 'media' %}
+              <span class="badge badge-warning">Media</span>
+            {% else %}
+              <span class="badge badge-muted">Baja</span>
+            {% endif %}
+          </td>
+          <td class="text-sm text-muted">{{ a.modulo|capitalize }}</td>
+          <td class="text-sm">{{ a.mensaje }}</td>
+          <td class="text-muted text-xs">{{ a.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>
+            <button class="btn btn-outline btn-sm" data-id="{{ a.id }}" onclick="resolverAlerta(this.dataset.id, this)">
+              Resolver
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state" style="padding:60px 20px">
+    <div class="icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+    </div>
+    <h3>Sin alertas activas</h3>
+    <p class="text-muted text-sm">Todo el stock está dentro de los límites configurados</p>
+    <button class="btn btn-outline" onclick="verificarYRecargar()">Verificar ahora</button>
+  </div>
+</div>
+{% endif %}
+
+<script>
+async function resolverAlerta(id, btn) {
+  btn.disabled = true;
+  try {
+    await fetch(`/alertas/api/${id}/resolver`, { method: 'POST' });
+    const row = document.getElementById('row-alerta-' + id);
+    if (row) row.style.opacity = '0.3';
+    toast('Alerta resuelta', 'success');
+    setTimeout(() => { if (row) row.remove(); }, 600);
+    await loadAlertasCount();
+  } catch(e) {
+    btn.disabled = false;
+    toast('Error al resolver', 'error');
+  }
+}
+
+async function verificarYRecargar() {
+  try {
+    const r = await apiPost('/alertas/api/verificar', {});
+    toast(`${r.alertas_generadas} alertas generadas`, 'info');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+</script>
+
+{% endblock %}

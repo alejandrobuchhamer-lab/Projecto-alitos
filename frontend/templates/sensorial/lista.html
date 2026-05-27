@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Lab Sensorial{% endblock %}
+{% block page_title %}Laboratorio Sensorial{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>🧪 Laboratorio Sensorial</h1>
+    <div class="subtitle">Análisis sensorial con recomendaciones IA</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-prueba')">+ Nueva Prueba</button>
+</div>
+
+{# Macro definida fuera del loop para evitar re-definición en cada iteración #}
+{% macro score_bar(label, val) %}
+  {% if val is not none %}
+  <div style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:3px">
+      <span class="text-muted">{{ label }}</span>
+      <span class="fw-600">{{ val }}/10</span>
+    </div>
+    <div class="score-track">
+      {% set pct = val * 10 %}
+      <div class="score-fill" style="width:{{ pct }}%"></div>
+    </div>
+  </div>
+  {% endif %}
+{% endmacro %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px">
+  {% if pruebas %}
+    {% for p in pruebas %}
+    {% set score = p.score_total %}
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="fw-600">Prueba #{{ p.id }}</div>
+          <div class="text-muted text-xs">{{ p.evaluador }} — {{ p.fecha.strftime('%d/%m/%Y') }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          {% if score is not none %}
+            {# Calcular color antes para evitar Jinja2 multilínea dentro de style="" #}
+            {% if score >= 7 %}
+              {% set score_color = 'var(--color-success)' %}
+            {% elif score >= 5 %}
+              {% set score_color = 'var(--color-warning)' %}
+            {% else %}
+              {% set score_color = 'var(--color-danger)' %}
+            {% endif %}
+            <div style="font-size:1.5rem;font-weight:700;color:{{ score_color }}">{{ score }}</div>
+          {% endif %}
+          {% if p.aprobado is not none %}
+            {% if p.aprobado %}
+              <span class="badge badge-success">✓ Aprobado</span>
+            {% else %}
+              <span class="badge badge-danger">✕ Rechazado</span>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body">
+        {% if p.lote_producto %}
+        <div class="text-muted text-sm mb-3">Lote: {{ p.lote_producto.numero_lote }}</div>
+        {% endif %}
+
+        {{ score_bar('Dulzura', p.dulzura) }}
+        {{ score_bar('Acidez', p.acidez) }}
+        {{ score_bar('Textura', p.textura) }}
+        {{ score_bar('Aroma', p.aroma) }}
+        {{ score_bar('Sabor General', p.sabor_general) }}
+        {{ score_bar('Apariencia', p.apariencia) }}
+
+        {% if p.notas %}
+        <div class="mt-2 text-sm" style="padding:8px;background:var(--color-bg-elevated);border-radius:6px">
+          <div class="text-muted text-xs mb-1">Notas del evaluador:</div>
+          {{ p.notas }}
+        </div>
+        {% endif %}
+
+        {% if p.recomendacion_ia %}
+        <div class="mt-2 text-sm" style="padding:8px;background:rgba(212,160,23,0.08);border:1px solid rgba(212,160,23,0.2);border-radius:6px">
+          <div style="font-size:0.72rem;color:var(--color-accent);margin-bottom:4px;font-weight:600">🤖 Recomendación IA</div>
+          {{ p.recomendacion_ia }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div style="grid-column:span 3">
+      <div class="empty-state">
+        <div class="icon">🧪</div>
+        <h3>Sin pruebas sensoriales</h3>
+        <p>Registrá tu primera evaluación</p>
+        <button class="btn btn-primary" onclick="openModal('modal-prueba')">+ Nueva Prueba</button>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- MODAL PRUEBA -->
+<div class="modal-overlay" id="modal-prueba">
+  <div class="modal" style="max-width:650px">
+    <div class="modal-header">
+      <h3>🧪 Nueva Prueba Sensorial</h3>
+      <button class="btn-icon" onclick="closeModal('modal-prueba')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Evaluador *</label>
+          <input class="form-control" id="sens-evaluador" placeholder="Nombre del evaluador">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lote de Producto</label>
+          <select class="form-control" id="sens-lote">
+            <option value="">Sin lote específico</option>
+            {% for l in lotes %}
+            <option value="{{ l.id }}">{{ l.numero_lote }} ({{ l.producto.nombre }})</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row" style="grid-template-columns:repeat(3,1fr)">
+        <div class="form-group">
+          <label class="form-label">Dulzura (1-10)</label>
+          <input class="form-control" id="sens-dulzura" type="number" min="1" max="10" step="1" placeholder="—">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Acidez (1-10)</label>
+          <input class="form-control" id="sens-acidez" type="number" min="1" max="10" step="1" placeholder="—">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Textura (1-10)</label>
+          <input class="form-control" id="sens-textura" type="number" min="1" max="10" step="1" placeholder="—">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Aroma (1-10)</label>
+          <input class="form-control" id="sens-aroma" type="number" min="1" max="10" step="1" placeholder="—">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sabor General (1-10)</label>
+          <input class="form-control" id="sens-sabor" type="number" min="1" max="10" step="1" placeholder="—">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Apariencia (1-10)</label>
+          <input class="form-control" id="sens-apariencia" type="number" min="1" max="10" step="1" placeholder="—">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Defectos Detectados</label>
+        <input class="form-control" id="sens-defectos" placeholder="ej. muy ácido, textura arenosa...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas del Evaluador</label>
+        <textarea class="form-control" id="sens-notas" rows="2" placeholder="Observaciones adicionales..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Resultado</label>
+        <div style="display:flex;gap:12px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="aprobado" value="true"> Aprobado
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="aprobado" value="false"> Rechazado
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="aprobado" value="null" checked> Sin definir
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="crearPrueba()">🤖 Registrar con IA</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-prueba')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function crearPrueba() {
+  const evaluador = document.getElementById('sens-evaluador').value.trim();
+  if (!evaluador) { toast('El evaluador es requerido', 'error'); return; }
+
+  const getVal = id => {
+    const v = document.getElementById(id)?.value;
+    return v ? parseInt(v) : null;
+  };
+
+  const aprobadoRadio = document.querySelector('input[name="aprobado"]:checked');
+  const aprobado = aprobadoRadio?.value === 'true' ? true
+                 : aprobadoRadio?.value === 'false' ? false
+                 : null;
+
+  try {
+    const r = await apiPost('/sensorial/api', {
+      evaluador,
+      lote_producto_id: parseInt(document.getElementById('sens-lote').value) || null,
+      dulzura:          getVal('sens-dulzura'),
+      acidez:           getVal('sens-acidez'),
+      textura:          getVal('sens-textura'),
+      aroma:            getVal('sens-aroma'),
+      sabor_general:    getVal('sens-sabor'),
+      apariencia:       getVal('sens-apariencia'),
+      defectos_detectados: document.getElementById('sens-defectos').value || null,
+      notas:            document.getElementById('sens-notas').value || null,
+      aprobado,
+    });
+    toast(`Prueba registrada — Score: ${r.score_total ?? '—'}/10`, 'success');
+    if (r.recomendacion_ia) {
+      setTimeout(() => toast(`IA: ${r.recomendacion_ia}`, 'info', 6000), 500);
+    }
+    closeModal('modal-prueba');
+    setTimeout(() => location.reload(), 1200);
+  } catch(e) { toast(e.message, 'error'); }
+}
+</script>
+{% endblock %}

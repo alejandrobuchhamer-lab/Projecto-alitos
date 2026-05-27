@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Ingresos de Insumos{% endblock %}
+{% block page_title %}Stock{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📥 Ingresos de Insumos</h1>
+    <div class="subtitle">Historial de compras y entradas de materia prima</div>
+  </div>
+  <div style="display:flex;gap:10px">
+    <a href="/insumos/ingreso-nuevo" class="btn btn-accent">+ Nuevo Ingreso de Compra</a>
+    <a href="/insumos/" class="btn btn-outline">← Volver a Insumos</a>
+  </div>
+</div>
+
+{% set total_invertido = lotes | sum(attribute='costo_unitario') %}
+
+<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+  <div class="kpi-card" style="--kpi-color:var(--color-accent)">
+    <div class="kpi-label">Ingresos Registrados</div>
+    <div class="kpi-value">{{ lotes|length }}</div>
+    <div class="kpi-sub text-muted">últimos 200</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-primary)">
+    <div class="kpi-label">Inversión Total</div>
+    <div class="kpi-value" style="font-size:1.2rem">
+      ${{ "{:,.0f}".format(lotes | sum(attribute='costo_total')) }}
+    </div>
+    <div class="kpi-sub text-muted">costo en stock</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-success)">
+    <div class="kpi-label">Lotes Activos</div>
+    <div class="kpi-value">{{ lotes|selectattr('activo')|list|length }}</div>
+    <div class="kpi-sub text-muted">con stock disponible</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-warning)">
+    <div class="kpi-label">Proveedores</div>
+    <div class="kpi-value">{{ lotes|map(attribute='proveedor')|select|unique|list|length }}</div>
+    <div class="kpi-sub text-muted">distintos</div>
+  </div>
+</div>
+
+<!-- FILTRO RAPIDO -->
+<div class="card mb-3" style="padding:12px 16px">
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <input class="form-control" id="filtro-texto" placeholder="Buscar insumo, lote, proveedor..."
+      style="max-width:300px" oninput="filtrarTabla()">
+    <select class="form-control" id="filtro-activo" style="max-width:160px" onchange="filtrarTabla()">
+      <option value="">Todos</option>
+      <option value="activo">Solo activos</option>
+      <option value="agotado">Agotados</option>
+    </select>
+    <span class="text-muted text-sm" id="filtro-count">{{ lotes|length }} registros</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0">
+    <table class="table" id="tabla-ingresos">
+      <thead>
+        <tr>
+          <th>Fecha Ingreso</th>
+          <th>Insumo</th>
+          <th>N° Lote</th>
+          <th>Proveedor</th>
+          <th>Presentación</th>
+          <th>Cant. Total</th>
+          <th>Stock Actual</th>
+          <th>Costo Unit.</th>
+          <th>Total Lote</th>
+          <th>Vencimiento</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in lotes %}
+        <tr class="fila-ingreso"
+          data-texto="{{ l.insumo.nombre|lower }} {{ l.numero_lote|lower }} {{ (l.proveedor or '')|lower }}"
+          data-activo="{{ 'activo' if l.activo else 'agotado' }}">
+          <td class="text-muted text-sm">{{ l.fecha_ingreso.strftime('%d/%m/%Y') }}</td>
+          <td>
+            <div class="fw-600">{{ l.insumo.nombre }}</div>
+            <div class="text-xs text-muted">Lote: {{ l.numero_lote }}</div>
+          </td>
+          <td class="text-muted">{{ l.proveedor or '—' }}</td>
+          <td>
+            {% if l.es_por_bulto %}
+              <div class="text-sm fw-600">{{ l.descripcion_presentacion }}</div>
+              <div class="text-xs text-muted">→ {{ l.cantidad_inicial }} {{ l.insumo.unidad_medida }} total</div>
+              {% if l.precio_por_bulto %}
+              <div class="text-xs text-muted">${{ "{:,.0f}".format(l.precio_por_bulto) }}/bulto</div>
+              {% endif %}
+            {% else %}
+              <span class="badge badge-muted">{{ l.tipo_presentacion }}</span>
+            {% endif %}
+          </td>
+          <td>{{ l.cantidad_inicial }} {{ l.insumo.unidad_medida }}</td>
+          <td>
+            {% if l.cantidad_actual > 0 %}
+              <span class="{% if l.cantidad_actual < l.insumo.stock_minimo %}text-warning{% else %}text-success{% endif %} fw-600">
+                {{ l.cantidad_actual }} {{ l.insumo.unidad_medida }}
+              </span>
+            {% else %}
+              <span class="text-muted">0 (agotado)</span>
+            {% endif %}
+          </td>
+          <td>${{ "{:,.2f}".format(l.costo_unitario) }}</td>
+          <td class="fw-600">${{ "{:,.0f}".format(l.cantidad_inicial * l.costo_unitario) }}</td>
+          <td>
+            {% if l.fecha_vencimiento %}
+              {% if l.dias_para_vencer is not none and l.dias_para_vencer < 30 %}
+                <span class="text-warning">{{ l.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
+              {% elif l.esta_vencido %}
+                <span class="text-danger fw-600">VENCIDO</span>
+              {% else %}
+                <span class="text-muted">{{ l.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if not l.activo %}
+              <span class="badge badge-muted">Agotado</span>
+            {% elif l.esta_vencido %}
+              <span class="badge badge-danger">Vencido</span>
+            {% else %}
+              <span class="badge badge-success">Activo</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="/insumos/" class="btn btn-outline btn-sm" title="Ver en Insumos">✏️</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10">
+          <div class="empty-state">
+            <div class="icon">📥</div>
+            <h3>Sin ingresos registrados</h3>
+            <p>Agregá lotes de insumos desde <a href="/insumos/">Insumos & Stock</a></p>
+          </div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filtrarTabla() {
+  const texto = document.getElementById('filtro-texto').value.toLowerCase();
+  const activo = document.getElementById('filtro-activo').value;
+  let visible = 0;
+  document.querySelectorAll('.fila-ingreso').forEach(row => {
+    const matchTexto = !texto || row.dataset.texto.includes(texto);
+    const matchActivo = !activo || row.dataset.activo === activo;
+    const show = matchTexto && matchActivo;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('filtro-count').textContent = `${visible} registros`;
+}
+</script>
+{% endblock %}

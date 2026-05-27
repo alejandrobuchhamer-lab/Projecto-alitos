@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% block title %}Nuevo Ingreso{% endblock %}
+{% block page_title %}Insumos{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📦 Nuevo Ingreso de Compra</h1>
+    <div class="subtitle">Cargá todos los insumos de una misma compra — el flete se distribuye automáticamente</div>
+  </div>
+  <a href="/insumos/ingresos" class="btn btn-outline">← Ver Historial</a>
+</div>
+
+<!-- DATOS DE LA COMPRA -->
+<div class="card mb-3" style="margin-bottom:20px">
+  <div class="card-header"><h3>📋 Datos de la Compra</h3></div>
+  <div class="card-body">
+    <div class="form-row form-row-3">
+      <div class="form-group">
+        <label class="form-label">Proveedor</label>
+        <input class="form-control" id="oc-proveedor" placeholder="Nombre del proveedor">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha de Compra</label>
+        <input class="form-control" id="oc-fecha" type="date" value="{{ now }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas de la Compra</label>
+        <input class="form-control" id="oc-notas" placeholder="Ej: Compra de fin de mes">
+      </div>
+    </div>
+    <div class="form-row form-row-2">
+      <div class="form-group">
+        <label class="form-label">Costo Extra (flete / combustible)</label>
+        <div style="position:relative">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--color-text-muted)">$</span>
+          <input class="form-control" id="oc-extra" type="number" step="0.01" min="0" value="0"
+            style="padding-left:28px" oninput="recalcularTotales()">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo de Costo Extra</label>
+        <select class="form-control" id="oc-tipo-extra">
+          <option value="flete">Flete / Envío</option>
+          <option value="combustible">Combustible</option>
+          <option value="acarreo">Acarreo</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ITEMS -->
+<div class="card mb-3" style="margin-bottom:20px" id="card-items">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+    <h3>🧺 Insumos de la Compra</h3>
+    <button class="btn btn-outline btn-sm" onclick="agregarItem()">+ Agregar Insumo</button>
+  </div>
+  <div class="card-body" style="padding:12px">
+    <div id="items-lista"></div>
+    <div id="items-empty" style="text-align:center;padding:32px;color:var(--color-text-muted)">
+      <div style="font-size:2rem;margin-bottom:8px">📦</div>
+      <div>Hacé clic en <strong>+ Agregar Insumo</strong> para empezar</div>
+    </div>
+  </div>
+</div>
+
+<!-- RESUMEN Y TOTALES -->
+<div class="card" style="margin-bottom:20px" id="card-resumen" style="display:none">
+  <div class="card-header"><h3>💰 Resumen de Costos</h3></div>
+  <div class="card-body">
+    <div id="resumen-items"></div>
+    <hr style="border-color:var(--color-border);margin:16px 0">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      <div class="kpi-card" style="--kpi-color:var(--color-primary);padding:16px">
+        <div class="kpi-label">Subtotal Mercadería</div>
+        <div class="kpi-value" id="total-mercaderia" style="font-size:1.4rem">$0</div>
+      </div>
+      <div class="kpi-card" style="--kpi-color:var(--color-warning);padding:16px">
+        <div class="kpi-label">Costo Extra</div>
+        <div class="kpi-value" id="total-extra" style="font-size:1.4rem">$0</div>
+      </div>
+      <div class="kpi-card" style="--kpi-color:var(--color-accent);padding:16px">
+        <div class="kpi-label">Total Final</div>
+        <div class="kpi-value" id="total-final" style="font-size:1.4rem">$0</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding:12px;background:var(--color-bg-elevated);border-radius:8px;font-size:0.8rem;color:var(--color-text-muted)">
+      ℹ️ El costo de flete se distribuye proporcionalmente entre los ítems según su valor total.
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:12px;justify-content:flex-end">
+  <a href="/insumos/ingresos" class="btn btn-outline">Cancelar</a>
+  <button class="btn btn-primary btn-lg" onclick="guardarIngreso()">
+    💾 Guardar Ingreso
+  </button>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let itemCount = 0;
+const insumosOpts = [
+  {% for i in insumos %}
+  { id: {{ i.id }}, nombre: "{{ i.nombre }}", unidad: "{{ i.unidad_medida }}" },
+  {% endfor %}
+];
+
+const PRESENTACIONES = ['unidad','bolsa','saco','caja','bidón','rollo','paquete','botella','tambor','lata'];
+
+function agregarItem() {
+  document.getElementById('items-empty').style.display = 'none';
+  document.getElementById('card-resumen').style.display = '';
+  const id = ++itemCount;
+  const div = document.createElement('div');
+  div.id = `item-${id}`;
+  div.style.cssText = 'border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:12px;background:var(--color-bg-elevated)';
+  div.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="fw-600 text-sm" style="color:var(--color-accent)">Ítem #${id}</div>
+      <button class="btn btn-danger btn-sm" onclick="eliminarItem(${id})">✕ Quitar</button>
+    </div>
+    <div class="form-row" style="grid-template-columns:2fr 1fr 1fr 1fr">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Insumo *</label>
+        <select class="form-control" id="item-insumo-${id}" onchange="onInsumoChange(${id})">
+          <option value="">Seleccionar insumo...</option>
+          ${insumosOpts.map(i => `<option value="${i.id}" data-unidad="${i.unidad}">${i.nombre}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Presentación</label>
+        <select class="form-control" id="item-pres-${id}" onchange="onPresChange(${id})">
+          ${PRESENTACIONES.map(p => `<option value="${p}">${p.charAt(0).toUpperCase()+p.slice(1)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Cantidad de bultos *</label>
+        <input class="form-control" id="item-bultos-${id}" type="number" step="0.5" min="1" value="1"
+          oninput="recalcularTotales()">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" id="lbl-upb-${id}">Unidades / bulto</label>
+        <input class="form-control" id="item-upb-${id}" type="number" step="0.1" min="0.001" value="1"
+          placeholder="ej: 25 para bolsa de 25kg" oninput="recalcularTotales()">
+      </div>
+    </div>
+    <div class="form-row form-row-3" style="margin-top:12px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Precio por bulto ($) *</label>
+        <div style="position:relative">
+          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--color-text-muted)">$</span>
+          <input class="form-control" id="item-precio-${id}" type="number" step="0.01" min="0"
+            placeholder="0.00" style="padding-left:22px" oninput="recalcularTotales()">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Vencimiento</label>
+        <input class="form-control" id="item-venc-${id}" type="date">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Notas del ítem</label>
+        <input class="form-control" id="item-notas-${id}" placeholder="Observaciones...">
+      </div>
+    </div>
+    <!-- Info calculada -->
+    <div id="item-info-${id}" style="margin-top:10px;font-size:0.8rem;color:var(--color-text-muted);display:none;padding:8px 12px;background:var(--color-bg);border-radius:6px;border:1px solid var(--color-border)">
+    </div>`;
+  document.getElementById('items-lista').appendChild(div);
+  recalcularTotales();
+}
+
+function eliminarItem(id) {
+  document.getElementById(`item-${id}`)?.remove();
+  recalcularTotales();
+  if (!document.querySelectorAll('[id^="item-"]').length) {
+    document.getElementById('items-empty').style.display = '';
+    document.getElementById('card-resumen').style.display = 'none';
+  }
+}
+
+function onPresChange(id) {
+  const pres = document.getElementById(`item-pres-${id}`).value;
+  const lbl  = document.getElementById(`lbl-upb-${id}`);
+  const unidad = document.getElementById(`item-insumo-${id}`)?.selectedOptions[0]?.dataset.unidad || 'u.';
+  lbl.textContent = pres === 'unidad' ? 'Unidades' : `${unidad.toUpperCase()} por ${pres}`;
+  recalcularTotales();
+}
+
+function onInsumoChange(id) {
+  const sel   = document.getElementById(`item-insumo-${id}`);
+  const unidad = sel.selectedOptions[0]?.dataset.unidad || 'u.';
+  onPresChange(id);
+}
+
+function recalcularTotales() {
+  const extra = parseFloat(document.getElementById('oc-extra')?.value) || 0;
+  const items = obtenerItemsCalculados();
+  if (!items.length) return;
+
+  const subtotal = items.reduce((s, it) => s + it.total, 0);
+  document.getElementById('total-mercaderia').textContent = '$' + formatNum(subtotal);
+  document.getElementById('total-extra').textContent     = '$' + formatNum(extra);
+  document.getElementById('total-final').textContent     = '$' + formatNum(subtotal + extra);
+
+  // Actualizar info de cada item con costo con flete
+  items.forEach(it => {
+    const proporcion = subtotal > 0 ? it.total / subtotal : 0;
+    const extraItem  = extra * proporcion;
+    const costoExtra = it.cantidad > 0 ? extraItem / it.cantidad : 0;
+    const costoFinal = it.costoBase + costoExtra;
+
+    const infoEl = document.getElementById(`item-info-${it.id}`);
+    if (infoEl && it.total > 0) {
+      infoEl.style.display = '';
+      infoEl.innerHTML = `
+        <div style="display:flex;gap:24px;flex-wrap:wrap">
+          <span>📦 Total: <strong>${formatNum(it.cantidad, 2)} ${it.unidad}</strong></span>
+          <span>💵 Costo base: <strong>$${formatNum(it.costoBase, 4)}/${it.unidad}</strong></span>
+          ${extra > 0 ? `<span>🚚 Con flete: <strong style="color:var(--color-accent)">$${formatNum(costoFinal, 4)}/${it.unidad}</strong></span>` : ''}
+          <span>💰 Subtotal: <strong>$${formatNum(it.total, 0)}</strong></span>
+        </div>`;
+    }
+  });
+
+  // Resumen
+  const resEl = document.getElementById('resumen-items');
+  resEl.innerHTML = items.map(it => {
+    const proporcion = subtotal > 0 ? it.total / subtotal : 0;
+    const costoFinal = it.costoBase + (extra * proporcion / it.cantidad);
+    return `<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--color-border);font-size:0.85rem">
+      <span><strong>${it.nombre}</strong> — ${it.presentacion}</span>
+      <span style="display:flex;gap:16px">
+        <span class="text-muted">$${formatNum(it.costoBase, 2)}/${it.unidad}</span>
+        ${extra > 0 ? `<span style="color:var(--color-accent)">→ $${formatNum(costoFinal, 2)} c/flete</span>` : ''}
+        <strong>$${formatNum(it.total, 0)}</strong>
+      </span>
+    </div>`;
+  }).join('');
+}
+
+function obtenerItemsCalculados() {
+  const items = [];
+  document.querySelectorAll('[id^="item-"]:not([id$="-info"])').forEach(el => {
+    const id = el.id.split('-')[1];
+    if (!document.getElementById(`item-insumo-${id}`)) return;
+    const insumoSel = document.getElementById(`item-insumo-${id}`);
+    const insumoOpt = insumoSel.selectedOptions[0];
+    if (!insumoOpt?.value) return;
+    const bultos = parseFloat(document.getElementById(`item-bultos-${id}`)?.value) || 0;
+    const upb    = parseFloat(document.getElementById(`item-upb-${id}`)?.value) || 1;
+    const precio = parseFloat(document.getElementById(`item-precio-${id}`)?.value) || 0;
+    const pres   = document.getElementById(`item-pres-${id}`)?.value || 'unidad';
+    if (!bultos || !precio) return;
+    const cantidad  = bultos * upb;
+    const costoBase = upb > 0 ? precio / upb : precio;
+    items.push({
+      id, nombre: insumoOpt.text, insumoId: parseInt(insumoOpt.value),
+      unidad: insumoOpt.dataset.unidad || 'u.',
+      presentacion: `${bultos} ${pres}(s) × ${upb}`,
+      bultos, upb, precio, cantidad, costoBase,
+      total: bultos * precio,
+      pres,
+    });
+  });
+  return items;
+}
+
+function formatNum(n, decimals = 0) {
+  if (isNaN(n)) return '0';
+  return n.toLocaleString('es-AR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+async function guardarIngreso() {
+  const items = obtenerItemsCalculados();
+  if (!items.length) { toast('Agregá al menos un ítem', 'error'); return; }
+
+  const payload = {
+    proveedor_global: document.getElementById('oc-proveedor').value || null,
+    fecha: document.getElementById('oc-fecha').value
+      ? new Date(document.getElementById('oc-fecha').value + 'T12:00:00').toISOString() : null,
+    notas: document.getElementById('oc-notas').value || null,
+    costo_extra: parseFloat(document.getElementById('oc-extra').value) || 0,
+    tipo_costo_extra: document.getElementById('oc-tipo-extra').value,
+    items: items.map(it => {
+      const id = it.id;
+      return {
+        insumo_id: it.insumoId,
+        tipo_presentacion: it.pres,
+        cantidad_bultos: it.bultos,
+        unidades_por_bulto: it.upb,
+        precio_por_bulto: it.precio,
+        fecha_vencimiento: (() => {
+          const v = document.getElementById(`item-venc-${id}`)?.value;
+          return v ? new Date(v + 'T12:00:00').toISOString() : null;
+        })(),
+        notas: document.getElementById(`item-notas-${id}`)?.value || null,
+      };
+    }),
+  };
+
+  try {
+    const r = await apiPost('/insumos/api/ingreso-masivo', payload);
+    toast(`✅ Ingreso guardado — ${r.lotes_creados} lotes creados`, 'success');
+    setTimeout(() => window.location.href = '/insumos/ingresos', 1200);
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// Set today's date on load
+document.getElementById('oc-fecha').value = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

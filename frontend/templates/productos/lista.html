@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% block title %}Productos Terminados{% endblock %}
+{% block page_title %}Productos Terminados{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>🍬 Productos Terminados</h1>
+    <div class="subtitle">Catálogo y stock de productos finales</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-producto')">+ Nuevo Producto</button>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px">
+  {% if productos %}
+    {% for p in productos %}
+    <div class="card" style="transition:transform 0.2s;cursor:pointer" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+      <div class="card-body">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div>
+            <div class="fw-bold" style="font-size:1rem">{{ p.nombre }}</div>
+            <span class="badge badge-muted mt-1">{{ p.categoria }}</span>
+          </div>
+          <div class="stock-dot {% if p.stock_actual == 0 %}stock-zero{% elif p.stock_actual <= p.stock_minimo %}stock-low{% else %}stock-ok{% endif %}" style="width:12px;height:12px;margin-top:4px"></div>
+        </div>
+        {% if p.descripcion %}
+        <p style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:12px">{{ p.descripcion[:80] }}</p>
+        {% endif %}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.8rem;margin-bottom:12px">
+          <div>
+            <div class="text-muted">Stock Actual</div>
+            <div class="fw-bold {% if p.stock_actual == 0 %}text-danger{% elif p.stock_actual <= p.stock_minimo %}text-warning{% else %}text-success{% endif %}">
+              {{ p.stock_actual }} {{ p.unidad_medida }}
+            </div>
+          </div>
+          <div>
+            <div class="text-muted">Precio Base</div>
+            <div class="fw-bold text-accent">${{ "{:,.0f}".format(p.precio_venta_base) }}</div>
+          </div>
+          <div>
+            <div class="text-muted">Stock Mínimo</div>
+            <div>{{ p.stock_minimo }} {{ p.unidad_medida }}</div>
+          </div>
+          <div>
+            <div class="text-muted">Vida Útil</div>
+            <div>{{ p.dias_vida_util or '—' }}{{ ' días' if p.dias_vida_util else '' }}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="verLotesProducto({{ p.id }}, '{{ p.nombre }}')">Ver Lotes</button>
+          <a href="/ventas/" class="btn btn-accent btn-sm" style="flex:1">Vender</a>
+          {% if user and user.es_admin %}
+          <button class="btn btn-outline btn-sm" title="Agregar stock manual" onclick="abrirStockManual({{ p.id }}, '{{ p.nombre }}')">📥</button>
+          <button class="btn btn-outline btn-sm" title="Editar producto" onclick="editarProducto({{ p.id }})">✏️</button>
+          <button class="btn btn-danger btn-sm" title="Eliminar" onclick="eliminarProducto({{ p.id }}, '{{ p.nombre }}')">🗑</button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div style="grid-column:span 3">
+      <div class="empty-state">
+        <div class="icon">🍬</div>
+        <h3>Sin productos registrados</h3>
+        <p>Agregá tu primer producto terminado</p>
+        <button class="btn btn-primary" onclick="openModal('modal-producto')">+ Nuevo Producto</button>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- MODAL NUEVO PRODUCTO -->
+<div class="modal-overlay" id="modal-producto">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>🍬 Nuevo Producto Terminado</h3>
+      <button class="btn-icon" onclick="closeModal('modal-producto')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Nombre *</label>
+          <input class="form-control" id="pt-nombre" placeholder="ej. Alfajor Cacao 70%">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoría</label>
+          <input class="form-control" id="pt-categoria" placeholder="ej. alfajor, tableta, ganache">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Unidad de Medida</label>
+          <select class="form-control" id="pt-unidad">
+            <option value="unidad">Unidades</option>
+            <option value="kg">Kilogramos</option>
+            <option value="g">Gramos</option>
+            <option value="docena">Docenas</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Precio Venta Base</label>
+          <input class="form-control" id="pt-precio" type="number" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Stock Mínimo</label>
+          <input class="form-control" id="pt-minimo" type="number" step="1" value="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Días de Vida Útil</label>
+          <input class="form-control" id="pt-vida" type="number" step="1" placeholder="ej. 30">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <textarea class="form-control" id="pt-descripcion" rows="2" placeholder="Descripción del producto..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="crearProducto()">Guardar Producto</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-producto')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LOTES PRODUCTO -->
+<div class="modal-overlay" id="modal-lotes-pt">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3 id="lotes-pt-titulo">Lotes disponibles</h3>
+      <button class="btn-icon" onclick="closeModal('modal-lotes-pt')">✕</button>
+    </div>
+    <div class="modal-body" id="lotes-pt-body"></div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PRODUCTO (admin) -->
+<div class="modal-overlay" id="modal-editar-pt">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>✏️ Editar Producto</h3>
+      <button class="btn-icon" onclick="closeModal('modal-editar-pt')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ept-id">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Nombre *</label>
+          <input class="form-control" id="ept-nombre">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoría</label>
+          <input class="form-control" id="ept-categoria">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Precio Venta Base</label>
+          <input class="form-control" id="ept-precio" type="number" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock Mínimo</label>
+          <input class="form-control" id="ept-minimo" type="number" step="1">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Días Vida Útil</label>
+          <input class="form-control" id="ept-vida" type="number" step="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <textarea class="form-control" id="ept-descripcion" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="guardarEdicionProducto()">Guardar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-editar-pt')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL STOCK MANUAL (admin) -->
+<div class="modal-overlay" id="modal-stock-manual">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📥 Agregar Stock Manual</h3>
+      <button class="btn-icon" onclick="closeModal('modal-stock-manual')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="sm-producto-id">
+      <div class="card mb-3" style="background:var(--color-bg-elevated);padding:12px;border-radius:8px">
+        <div class="fw-600" id="sm-producto-nombre"></div>
+        <div class="text-muted text-xs">Ingreso manual — útil para pruebas o ajuste de inventario</div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Cantidad *</label>
+          <input class="form-control" id="sm-cantidad" type="number" step="1" min="1" placeholder="ej. 100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Costo Unitario (ARS)</label>
+          <input class="form-control" id="sm-costo" type="number" step="0.01" value="0" placeholder="0 = sin costo">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha de Vencimiento</label>
+        <input class="form-control" id="sm-vencimiento" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas</label>
+        <input class="form-control" id="sm-notas" placeholder="ej. Stock de prueba, ajuste inicial...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="guardarStockManual()">Agregar Stock</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-stock-manual')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function crearProducto() {
+  const nombre = document.getElementById('pt-nombre').value.trim();
+  if (!nombre) { toast('El nombre es requerido', 'error'); return; }
+  try {
+    await apiPost('/productos/api', {
+      nombre,
+      categoria:    document.getElementById('pt-categoria').value || 'general',
+      unidad_medida: document.getElementById('pt-unidad').value,
+      precio_venta_base: parseFloat(document.getElementById('pt-precio').value) || 0,
+      stock_minimo: parseFloat(document.getElementById('pt-minimo').value) || 0,
+      dias_vida_util: parseInt(document.getElementById('pt-vida').value) || null,
+      descripcion:  document.getElementById('pt-descripcion').value || null,
+    });
+    toast('Producto creado correctamente', 'success');
+    closeModal('modal-producto');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Admin: editar producto ───────────────────────────────────────
+async function editarProducto(id) {
+  try {
+    const p = await apiGet(`/productos/api/${id}`);
+    document.getElementById('ept-id').value = p.id;
+    document.getElementById('ept-nombre').value = p.nombre;
+    document.getElementById('ept-categoria').value = p.categoria || '';
+    document.getElementById('ept-precio').value = p.precio_venta_base;
+    document.getElementById('ept-minimo').value = p.stock_minimo;
+    document.getElementById('ept-vida').value = p.dias_vida_util || '';
+    document.getElementById('ept-descripcion').value = p.descripcion || '';
+    openModal('modal-editar-pt');
+  } catch(e) { toast('Error cargando producto: ' + e.message, 'error'); }
+}
+
+async function guardarEdicionProducto() {
+  const id = document.getElementById('ept-id').value;
+  const nombre = document.getElementById('ept-nombre').value.trim();
+  if (!nombre) { toast('El nombre es requerido', 'error'); return; }
+  try {
+    await apiCall('PUT', `/productos/api/${id}`, {
+      nombre,
+      categoria: document.getElementById('ept-categoria').value || 'general',
+      precio_venta_base: parseFloat(document.getElementById('ept-precio').value) || 0,
+      stock_minimo: parseFloat(document.getElementById('ept-minimo').value) || 0,
+      dias_vida_util: parseInt(document.getElementById('ept-vida').value) || null,
+      descripcion: document.getElementById('ept-descripcion').value || null,
+    });
+    toast('Producto actualizado', 'success');
+    closeModal('modal-editar-pt');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function eliminarProducto(id, nombre) {
+  if (!confirm(`¿Desactivar "${nombre}"? El historial se conserva.`)) return;
+  try {
+    await apiCall('DELETE', `/productos/api/${id}`);
+    toast('Producto desactivado', 'success');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Admin: stock manual ──────────────────────────────────────────
+function abrirStockManual(id, nombre) {
+  document.getElementById('sm-producto-id').value = id;
+  document.getElementById('sm-producto-nombre').textContent = nombre;
+  document.getElementById('sm-cantidad').value = '';
+  document.getElementById('sm-costo').value = 0;
+  document.getElementById('sm-vencimiento').value = '';
+  document.getElementById('sm-notas').value = '';
+  openModal('modal-stock-manual');
+}
+
+async function guardarStockManual() {
+  const id = document.getElementById('sm-producto-id').value;
+  const cantidad = parseFloat(document.getElementById('sm-cantidad').value);
+  if (!cantidad || cantidad <= 0) { toast('Ingresá una cantidad válida', 'error'); return; }
+  const vencimiento = document.getElementById('sm-vencimiento').value;
+  try {
+    const r = await apiPost(`/productos/api/${id}/lote-manual`, {
+      cantidad,
+      costo_unitario: parseFloat(document.getElementById('sm-costo').value) || 0,
+      notas: document.getElementById('sm-notas').value || null,
+      fecha_vencimiento: vencimiento ? new Date(vencimiento).toISOString() : null,
+    });
+    toast(`Stock agregado — Lote ${r.numero_lote}`, 'success');
+    closeModal('modal-stock-manual');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function verLotesProducto(id, nombre) {
+  document.getElementById('lotes-pt-titulo').textContent = `Lotes — ${nombre}`;
+  document.getElementById('lotes-pt-body').innerHTML = '<div class="empty-state"><p>Cargando...</p></div>';
+  openModal('modal-lotes-pt');
+  try {
+    const lotes = await apiGet(`/productos/api/${id}/lotes`);
+    if (!lotes.length) {
+      document.getElementById('lotes-pt-body').innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>Sin lotes disponibles — Iniciá una producción</p></div>';
+      return;
+    }
+    document.getElementById('lotes-pt-body').innerHTML = `
+      <div class="table-wrapper" style="border:none">
+        <table>
+          <thead><tr><th>Lote</th><th>Total</th><th>Reservado</th><th>Libre</th><th>Costo Unit.</th><th>Vencimiento</th></tr></thead>
+          <tbody>
+            ${lotes.map(l => `
+              <tr>
+                <td class="fw-600 text-accent">${l.numero_lote}</td>
+                <td>${l.cantidad_actual}</td>
+                <td>${l.cantidad_reservada > 0 ? `<span class="text-warning fw-600">${l.cantidad_reservada} 🔒</span>` : '—'}</td>
+                <td><strong class="${l.cantidad_libre > 0 ? 'text-success' : 'text-danger'}">${l.cantidad_libre}</strong></td>
+                <td>$${(l.costo_unitario_calculado||0).toLocaleString('es-AR', {minimumFractionDigits:2})}</td>
+                <td>${l.fecha_vencimiento
+                  ? (l.dias_para_vencer <= 0
+                      ? '<span class="badge badge-danger">Vencido</span>'
+                      : l.dias_para_vencer <= 7
+                        ? `<span class="badge badge-warning">${l.dias_para_vencer}d</span>`
+                        : `<span class="badge badge-success">${formatDate(l.fecha_vencimiento)}</span>`)
+                  : '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(e) { toast(e.message, 'error'); }
+}
+</script>
+{% endblock %}

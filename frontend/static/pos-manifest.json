@@ -1,0 +1,14 @@
+{
+  "name": "ALITOS POS",
+  "short_name": "ALITOS POS",
+  "description": "Punto de Venta — ALITOS Alfajores",
+  "start_url": "/pos/",
+  "display": "standalone",
+  "background_color": "#070A12",
+  "theme_color": "#F5C230",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/static/img/logo1.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/img/logo1.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

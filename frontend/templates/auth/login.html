@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ingresar — ALITOS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <style>
+
+    /* ── Fondo con grid sutil ── */
+    body {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+      background: var(--color-bg);
+      overflow: hidden;
+    }
+
+    /* Grid puntitos de fondo */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        radial-gradient(circle, rgba(28,48,84,0.7) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Glow ambiental de fondo */
+    body::after {
+      content: '';
+      position: fixed;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 0;
+      animation: ambientGlow 8s ease-in-out infinite;
+    }
+
+    @keyframes ambientGlow {
+      0%, 100% { opacity: 0.7; transform: translate(-50%,-50%) scale(1); }
+      50%       { opacity: 1;   transform: translate(-50%,-50%) scale(1.12); }
+    }
+
+    /* ── Login card ── */
+    .login-box {
+      width: 100%; max-width: 380px; padding: 36px 32px;
+      background: #141414;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      box-shadow:
+        0 32px 80px rgba(0,0,0,0.8),
+        0 0 0 1px rgba(255,255,255,0.04);
+      position: relative; z-index: 10;
+      animation: cardEntrance 0.5s cubic-bezier(0.34, 1.4, 0.64, 1);
+      transition: transform 0.5s ease, opacity 0.4s ease, filter 0.4s ease;
+    }
+
+    @keyframes cardEntrance {
+      from { opacity: 0; transform: translateY(28px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .portal-launching .login-box {
+      transform: scale(0.88) translateY(20px);
+      opacity: 0;
+      filter: blur(6px);
+    }
+
+    /* ── Logo block ── */
+    .login-logo {
+      text-align: center; margin-bottom: 32px;
+    }
+
+    .login-logo-img {
+      width: 72px; height: 72px; object-fit: contain;
+      display: block; margin: 0 auto 14px;
+      filter: drop-shadow(0 0 12px rgba(255,255,255,0.15));
+      animation: logoFloat 3.5s ease-in-out infinite;
+      cursor: default;
+    }
+
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0) rotate(-1deg); }
+      50%       { transform: translateY(-7px) rotate(1deg); }
+    }
+
+    .login-brand {
+      font-size: 1.6rem; font-weight: 800;
+      color: #ffffff; letter-spacing: 4px;
+      display: block; margin-bottom: 4px;
+    }
+
+    .login-sub {
+      font-size: 0.65rem; color: #737373;
+      letter-spacing: 1.2px; text-transform: uppercase;
+    }
+
+    /* ── Form inputs ── */
+    .form-control {
+      background: #1c1c1c;
+      border-color: #2a2a2a;
+      transition: all 0.2s ease;
+    }
+
+    /* ── Botón de submit ── */
+    .btn-login {
+      width: 100%; margin-top: 12px; padding: 11px;
+      font-size: 0.88rem; letter-spacing: 0.3px;
+      font-weight: 600;
+      background: #ffffff;
+      color: #0a0a0a;
+      border: none; border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      transition: all 0.18s ease;
+      position: relative; overflow: hidden;
+      font-family: inherit;
+    }
+
+    .btn-login::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.5s ease;
+    }
+
+    .btn-login:hover {
+      background: #e5e5e5;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .btn-login:hover::before { transform: translateX(100%); }
+    .btn-login:active { transform: translateY(0); }
+
+    /* ── Error msg ── */
+    .error-msg {
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+      color: #F87171; border-radius: 10px; padding: 10px 14px;
+      font-size: 0.875rem; margin-bottom: 20px;
+      animation: shakeIn 0.4s ease;
+    }
+
+    @keyframes shakeIn {
+      0%, 100% { transform: translateX(0); }
+      20%, 60%  { transform: translateX(-6px); }
+      40%, 80%  { transform: translateX(6px); }
+    }
+
+    /* ── Footer ── */
+    .login-footer {
+      text-align: center; margin-top: 28px;
+      font-size: 0.7rem; color: var(--color-text-dim);
+    }
+
+    .login-divider {
+      border: none; border-top: 1px solid var(--color-border); margin: 28px 0;
+    }
+
+    /* ══════════════════════════════════════════════════
+       BURBUJA DE ENTRADA — Explosión de partículas
+    ══════════════════════════════════════════════════ */
+
+    #bubble-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    #bubble-overlay.active { pointer-events: all; }
+
+    /* Fondo que inunda desde el centro */
+    .bubble-bg {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 48%,
+        #ffffff 0%,
+        #d4d4d4 12%,
+        #1a1a1a 35%,
+        #0a0a0a 80%
+      );
+      clip-path: circle(0% at 50% 48%);
+      transition: clip-path 0.9s cubic-bezier(0.55, 0, 0.1, 1);
+    }
+
+    #bubble-overlay.active .bubble-bg {
+      clip-path: circle(180% at 50% 48%);
+    }
+
+    /* Flash central */
+    .bubble-flash {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 48%, rgba(255,255,255,0.9) 0%, transparent 45%);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    #bubble-overlay.active .bubble-flash {
+      opacity: 1;
+    }
+
+    /* Ring que explota */
+    .bubble-ring {
+      position: relative; z-index: 5;
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.4);
+      box-shadow:
+        0 0 24px rgba(255,255,255,0.12),
+        inset 0 0 16px rgba(255,255,255,0.04);
+      display: flex; align-items: center; justify-content: center;
+      transform: scale(0.6); opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.3s ease;
+    }
+
+    #bubble-overlay.active .bubble-ring {
+      transform: scale(1); opacity: 1;
+    }
+
+    /* El ring "revienta" */
+    .bubble-ring.pop {
+      animation: ringPop 0.35s ease-out forwards;
+    }
+
+    @keyframes ringPop {
+      0%   { transform: scale(1); opacity: 1; border-width: 1px; }
+      50%  { transform: scale(2.2); opacity: 0.4; border-width: 0.5px;
+             box-shadow: 0 0 60px rgba(255,255,255,0.3), 0 0 120px rgba(255,255,255,0.15); }
+      100% { transform: scale(3.5); opacity: 0; border-width: 0px; }
+    }
+
+    /* Logo dentro de la burbuja */
+    .bubble-logo {
+      width: 72px; height: 72px; object-fit: contain;
+      filter: drop-shadow(0 0 12px rgba(255,255,255,0.5)) brightness(1.1);
+      animation: bubbleLogoSpin 0.6s ease-out forwards;
+    }
+
+    @keyframes bubbleLogoSpin {
+      from { transform: scale(0.5) rotate(-20deg); }
+      to   { transform: scale(1) rotate(0deg); }
+    }
+
+    /* Texto de carga */
+    .bubble-text {
+      position: absolute; z-index: 6;
+      bottom: calc(50% - 100px);
+      color: #737373;
+      font-size: 0.7rem; font-weight: 600;
+      letter-spacing: 4px; text-transform: uppercase;
+      opacity: 0;
+      transition: opacity 0.4s ease 0.25s;
+    }
+
+    #bubble-overlay.active .bubble-text { opacity: 1; }
+
+    /* Partículas */
+    .particle-canvas {
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 4;
+    }
+
+  </style>
+</head>
+<body>
+
+<!-- ══ BURBUJA OVERLAY ════════════════════════════════════ -->
+<div id="bubble-overlay">
+  <div class="bubble-bg"></div>
+  <div class="bubble-flash" id="bubble-flash"></div>
+
+  <canvas class="particle-canvas" id="particle-canvas"></canvas>
+
+  <div class="bubble-ring" id="bubble-ring">
+    <img src="/static/img/logo1.png" class="bubble-logo" alt="">
+  </div>
+
+  <div class="bubble-text">
+    Ingresando
+    <span style="margin-left:8px;letter-spacing:3px">• • •</span>
+  </div>
+</div>
+
+<!-- ══ LOGIN CARD ════════════════════════════════════════════ -->
+<div class="login-box" id="login-box">
+
+  <div class="login-logo">
+    <img src="/static/img/logo1.png" alt="ALITOS" class="login-logo-img">
+    <span class="login-brand">ALITOS</span>
+    <span class="login-sub">Sistema Operativo de Gestión</span>
+  </div>
+
+  {% if error %}
+  <div class="error-msg">⚠ {{ error }}</div>
+  {% endif %}
+
+  <form method="POST" action="/auth/login" id="login-form">
+    <div class="form-group">
+      <label class="form-label">Usuario</label>
+      <input class="form-control" type="text" name="username"
+             placeholder="tu usuario" autofocus required autocomplete="username" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Contraseña</label>
+      <input class="form-control" type="password" name="password"
+             placeholder="••••••••" required autocomplete="current-password" />
+    </div>
+    <button class="btn-login" type="submit" id="btn-login">
+      Ingresar al Sistema
+    </button>
+  </form>
+
+  <hr class="login-divider">
+  <div class="login-footer">ALITOS Alfajores Premium &reg; 2026</div>
+</div>
+
+<script>
+  // ── Partículas en canvas ──────────────────────────────────
+  const canvas = document.getElementById('particle-canvas');
+  const ctx    = canvas.getContext('2d');
+  let particles = [];
+  let animFrame;
+
+  function resizeCanvas() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  const CX = () => canvas.width  / 2;
+  const CY = () => canvas.height / 2;
+
+  const COLORS = [
+    '#ffffff', '#e5e5e5', '#a3a3a3', '#737373',
+    '#d4d4d4', '#f5f5f5', '#525252',
+  ];
+
+  function createParticles(count = 60) {
+    particles = [];
+    for (let i = 0; i < count; i++) {
+      const angle  = (Math.PI * 2 / count) * i + Math.random() * 0.3;
+      const speed  = 5 + Math.random() * 12;
+      const size   = 3 + Math.random() * 6;
+      const color  = COLORS[Math.floor(Math.random() * COLORS.length)];
+      particles.push({
+        x: CX(), y: CY(),
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size,
+        color,
+        alpha: 1,
+        decay: 0.012 + Math.random() * 0.02,
+        gravity: 0.18 + Math.random() * 0.1,
+        spin: (Math.random() - 0.5) * 0.3,
+        // some are "sparks" (elongated)
+        spark: Math.random() > 0.6,
+      });
+    }
+  }
+
+  function drawParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    particles.forEach(p => {
+      if (p.alpha <= 0) return;
+      alive = true;
+      p.x  += p.vx;
+      p.y  += p.vy;
+      p.vy += p.gravity;
+      p.vx *= 0.97;
+      p.alpha -= p.decay;
+
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.fillStyle   = p.color;
+
+      if (p.spark) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(Math.atan2(p.vy, p.vx) + p.spin);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size * 2.5, p.size * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Glow
+      ctx.globalAlpha = Math.max(0, p.alpha * 0.3);
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur  = 10;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur  = 0;
+    });
+
+    ctx.globalAlpha = 1;
+    if (alive) animFrame = requestAnimationFrame(drawParticles);
+  }
+
+  // ── Activar explosión de burbuja ─────────────────────────
+  function activarBurbuja(callback) {
+    const overlay = document.getElementById('bubble-overlay');
+    const ring    = document.getElementById('bubble-ring');
+    const flash   = document.getElementById('bubble-flash');
+
+    // 1. Aparecer ring
+    overlay.style.opacity = '1';
+    overlay.classList.add('active');
+
+    // 2. Después de que el ring apareció, hacerlo explotar
+    setTimeout(() => {
+      createParticles(72);
+      drawParticles();
+      ring.classList.add('pop');
+    }, 380);
+
+    // 3. Flash central
+    setTimeout(() => {
+      flash.style.transition = 'opacity 0.08s ease';
+      flash.style.opacity = '1';
+      setTimeout(() => {
+        flash.style.transition = 'opacity 0.4s ease';
+        flash.style.opacity = '0';
+      }, 80);
+    }, 400);
+
+    // 4. Inundar fondo (viene del active)
+    // ya está activado arriba
+
+    // 5. Redirect
+    setTimeout(callback, 1100);
+  }
+
+  // ── Submit ───────────────────────────────────────────────
+  document.getElementById('login-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const form = this;
+    const btn  = document.getElementById('btn-login');
+
+    btn.textContent = '✦ Verificando...';
+    btn.style.opacity = '0.7';
+    btn.disabled = true;
+
+    // Fade out del card
+    document.body.classList.add('portal-launching');
+
+    activarBurbuja(() => form.submit());
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,1131 @@
+{% extends "base.html" %}
+{% block title %}Insumos{% endblock %}
+{% block page_title %}Insumos & Stock{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ────────────────────────────────────────── -->
+<div class="page-header" style="margin-bottom:10px">
+  <div>
+    <h1>Insumos</h1>
+    <div class="subtitle">Materias primas, stock y compras</div>
+  </div>
+  <div id="tab-actions" style="display:flex;gap:8px"></div>
+</div>
+
+<!-- ── Sub-topbar tabs ────────────────────────────────────── -->
+<div class="page-tabs">
+  <button class="page-tab" data-tab="resumen" onclick="switchTab('resumen')">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+    </svg>
+    Resumen
+  </button>
+  <button class="page-tab" data-tab="stock" onclick="switchTab('stock')">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+    </svg>
+    Stock
+    <span class="tab-badge" id="badge-bajo" style="display:none">0</span>
+  </button>
+  <button class="page-tab" data-tab="ingresos" onclick="switchTab('ingresos')">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+      <line x1="12" y1="22" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/>
+    </svg>
+    Ingresos & Compras
+  </button>
+  <button class="page-tab" data-tab="conteo" onclick="switchTab('conteo')">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+    </svg>
+    Conteo
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB: RESUMEN
+══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-resumen">
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi-card" style="--kpi-color:#ffffff">
+      <div class="kpi-label">Valor Total Stock</div>
+      <div class="kpi-value" id="r-valor" style="font-size:1.3rem">—</div>
+      <div class="kpi-sub text-muted">en insumos activos</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--color-success)">
+      <div class="kpi-label">Total Insumos</div>
+      <div class="kpi-value" id="r-total">{{ insumos|length }}</div>
+      <div class="kpi-sub text-muted">activos en catálogo</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--color-danger)">
+      <div class="kpi-label">Bajo Mínimo</div>
+      <div class="kpi-value" id="r-alertas">{{ insumos|selectattr('bajo_stock')|list|length }}</div>
+      <div class="kpi-sub text-muted">requieren reposición</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--color-success)">
+      <div class="kpi-label">Stock OK</div>
+      <div class="kpi-value" id="r-ok">{{ insumos|rejectattr('bajo_stock')|list|length }}</div>
+      <div class="kpi-sub text-muted">dentro del mínimo</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+
+    <!-- Top consumidos -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Más consumidos (últimos 30 días)</h3>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table>
+          <thead><tr><th>Insumo</th><th>Consumido</th><th>Stock actual</th></tr></thead>
+          <tbody id="r-top-body">
+            <tr><td colspan="3"><div class="empty-state" style="padding:20px"><p>Cargando...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Alertas bajo mínimo -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Alertas de stock</h3>
+        <span class="badge badge-danger" id="r-alertas-badge">0</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table>
+          <thead><tr><th>Insumo</th><th>Stock actual</th><th>Mínimo</th></tr></thead>
+          <tbody id="r-alertas-body">
+            <tr><td colspan="3"><div class="empty-state" style="padding:20px"><p>Cargando...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB: STOCK
+══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-stock">
+
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <input type="text" class="form-control" id="filtro-nombre" placeholder="Buscar insumo..." style="max-width:260px" oninput="filtrarInsumos()">
+    <select class="form-control" id="filtro-categoria" style="max-width:180px" onchange="filtrarInsumos()">
+      <option value="">Todas las categorías</option>
+      {% for cat in insumos|map(attribute='categoria')|unique|list %}
+      <option value="{{ cat }}">{{ cat|capitalize }}</option>
+      {% endfor %}
+    </select>
+    <select class="form-control" id="filtro-estado" style="max-width:160px" onchange="filtrarInsumos()">
+      <option value="">Todos</option>
+      <option value="ok">Stock OK</option>
+      <option value="bajo">Bajo mínimo</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <div class="table-wrapper" style="border:none">
+      <table id="tabla-insumos">
+        <thead>
+          <tr>
+            <th>Insumo</th><th>Categoría</th><th>Unidad</th>
+            <th>Stock Actual</th><th>Mínimo</th><th>Estado</th>
+            <th>Proveedor</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if insumos %}
+            {% for i in insumos %}
+            <tr data-nombre="{{ i.nombre|lower }}" data-categoria="{{ i.categoria }}" data-estado="{{ 'bajo' if i.bajo_stock else 'ok' }}">
+              <td>
+                <div class="fw-600">{{ i.nombre }}</div>
+                {% if i.descripcion %}<div class="text-muted text-xs">{{ i.descripcion[:60] }}</div>{% endif %}
+              </td>
+              <td><span class="badge badge-muted">{{ i.categoria|capitalize }}</span></td>
+              <td class="text-muted">{{ i.unidad_medida }}</td>
+              <td>
+                <div class="stock-indicator">
+                  <div class="stock-dot {% if i.stock_actual == 0 %}stock-zero{% elif i.bajo_stock %}stock-low{% else %}stock-ok{% endif %}"></div>
+                  <strong>{{ i.stock_actual }}</strong>
+                  <span class="text-muted">{{ i.unidad_medida }}</span>
+                </div>
+              </td>
+              <td class="text-muted">{{ i.stock_minimo }} {{ i.unidad_medida }}</td>
+              <td>
+                {% if i.bajo_stock %}
+                  <span class="badge badge-danger">Bajo</span>
+                {% else %}
+                  <span class="badge badge-success">OK</span>
+                {% endif %}
+              </td>
+              <td class="text-muted text-sm">{{ i.proveedor_default or '—' }}</td>
+              <td>
+                <div style="display:flex;gap:5px">
+                  <button class="btn btn-outline btn-sm" onclick="verLotes({{ i.id }}, '{{ i.nombre }}')">Lotes</button>
+                  <button class="btn btn-outline btn-sm" onclick="editarInsumo({{ i.id }})">Editar</button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="8">
+              <div class="empty-state">
+                <h3>Sin insumos registrados</h3>
+                <p>Comenzá agregando tu primer insumo</p>
+                <button class="btn btn-primary" onclick="openModal('modal-insumo')">+ Nuevo Insumo</button>
+              </div>
+            </td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB: INGRESOS
+══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-ingresos">
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+    <div class="kpi-card" style="--kpi-color:#ffffff">
+      <div class="kpi-label">Ingresos Registrados</div>
+      <div class="kpi-value">{{ lotes|length }}</div>
+      <div class="kpi-sub text-muted">últimos 200</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--color-success)">
+      <div class="kpi-label">Inversión en Stock</div>
+      <div class="kpi-value" style="font-size:1.2rem">${{ "{:,.0f}".format(lotes | sum(attribute='costo_total')) }}</div>
+      <div class="kpi-sub text-muted">costo acumulado</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--color-info)">
+      <div class="kpi-label">Lotes Activos</div>
+      <div class="kpi-value">{{ lotes|selectattr('activo')|list|length }}</div>
+      <div class="kpi-sub text-muted">con stock disponible</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--color-warning)">
+      <div class="kpi-label">Proveedores</div>
+      <div class="kpi-value">{{ lotes|map(attribute='proveedor')|select|unique|list|length }}</div>
+      <div class="kpi-sub text-muted">distintos</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <input class="form-control" id="filtro-texto" placeholder="Buscar insumo, lote, proveedor..."
+      style="max-width:280px" oninput="filtrarIngresos()">
+    <select class="form-control" id="filtro-activo" style="max-width:140px" onchange="filtrarIngresos()">
+      <option value="">Todos</option>
+      <option value="activo">Activos</option>
+      <option value="agotado">Agotados</option>
+    </select>
+    <span class="text-muted text-sm" id="filtro-count">{{ lotes|length }} registros</span>
+  </div>
+
+  <div class="card">
+    <div class="table-wrapper" style="border:none">
+      <table id="tabla-ingresos">
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Insumo</th><th>Proveedor</th>
+            <th>Presentación</th><th>Cant. Total</th><th>Stock Actual</th>
+            <th>Costo Unit.</th><th>Total Lote</th><th>Vencimiento</th><th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lotes %}
+          <tr class="fila-ingreso"
+            data-texto="{{ l.insumo.nombre|lower }} {{ l.numero_lote|lower }} {{ (l.proveedor or '')|lower }}"
+            data-activo="{{ 'activo' if l.activo else 'agotado' }}">
+            <td class="text-muted text-sm">{{ l.fecha_ingreso.strftime('%d/%m/%y') }}</td>
+            <td>
+              <div class="fw-600">{{ l.insumo.nombre }}</div>
+              <div class="text-xs text-muted">{{ l.numero_lote }}</div>
+            </td>
+            <td class="text-muted text-sm">{{ l.proveedor or '—' }}</td>
+            <td>
+              {% if l.es_por_bulto %}
+                <div class="text-sm fw-600">{{ l.descripcion_presentacion }}</div>
+                <div class="text-xs text-muted">→ {{ l.cantidad_inicial }} {{ l.insumo.unidad_medida }}</div>
+              {% else %}
+                <span class="badge badge-muted">{{ l.tipo_presentacion }}</span>
+              {% endif %}
+            </td>
+            <td>{{ l.cantidad_inicial }} {{ l.insumo.unidad_medida }}</td>
+            <td>
+              {% if l.cantidad_actual > 0 %}
+                <span class="{% if l.cantidad_actual < l.insumo.stock_minimo %}text-warning{% else %}text-success{% endif %} fw-600">
+                  {{ l.cantidad_actual }}
+                </span>
+              {% else %}
+                <span class="text-muted">0</span>
+              {% endif %}
+            </td>
+            <td class="text-muted">${{ "{:,.2f}".format(l.costo_unitario) }}</td>
+            <td class="fw-600">${{ "{:,.0f}".format(l.cantidad_inicial * l.costo_unitario) }}</td>
+            <td>
+              {% if l.fecha_vencimiento %}
+                {% if l.esta_vencido %}
+                  <span class="badge badge-danger">Vencido</span>
+                {% elif l.dias_para_vencer is not none and l.dias_para_vencer < 30 %}
+                  <span class="text-warning">{{ l.fecha_vencimiento.strftime('%d/%m/%y') }}</span>
+                {% else %}
+                  <span class="text-muted">{{ l.fecha_vencimiento.strftime('%d/%m/%y') }}</span>
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if not l.activo %}<span class="badge badge-muted">Agotado</span>
+              {% elif l.esta_vencido %}<span class="badge badge-danger">Vencido</span>
+              {% else %}<span class="badge badge-success">Activo</span>{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="10">
+            <div class="empty-state">
+              <h3>Sin ingresos registrados</h3>
+              <p>Usá el botón "Nuevo Ingreso" para registrar una compra</p>
+            </div>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODALES
+══════════════════════════════════════════════════════════ -->
+
+<!-- Modal nuevo insumo -->
+<div class="modal-overlay" id="modal-insumo">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Nuevo Insumo</h3>
+      <button class="btn-icon" onclick="closeModal('modal-insumo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Nombre *</label>
+          <input class="form-control" id="ins-nombre" placeholder="ej. Cacao en polvo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoría</label>
+          <select class="form-control" id="ins-categoria">
+            <option value="chocolate">Chocolate</option><option value="lacteo">Lácteo</option>
+            <option value="cereal">Cereal</option><option value="azucar">Azúcar</option>
+            <option value="grasa">Grasa</option><option value="fruta">Fruta</option>
+            <option value="aditivo">Aditivo</option><option value="envase">Envase</option>
+            <option value="otro" selected>Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Unidad de Medida *</label>
+          <select class="form-control" id="ins-unidad">
+            <option value="kg">Kilogramos (kg)</option><option value="g">Gramos (g)</option>
+            <option value="litro">Litros</option><option value="ml">Mililitros (ml)</option>
+            <option value="unidad">Unidades</option><option value="docena">Docenas</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock Mínimo</label>
+          <input class="form-control" id="ins-minimo" type="number" step="0.1" value="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Proveedor Principal</label>
+        <input class="form-control" id="ins-proveedor" placeholder="ej. Distribuidora García">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <textarea class="form-control" id="ins-descripcion" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="crearInsumo()">Guardar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-insumo')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ingreso de lote individual -->
+<div class="modal-overlay" id="modal-lote">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <h3>Ingresar Lote</h3>
+      <button class="btn-icon" onclick="closeModal('modal-lote')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Insumo *</label>
+          <select class="form-control" id="lote-insumo-id" onchange="onLoteInsumoChange()">
+            <option value="">Seleccionar...</option>
+            {% for i in insumos %}
+            <option value="{{ i.id }}" data-unidad="{{ i.unidad_medida }}">{{ i.nombre }} ({{ i.unidad_medida }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Proveedor</label>
+          <input class="form-control" id="lote-proveedor" placeholder="Nombre del proveedor">
+        </div>
+      </div>
+      <div style="background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:6px;padding:12px;margin-bottom:12px">
+        <div class="fw-600 text-sm mb-2" style="margin-bottom:8px">Presentación</div>
+        <div class="form-row form-row-3">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Tipo</label>
+            <select class="form-control" id="lote-presentacion" onchange="calcularDesdePresent()">
+              <option value="unidad">Unidad</option><option value="bolsa">Bolsa</option>
+              <option value="saco">Saco</option><option value="caja">Caja</option>
+              <option value="bidón">Bidón</option><option value="botella">Botella</option>
+              <option value="rollo">Rollo</option><option value="tambor">Tambor</option>
+              <option value="paquete">Paquete</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Cant. Bultos</label>
+            <input class="form-control" id="lote-bultos" type="number" step="0.5" min="1" value="1" oninput="calcularDesdePresent()">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" id="lbl-upb">Unid./bulto</label>
+            <input class="form-control" id="lote-upb" type="number" step="0.001" min="0.001" value="1" oninput="calcularDesdePresent()">
+          </div>
+        </div>
+        <div class="form-row form-row-2" style="margin-top:10px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Precio por Bulto ($)</label>
+            <input class="form-control" id="lote-precio-bulto" type="number" step="0.01" placeholder="ej: 15000" oninput="calcularDesdePresent()">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Costo Unitario ($)</label>
+            <input class="form-control" id="lote-costo" type="number" step="0.001" placeholder="$/unidad" oninput="limpiarBulto()">
+          </div>
+        </div>
+        <div id="lote-calculo-info" style="margin-top:6px;font-size:0.76rem;color:var(--color-text-muted);display:none"></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Cantidad Total *</label>
+          <input class="form-control" id="lote-cantidad" type="number" step="0.001" placeholder="Auto-calculado">
+        </div>
+        <div class="form-group">
+          <label class="form-label">N° de Lote</label>
+          <input class="form-control" id="lote-numero" placeholder="Automático si vacío">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Fecha Vencimiento</label>
+          <input class="form-control" id="lote-vencimiento" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas</label>
+          <input class="form-control" id="lote-notas" placeholder="Observaciones...">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="crearLote()">Ingresar Lote</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-lote')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar insumo -->
+<div class="modal-overlay" id="modal-editar-insumo">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Editar Insumo</h3>
+      <button class="btn-icon" onclick="closeModal('modal-editar-insumo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-ins-id">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Nombre *</label>
+          <input class="form-control" id="edit-ins-nombre">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoría</label>
+          <select class="form-control" id="edit-ins-categoria">
+            <option value="chocolate">Chocolate</option><option value="lacteo">Lácteo</option>
+            <option value="cereal">Cereal</option><option value="azucar">Azúcar</option>
+            <option value="grasa">Grasa</option><option value="fruta">Fruta</option>
+            <option value="aditivo">Aditivo</option><option value="envase">Envase</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Unidad</label>
+          <select class="form-control" id="edit-ins-unidad">
+            <option value="kg">kg</option><option value="g">g</option>
+            <option value="litro">litro</option><option value="ml">ml</option>
+            <option value="unidad">unidad</option><option value="docena">docena</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock Mínimo</label>
+          <input class="form-control" id="edit-ins-minimo" type="number" step="0.1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Proveedor Principal</label>
+        <input class="form-control" id="edit-ins-proveedor">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <textarea class="form-control" id="edit-ins-descripcion" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="guardarEdicionInsumo()">Guardar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-editar-insumo')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar lote -->
+<div class="modal-overlay" id="modal-editar-lote">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>Editar Lote</h3>
+      <button class="btn-icon" onclick="closeModal('modal-editar-lote')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-lote-id">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Stock Actual</label>
+          <input class="form-control" id="edit-lote-cantidad" type="number" step="0.001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Costo Unitario ($)</label>
+          <input class="form-control" id="edit-lote-costo" type="number" step="0.001">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Proveedor</label>
+          <input class="form-control" id="edit-lote-proveedor">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vencimiento</label>
+          <input class="form-control" id="edit-lote-vencimiento" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas</label>
+        <textarea class="form-control" id="edit-lote-notas" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="guardarEdicionLote()">Guardar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-editar-lote')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ver lotes de un insumo -->
+<div class="modal-overlay" id="modal-ver-lotes">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3 id="lotes-titulo">Lotes del Insumo</h3>
+      <button class="btn-icon" onclick="closeModal('modal-ver-lotes')">✕</button>
+    </div>
+    <div class="modal-body" id="lotes-body" style="padding:0">
+      <div class="empty-state"><p>Cargando...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB: CONTEO DE STOCK
+══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-conteo">
+<style>
+  .wiz-wrap-ins { max-width:620px; margin:0 auto; }
+  .wiz-progress-bar-ins { height:4px; background:var(--color-border); border-radius:2px; margin-bottom:24px; overflow:hidden; }
+  .wiz-progress-fill-ins { height:100%; background:var(--color-primary); border-radius:2px; transition:width .3s; }
+  .wiz-card-ins { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:14px; padding:28px 32px; text-align:center; }
+  .wiz-tipo-b { display:inline-block; padding:3px 10px; border-radius:12px; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px; }
+  .wiz-tipo-b.ins  { background:rgba(99,102,241,.15); color:#818cf8; }
+  .wiz-tipo-b.alf  { background:rgba(34,197,94,.12);  color:#22c55e; }
+  .wiz-nombre-ins  { font-size:1.4rem; font-weight:700; color:var(--color-text); margin-bottom:4px; }
+  .wiz-sistema-ins { font-size:.85rem; color:var(--color-text-muted); margin-bottom:22px; }
+  .wiz-input-wrap-ins { position:relative; max-width:240px; margin:0 auto 20px; }
+  .wiz-input-ins { width:100%; padding:14px 56px 14px 16px; font-size:1.5rem; font-weight:700; border:2px solid var(--color-border); border-radius:10px; background:var(--color-bg-elevated); color:var(--color-text); text-align:center; font-family:inherit; transition:border-color .15s; box-sizing:border-box; }
+  .wiz-input-ins:focus { outline:none; border-color:var(--color-primary); }
+  .wiz-unidad-ins { position:absolute; right:14px; top:50%; transform:translateY(-50%); font-size:.82rem; color:var(--color-text-muted); pointer-events:none; }
+  .wiz-diff-ins { font-size:.88rem; font-weight:600; margin-bottom:22px; min-height:22px; }
+  .wiz-diff-ins.pos { color:#22c55e; } .wiz-diff-ins.neg { color:#ef4444; } .wiz-diff-ins.ok { color:var(--color-text-muted); }
+  .wiz-btns-ins { display:flex; gap:10px; justify-content:center; }
+  /* chips */
+  .wiz-chips-ins { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:20px; }
+  .wiz-chip-ins { padding:5px 14px; border-radius:20px; border:1px solid var(--color-border); font-size:.78rem; color:var(--color-text-muted); cursor:pointer; transition:all .12s; user-select:none; }
+  .wiz-chip-ins.active { border-color:var(--color-primary); background:rgba(99,102,241,.12); color:var(--color-primary); }
+  /* resumen */
+  .wiz-sum-ins { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:12px; overflow:hidden; }
+  .sum-table-ins { width:100%; border-collapse:collapse; font-size:.8rem; }
+  .sum-table-ins th { padding:9px 14px; font-size:.69rem; font-weight:600; color:var(--color-text-muted); text-transform:uppercase; border-bottom:1px solid var(--color-border); text-align:left; }
+  .sum-table-ins td { padding:9px 14px; color:var(--color-text); border-bottom:1px solid #151515; }
+  .sum-table-ins tr:last-child td { border-bottom:none; }
+  .sdp { color:#22c55e; font-weight:600; } .sdn { color:#ef4444; font-weight:600; } .sdk { color:var(--color-text-muted); }
+  /* historial */
+  .hist-ins { margin-top:24px; background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:hidden; }
+  .hist-ins th { padding:9px 14px; font-size:.68rem; font-weight:600; color:var(--color-text-muted); text-transform:uppercase; border-bottom:1px solid var(--color-border); text-align:left; }
+  .hist-ins td { padding:9px 14px; font-size:.78rem; border-bottom:1px solid #151515; color:var(--color-text); }
+  .hist-ins tr:last-child td { border-bottom:none; }
+</style>
+
+<div class="wiz-wrap-ins">
+
+  <!-- Inicio -->
+  <div id="ci-inicio">
+    <div class="wiz-card-ins" style="margin-bottom:20px">
+      <div style="font-size:2.4rem;margin-bottom:12px">📦</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--color-text);margin-bottom:6px">Conteo de stock físico</div>
+      <div style="font-size:.83rem;color:var(--color-text-muted);margin-bottom:20px;line-height:1.5">Te muestra cada ítem de a uno. Ingresás lo que tenés físicamente y el sistema se ajusta.<br><strong style="color:var(--color-text)">La masa y tapas no se tocan</strong> — esas son exactas.</div>
+      <div style="font-size:.75rem;color:var(--color-text-muted);margin-bottom:10px">¿Qué querés contar?</div>
+      <div class="wiz-chips-ins" id="ci-chips">
+        <div class="wiz-chip-ins active" data-cat="insumos"  onclick="ciToggleCat(this)">Insumos / packaging</div>
+        <div class="wiz-chip-ins active" data-cat="alfajores" onclick="ciToggleCat(this)">Alfajores terminados</div>
+      </div>
+      <button class="btn btn-primary" onclick="ciIniciar()" id="ci-btn-iniciar" style="padding:9px 24px">Iniciar conteo →</button>
+    </div>
+
+    <!-- Historial -->
+    <div class="hist-ins">
+      <div style="padding:10px 14px;border-bottom:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.83rem;font-weight:600;color:var(--color-text)">Historial de ajustes</span>
+        <button onclick="ciCargarHistorial()" style="background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:.73rem">↻ Actualizar</button>
+      </div>
+      <div id="ci-hist-body"><div style="padding:20px;text-align:center;font-size:.8rem;color:var(--color-text-muted)">Cargando...</div></div>
+    </div>
+  </div>
+
+  <!-- Wizard -->
+  <div id="ci-wizard" style="display:none">
+    <div style="display:flex;justify-content:space-between;font-size:.73rem;color:var(--color-text-muted);margin-bottom:6px">
+      <span id="ci-prog-label">Ítem 1 de N</span><span id="ci-prog-pct">0%</span>
+    </div>
+    <div class="wiz-progress-bar-ins"><div class="wiz-progress-fill-ins" id="ci-prog-fill" style="width:0%"></div></div>
+    <div class="wiz-card-ins">
+      <div class="wiz-tipo-b ins" id="ci-tipo-badge">Insumo</div>
+      <div class="wiz-nombre-ins" id="ci-nombre">—</div>
+      <div class="wiz-sistema-ins">Sistema: <strong id="ci-sistema">—</strong></div>
+      <div class="wiz-input-wrap-ins">
+        <input class="wiz-input-ins" type="number" id="ci-real" min="0" step="0.001" placeholder="0" oninput="ciActualizarDiff()" />
+        <span class="wiz-unidad-ins" id="ci-unidad">u</span>
+      </div>
+      <div class="wiz-diff-ins ok" id="ci-diff">Ingresá la cantidad real que tenés</div>
+      <div class="wiz-btns-ins">
+        <button class="btn btn-secondary" onclick="ciSaltar()">Saltar</button>
+        <button class="btn btn-primary" onclick="ciConfirmar()">Confirmar →</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;text-align:center">
+      <button onclick="ciCancelar()" style="background:none;border:none;color:var(--color-text-muted);font-size:.75rem;cursor:pointer;text-decoration:underline">✕ Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Resumen -->
+  <div id="ci-resumen" style="display:none">
+    <div class="wiz-sum-ins">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.95rem;font-weight:700;color:var(--color-text)">Resumen del conteo</span>
+        <span id="ci-sum-stats" style="font-size:.75rem;color:var(--color-text-muted)"></span>
+      </div>
+      <table class="sum-table-ins">
+        <thead><tr><th>Ítem</th><th>Sistema</th><th>Contado</th><th>Diferencia</th></tr></thead>
+        <tbody id="ci-sum-tbody"></tbody>
+      </table>
+      <div style="padding:14px 20px;border-top:1px solid var(--color-border);display:flex;justify-content:space-between">
+        <button class="btn btn-secondary" onclick="ciVolverWizard()">← Revisar</button>
+        <button class="btn btn-primary" onclick="ciAplicar()" id="ci-btn-aplicar">Aplicar ajustes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done -->
+  <div id="ci-done" style="display:none">
+    <div class="wiz-card-ins">
+      <div style="font-size:2.4rem;margin-bottom:12px">✅</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--color-text);margin-bottom:6px">Conteo aplicado</div>
+      <p id="ci-done-msg" style="font-size:.85rem;color:var(--color-text-muted);margin-bottom:20px"></p>
+      <button class="btn btn-primary" onclick="ciReiniciar()">Hacer otro conteo</button>
+    </div>
+  </div>
+
+</div>
+</div><!-- /panel-conteo -->
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Tabs ──────────────────────────────────────────────────────
+const TAB_ACTIONS = {
+  resumen:  '',
+  stock:    `<a href="/insumos/ingreso-nuevo" class="btn btn-outline btn-sm">Ingreso de Compra</a>
+             <button class="btn btn-outline btn-sm" onclick="openModal('modal-lote')">+ Lote Individual</button>
+             <button class="btn btn-primary btn-sm" onclick="openModal('modal-insumo')">+ Nuevo Insumo</button>`,
+  ingresos: `<a href="/insumos/ingreso-nuevo" class="btn btn-primary btn-sm">+ Nuevo Ingreso</a>`,
+  conteo:   '',
+};
+
+function switchTab(name) {
+  document.querySelectorAll('.page-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${name}`));
+  document.getElementById('tab-actions').innerHTML = TAB_ACTIONS[name] || '';
+  localStorage.setItem('insumos-tab', name);
+  if (name === 'conteo') ciCargarHistorial();
+}
+
+// Iniciar en la tab correcta
+(function() {
+  const urlTab = new URLSearchParams(location.search).get('tab');
+  const saved  = localStorage.getItem('insumos-tab') || 'resumen';
+  switchTab(urlTab || saved);
+  cargarResumen();
+})();
+
+// ── Resumen via API ───────────────────────────────────────────
+async function cargarResumen() {
+  try {
+    const d = await apiGet('/insumos/api/resumen');
+
+    document.getElementById('r-valor').textContent =
+      '$' + Math.round(d.valor_total_stock).toLocaleString('es-AR');
+    document.getElementById('r-total').textContent = d.total_insumos;
+    document.getElementById('r-ok').textContent    = d.insumos_ok;
+    document.getElementById('r-alertas').textContent = d.alertas.length;
+
+    const badge = document.getElementById('r-alertas-badge');
+    badge.textContent = d.alertas.length;
+    badge.style.display = d.alertas.length > 0 ? '' : 'none';
+
+    const stockBadge = document.getElementById('badge-bajo');
+    if (d.alertas.length > 0) {
+      stockBadge.textContent = d.alertas.length;
+      stockBadge.style.display = '';
+    }
+
+    // Top consumidos
+    const topBody = document.getElementById('r-top-body');
+    if (!d.top_consumidos.length) {
+      topBody.innerHTML = '<tr><td colspan="3"><div class="empty-state" style="padding:16px"><p>Sin datos de consumo aún</p></div></td></tr>';
+    } else {
+      topBody.innerHTML = d.top_consumidos.map((i, idx) => `
+        <tr>
+          <td><span class="text-muted text-xs" style="margin-right:6px">${idx+1}</span><span class="fw-600">${i.nombre}</span></td>
+          <td class="fw-600">${i.total.toLocaleString('es-AR')} ${i.unidad}</td>
+          <td>
+            <div class="stock-indicator">
+              <div class="stock-dot stock-ok"></div>
+              ${i.stock_actual} ${i.unidad}
+            </div>
+          </td>
+        </tr>`).join('');
+    }
+
+    // Alertas
+    const alertasBody = document.getElementById('r-alertas-body');
+    if (!d.alertas.length) {
+      alertasBody.innerHTML = '<tr><td colspan="3"><div class="empty-state" style="padding:16px"><p style="color:var(--color-success)">Todo el stock dentro del mínimo</p></div></td></tr>';
+    } else {
+      alertasBody.innerHTML = d.alertas.map(a => `
+        <tr>
+          <td class="fw-600">${a.nombre}</td>
+          <td><span class="text-danger fw-600">${a.stock_actual} ${a.unidad}</span></td>
+          <td class="text-muted">${a.stock_minimo} ${a.unidad}</td>
+        </tr>`).join('');
+    }
+  } catch(e) { console.error('Resumen error:', e); }
+}
+
+// ── Filtros ───────────────────────────────────────────────────
+function filtrarInsumos() {
+  const nombre = document.getElementById('filtro-nombre').value.toLowerCase();
+  const cat    = document.getElementById('filtro-categoria').value;
+  const estado = document.getElementById('filtro-estado').value;
+  document.querySelectorAll('#tabla-insumos tbody tr[data-nombre]').forEach(row => {
+    const ok = row.dataset.nombre.includes(nombre)
+      && (!cat    || row.dataset.categoria === cat)
+      && (!estado || row.dataset.estado    === estado);
+    row.style.display = ok ? '' : 'none';
+  });
+}
+
+function filtrarIngresos() {
+  const texto  = document.getElementById('filtro-texto').value.toLowerCase();
+  const activo = document.getElementById('filtro-activo').value;
+  let visible = 0;
+  document.querySelectorAll('.fila-ingreso').forEach(row => {
+    const ok = (!texto  || row.dataset.texto.includes(texto))
+            && (!activo || row.dataset.activo === activo);
+    row.style.display = ok ? '' : 'none';
+    if (ok) visible++;
+  });
+  document.getElementById('filtro-count').textContent = `${visible} registros`;
+}
+
+// ── Crear Insumo ──────────────────────────────────────────────
+async function crearInsumo() {
+  const nombre = document.getElementById('ins-nombre').value.trim();
+  if (!nombre) { toast('El nombre es requerido', 'error'); return; }
+  try {
+    await apiPost('/insumos/api', {
+      nombre,
+      categoria:         document.getElementById('ins-categoria').value,
+      unidad_medida:     document.getElementById('ins-unidad').value,
+      stock_minimo:      parseFloat(document.getElementById('ins-minimo').value) || 0,
+      proveedor_default: document.getElementById('ins-proveedor').value || null,
+      descripcion:       document.getElementById('ins-descripcion').value || null,
+    });
+    toast('Insumo creado', 'success');
+    closeModal('modal-insumo');
+    setTimeout(() => location.reload(), 700);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Editar Insumo ─────────────────────────────────────────────
+async function editarInsumo(id) {
+  try {
+    const ins = await apiGet(`/insumos/api/${id}`);
+    document.getElementById('edit-ins-id').value           = ins.id;
+    document.getElementById('edit-ins-nombre').value       = ins.nombre;
+    document.getElementById('edit-ins-categoria').value    = ins.categoria;
+    document.getElementById('edit-ins-unidad').value       = ins.unidad_medida;
+    document.getElementById('edit-ins-minimo').value       = ins.stock_minimo;
+    document.getElementById('edit-ins-proveedor').value    = ins.proveedor_default || '';
+    document.getElementById('edit-ins-descripcion').value  = ins.descripcion || '';
+    openModal('modal-editar-insumo');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function guardarEdicionInsumo() {
+  const id = document.getElementById('edit-ins-id').value;
+  try {
+    await apiCall('PUT', `/insumos/api/${id}`, {
+      nombre:            document.getElementById('edit-ins-nombre').value.trim(),
+      categoria:         document.getElementById('edit-ins-categoria').value,
+      unidad_medida:     document.getElementById('edit-ins-unidad').value,
+      stock_minimo:      parseFloat(document.getElementById('edit-ins-minimo').value) || 0,
+      proveedor_default: document.getElementById('edit-ins-proveedor').value || null,
+      descripcion:       document.getElementById('edit-ins-descripcion').value || null,
+    });
+    toast('Guardado', 'success');
+    closeModal('modal-editar-insumo');
+    setTimeout(() => location.reload(), 700);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Lote: cálculos de presentación ────────────────────────────
+function onLoteInsumoChange() {
+  const sel = document.getElementById('lote-insumo-id');
+  const unidad = sel.selectedOptions[0]?.dataset.unidad || 'u.';
+  document.getElementById('lbl-upb').textContent = `${unidad.toUpperCase()}/bulto`;
+}
+
+function calcularDesdePresent() {
+  const bultos = parseFloat(document.getElementById('lote-bultos').value) || 0;
+  const upb    = parseFloat(document.getElementById('lote-upb').value)    || 1;
+  const pBulto = parseFloat(document.getElementById('lote-precio-bulto').value) || 0;
+  if (bultos > 0 && upb > 0) {
+    const qty  = bultos * upb;
+    document.getElementById('lote-cantidad').value = qty;
+    if (pBulto > 0) {
+      const cu = pBulto / upb;
+      document.getElementById('lote-costo').value = cu.toFixed(2);
+      const info = document.getElementById('lote-calculo-info');
+      info.style.display = '';
+      info.textContent = `${bultos} bulto(s) × ${upb} = ${qty} — Costo unit.: $${cu.toFixed(2)}`;
+    }
+  }
+}
+
+function limpiarBulto() {
+  document.getElementById('lote-precio-bulto').value = '';
+  document.getElementById('lote-calculo-info').style.display = 'none';
+}
+
+// ── Crear Lote ────────────────────────────────────────────────
+async function crearLote() {
+  const insumoId = document.getElementById('lote-insumo-id').value;
+  const cantidad = parseFloat(document.getElementById('lote-cantidad').value);
+  const costo    = parseFloat(document.getElementById('lote-costo').value);
+  if (!insumoId || !cantidad || !costo) {
+    toast('Completá insumo, cantidad y costo', 'error'); return;
+  }
+  const venc     = document.getElementById('lote-vencimiento').value;
+  const pBulto   = parseFloat(document.getElementById('lote-precio-bulto').value) || null;
+  const bultos   = parseFloat(document.getElementById('lote-bultos').value) || 1;
+  const upb      = parseFloat(document.getElementById('lote-upb').value) || 1;
+  try {
+    await apiPost(`/insumos/${insumoId}/lotes`, {
+      insumo_id:          parseInt(insumoId),
+      numero_lote:        document.getElementById('lote-numero').value || '',
+      cantidad_inicial:   cantidad,
+      costo_unitario:     costo,
+      proveedor:          document.getElementById('lote-proveedor').value || null,
+      fecha_vencimiento:  venc ? new Date(venc + 'T12:00:00').toISOString() : null,
+      notas:              document.getElementById('lote-notas').value || null,
+      tipo_presentacion:  document.getElementById('lote-presentacion').value,
+      cantidad_bultos:    bultos,
+      unidades_por_bulto: upb,
+      precio_por_bulto:   pBulto,
+    });
+    toast('Lote ingresado', 'success');
+    closeModal('modal-lote');
+    setTimeout(() => location.reload(), 700);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Ver Lotes de un insumo ────────────────────────────────────
+async function verLotes(insumoId, nombre) {
+  document.getElementById('lotes-titulo').textContent = `Lotes — ${nombre}`;
+  document.getElementById('lotes-body').innerHTML = '<div class="empty-state"><p>Cargando...</p></div>';
+  openModal('modal-ver-lotes');
+  try {
+    const lotes = await apiGet(`/insumos/${insumoId}/lotes/todos`);
+    if (!lotes.length) {
+      document.getElementById('lotes-body').innerHTML =
+        '<div class="empty-state"><p>Sin lotes registrados</p></div>';
+      return;
+    }
+    document.getElementById('lotes-body').innerHTML = `
+      <div class="table-wrapper" style="border:none">
+        <table>
+          <thead><tr><th>Lote</th><th>Presentación</th><th>Proveedor</th><th>Stock</th><th>Costo Unit.</th><th>Vencimiento</th><th>Estado</th><th></th></tr></thead>
+          <tbody>
+            ${lotes.map(l => `
+              <tr>
+                <td class="fw-600">${l.numero_lote}</td>
+                <td class="text-muted text-xs">${l.descripcion_presentacion || l.tipo_presentacion || '—'}</td>
+                <td class="text-muted">${l.proveedor || '—'}</td>
+                <td><strong>${l.cantidad_actual}</strong><span class="text-muted"> / ${l.cantidad_inicial}</span></td>
+                <td>$${l.costo_unitario.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:4})}</td>
+                <td>${l.fecha_vencimiento ? formatDate(l.fecha_vencimiento) : '—'}</td>
+                <td>${l.esta_vencido
+                  ? '<span class="badge badge-danger">Vencido</span>'
+                  : !l.activo
+                    ? '<span class="badge badge-muted">Agotado</span>'
+                    : l.dias_para_vencer != null && l.dias_para_vencer <= 7
+                      ? `<span class="badge badge-warning">${l.dias_para_vencer}d</span>`
+                      : '<span class="badge badge-success">OK</span>'}</td>
+                <td><button class="btn btn-outline btn-sm" onclick="editarLote(${l.id},${l.cantidad_actual},${l.costo_unitario},'${(l.proveedor||'').replace(/'/g,"\\'")}','${(l.notas||'').replace(/'/g,"\\'")}')">Editar</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Editar Lote ───────────────────────────────────────────────
+function editarLote(id, cantidad, costo, proveedor, notas) {
+  document.getElementById('edit-lote-id').value        = id;
+  document.getElementById('edit-lote-cantidad').value  = cantidad;
+  document.getElementById('edit-lote-costo').value     = costo;
+  document.getElementById('edit-lote-proveedor').value = proveedor;
+  document.getElementById('edit-lote-notas').value     = notas;
+  openModal('modal-editar-lote');
+}
+
+async function guardarEdicionLote() {
+  const id = document.getElementById('edit-lote-id').value;
+  try {
+    await apiCall('PUT', `/insumos/api/lotes/${id}`, {
+      cantidad_actual: parseFloat(document.getElementById('edit-lote-cantidad').value),
+      costo_unitario:  parseFloat(document.getElementById('edit-lote-costo').value),
+      proveedor:       document.getElementById('edit-lote-proveedor').value || null,
+      notas:           document.getElementById('edit-lote-notas').value || null,
+    });
+    toast('Lote actualizado', 'success');
+    closeModal('modal-editar-lote');
+    closeModal('modal-ver-lotes');
+    setTimeout(() => location.reload(), 700);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONTEO DE STOCK — Wizard
+// ═══════════════════════════════════════════════════════════
+let _ciItems   = [];
+let _ciIdx     = 0;
+let _ciConteos = [];
+let _ciCats    = new Set(['insumos', 'alfajores']);
+
+const _ciFmt   = (n, u) => `${Number(n).toLocaleString('es-AR', {maximumFractionDigits:3})} ${u}`;
+const _ciShow  = id => document.getElementById(id).style.display = '';
+const _ciHide  = id => document.getElementById(id).style.display = 'none';
+
+function ciToggleCat(chip) {
+  const cat = chip.dataset.cat;
+  if (_ciCats.has(cat)) { if (_ciCats.size === 1) return; _ciCats.delete(cat); chip.classList.remove('active'); }
+  else { _ciCats.add(cat); chip.classList.add('active'); }
+}
+
+async function ciIniciar() {
+  const btn = document.getElementById('ci-btn-iniciar');
+  btn.textContent = 'Cargando...'; btn.disabled = true;
+  try {
+    const data = await apiGet('/stock/api/items-conteo');
+    let items = [];
+    if (_ciCats.has('insumos'))   items = items.concat(data.insumos);
+    if (_ciCats.has('alfajores')) items = items.concat(data.alfajores);
+    if (!items.length) { toast('No hay ítems para contar', 'error'); btn.textContent = 'Iniciar conteo →'; btn.disabled = false; return; }
+    _ciItems   = items;
+    _ciIdx     = 0;
+    _ciConteos = items.map(item => ({ item, real: null, saltado: true }));
+    _ciHide('ci-inicio'); _ciShow('ci-wizard');
+    ciMostrarItem(0);
+  } catch(e) { toast(e.message, 'error'); btn.textContent = 'Iniciar conteo →'; btn.disabled = false; }
+}
+
+function ciMostrarItem(idx) {
+  const item = _ciItems[idx];
+  const pct  = Math.round((idx / _ciItems.length) * 100);
+  document.getElementById('ci-prog-label').textContent = `Ítem ${idx + 1} de ${_ciItems.length}`;
+  document.getElementById('ci-prog-pct').textContent   = pct + '%';
+  document.getElementById('ci-prog-fill').style.width  = pct + '%';
+
+  const badge = document.getElementById('ci-tipo-badge');
+  badge.textContent = item.tipo === 'alfajor' ? 'Alfajor terminado' : (item.categoria === 'envase' ? 'Packaging' : 'Insumo');
+  badge.className = `wiz-tipo-b ${item.tipo === 'alfajor' ? 'alf' : 'ins'}`;
+
+  document.getElementById('ci-nombre').textContent   = item.nombre;
+  document.getElementById('ci-sistema').textContent  = _ciFmt(item.stock_sistema, item.unidad);
+  document.getElementById('ci-unidad').textContent   = item.unidad;
+
+  const prev = _ciConteos[idx];
+  document.getElementById('ci-real').value = (prev && !prev.saltado && prev.real !== null) ? prev.real : '';
+  ciActualizarDiff();
+  document.getElementById('ci-real').focus();
+}
+
+function ciActualizarDiff() {
+  const item = _ciItems[_ciIdx];
+  const real = parseFloat(document.getElementById('ci-real').value);
+  const el   = document.getElementById('ci-diff');
+  if (isNaN(real) || document.getElementById('ci-real').value === '') {
+    el.textContent = 'Ingresá la cantidad real que tenés'; el.className = 'wiz-diff-ins ok'; return;
+  }
+  const diff = real - item.stock_sistema;
+  if (Math.abs(diff) < 0.001) { el.textContent = 'Sin diferencia — stock coincide'; el.className = 'wiz-diff-ins ok'; }
+  else if (diff > 0) { el.textContent = `+${_ciFmt(diff, item.unidad)} más de lo esperado`; el.className = 'wiz-diff-ins pos'; }
+  else { el.textContent = `${_ciFmt(diff, item.unidad)} menos de lo esperado`; el.className = 'wiz-diff-ins neg'; }
+}
+
+function ciConfirmar() {
+  const real = parseFloat(document.getElementById('ci-real').value);
+  if (isNaN(real) || real < 0) { toast('Ingresá una cantidad válida', 'error'); return; }
+  _ciConteos[_ciIdx] = { item: _ciItems[_ciIdx], real, saltado: false };
+  ciAvanzar();
+}
+function ciSaltar() {
+  _ciConteos[_ciIdx] = { item: _ciItems[_ciIdx], real: _ciItems[_ciIdx].stock_sistema, saltado: true };
+  ciAvanzar();
+}
+function ciAvanzar() {
+  _ciIdx++;
+  if (_ciIdx >= _ciItems.length) ciMostrarResumen();
+  else ciMostrarItem(_ciIdx);
+}
+function ciCancelar() {
+  if (!confirm('¿Cancelar el conteo?')) return;
+  ciReiniciar();
+}
+
+function ciMostrarResumen() {
+  _ciHide('ci-wizard'); _ciShow('ci-resumen');
+  const conCambio = _ciConteos.filter(c => !c.saltado && Math.abs(c.real - c.item.stock_sistema) > 0.001);
+  document.getElementById('ci-sum-stats').textContent =
+    `${conCambio.length} ajustes · ${_ciConteos.filter(c=>c.saltado).length} saltados · ${_ciConteos.length} total`;
+  document.getElementById('ci-sum-tbody').innerHTML = _ciConteos.map(c => {
+    const diff = c.saltado ? 0 : (c.real - c.item.stock_sistema);
+    const cls  = Math.abs(diff) < 0.001 ? 'sdk' : (diff > 0 ? 'sdp' : 'sdn');
+    const dTxt = Math.abs(diff) < 0.001 ? '— sin cambio' : `${diff>0?'+':''}${_ciFmt(diff, c.item.unidad)}`;
+    return `<tr style="${c.saltado?'opacity:.45':''}">
+      <td>${c.item.nombre}</td>
+      <td style="color:var(--color-text-muted)">${_ciFmt(c.item.stock_sistema, c.item.unidad)}</td>
+      <td>${c.saltado ? '<em>saltado</em>' : _ciFmt(c.real, c.item.unidad)}</td>
+      <td class="${cls}">${c.saltado ? '—' : dTxt}</td>
+    </tr>`;
+  }).join('');
+}
+
+function ciVolverWizard() {
+  _ciHide('ci-resumen'); _ciShow('ci-wizard');
+  _ciIdx = Math.max(0, _ciItems.length - 1);
+  ciMostrarItem(_ciIdx);
+}
+
+async function ciAplicar() {
+  const btn = document.getElementById('ci-btn-aplicar');
+  btn.textContent = 'Aplicando...'; btn.disabled = true;
+  const payload = _ciConteos.filter(c => !c.saltado).map(c => ({
+    tipo: c.item.tipo, id: c.item.id, nombre: c.item.nombre,
+    stock_sistema: c.item.stock_sistema, stock_real: c.real, motivo: 'conteo físico',
+  }));
+  try {
+    const r = await apiPost('/stock/api/aplicar-ajuste', payload);
+    _ciHide('ci-resumen'); _ciShow('ci-done');
+    document.getElementById('ci-done-msg').textContent =
+      `Se aplicaron ${r.ajustados} ajuste${r.ajustados!==1?'s':''} correctamente.`;
+    ciCargarHistorial();
+  } catch(e) { toast(e.message, 'error'); btn.textContent = 'Aplicar ajustes'; btn.disabled = false; }
+}
+
+function ciReiniciar() {
+  _ciItems = []; _ciIdx = 0; _ciConteos = [];
+  _ciHide('ci-wizard'); _ciHide('ci-resumen'); _ciHide('ci-done'); _ciShow('ci-inicio');
+  document.getElementById('ci-btn-iniciar').textContent = 'Iniciar conteo →';
+  document.getElementById('ci-btn-iniciar').disabled = false;
+}
+
+async function ciCargarHistorial() {
+  const el = document.getElementById('ci-hist-body');
+  try {
+    const data = await apiGet('/stock/api/historial-ajustes');
+    if (!data.length) { el.innerHTML = '<div style="padding:20px;text-align:center;font-size:.8rem;color:var(--color-text-muted)">Sin ajustes registrados todavía</div>'; return; }
+    const tColors = { insumo:'#818cf8', alfajor:'#22c55e' };
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:8px 14px;font-size:.68rem;font-weight:600;color:var(--color-text-muted);text-transform:uppercase;border-bottom:1px solid var(--color-border);text-align:left">Fecha</th>
+        <th style="padding:8px 14px;font-size:.68rem;font-weight:600;color:var(--color-text-muted);text-transform:uppercase;border-bottom:1px solid var(--color-border);text-align:left">Nombre</th>
+        <th style="padding:8px 14px;font-size:.68rem;font-weight:600;color:var(--color-text-muted);text-transform:uppercase;border-bottom:1px solid var(--color-border);text-align:left">Sistema</th>
+        <th style="padding:8px 14px;font-size:.68rem;font-weight:600;color:var(--color-text-muted);text-transform:uppercase;border-bottom:1px solid var(--color-border);text-align:left">Real</th>
+        <th style="padding:8px 14px;font-size:.68rem;font-weight:600;color:var(--color-text-muted);text-transform:uppercase;border-bottom:1px solid var(--color-border);text-align:left">Diferencia</th>
+      </tr></thead>
+      <tbody>${data.map(a => {
+        const cls = a.diferencia > 0 ? 'sdp' : (a.diferencia < 0 ? 'sdn' : 'sdk');
+        return `<tr>
+          <td style="padding:8px 14px;font-size:.73rem;color:var(--color-text-muted);border-bottom:1px solid #151515;white-space:nowrap">${a.fecha}</td>
+          <td style="padding:8px 14px;border-bottom:1px solid #151515"><span style="color:${tColors[a.tipo]||'#9ca3af'};font-size:.68rem;font-weight:700;text-transform:uppercase;margin-right:6px">${a.tipo}</span>${a.nombre}</td>
+          <td style="padding:8px 14px;border-bottom:1px solid #151515;color:var(--color-text-muted)">${a.stock_sistema}</td>
+          <td style="padding:8px 14px;border-bottom:1px solid #151515">${a.stock_real}</td>
+          <td style="padding:8px 14px;border-bottom:1px solid #151515" class="${cls}">${a.diferencia>0?'+':''}${a.diferencia}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } catch(e) { el.innerHTML = '<div style="padding:20px;text-align:center;font-size:.8rem;color:var(--color-text-muted)">Error cargando historial</div>'; }
+}
+
+// Enter confirma en el wizard
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('ci-wizard').style.display !== 'none') ciConfirmar();
+});
+</script>
+{% endblock %}

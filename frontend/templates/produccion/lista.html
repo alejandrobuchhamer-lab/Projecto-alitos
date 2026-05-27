@@ -1,0 +1,2534 @@
+{% extends "base.html" %}
+{% block title %}Producción{% endblock %}
+{% block page_title %}Producción{% endblock %}
+
+{% block content %}
+
+<!-- TABS -->
+<div class="page-tabs" style="margin-bottom:0;position:relative">
+  <button class="page-tab active" onclick="switchTab('masa')" id="tab-btn-masa">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-right:6px"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Masa
+  </button>
+  <button class="page-tab" onclick="switchTab('tapas')" id="tab-btn-tapas">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-right:6px"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>Tapas
+  </button>
+  <button class="page-tab" onclick="switchTab('alfajores')" id="tab-btn-alfajores">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-right:6px"><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg>Alfajores
+  </button>
+  <div style="flex:1"></div>
+  <div id="tab-actions" style="display:flex;gap:8px;align-items:center"></div>
+</div>
+
+<!-- ── MASA PANEL ─────────────────────────────────────────────────────────── -->
+<div class="tab-panel active" id="panel-masa">
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin:16px 0">
+    <div class="kpi-card">
+      <div class="kpi-label">En Proceso</div>
+      <div class="kpi-value">{{ prod_masa|selectattr('estado','equalto','en_proceso')|list|length }}</div>
+      <div class="kpi-sub text-muted">lotes activos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Finalizadas</div>
+      <div class="kpi-value">{{ prod_masa|selectattr('estado','equalto','finalizada')|list|length }}</div>
+      <div class="kpi-sub text-muted">últimas 100</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Masa disponible</div>
+      <div class="kpi-value">{{ lotes_masa|length }}</div>
+      <div class="kpi-sub text-muted">lotes sin usar</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Kg producidos</div>
+      <div class="kpi-value" style="font-size:1.2rem">
+        {{ "{:,.1f}".format(prod_masa|selectattr('estado','equalto','finalizada')|sum(attribute='cantidad_producida')) }}
+      </div>
+      <div class="kpi-sub text-muted">total acumulado</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="padding:14px 20px">
+      <h3>Historial de Masa</h3>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="table" id="tabla-masa">
+        <thead>
+          <tr>
+            <th>Lote</th>
+            <th>Receta / Producto</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Producido</th>
+            <th>Costo Unit.</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if prod_masa %}
+            {% for p in prod_masa %}
+            <tr>
+              <td class="fw-600">{{ p.numero_lote_produccion }}</td>
+              <td>
+                <div class="fw-600 text-sm">{{ p.receta_version.nombre }}</div>
+                <div class="text-muted text-xs">{{ p.receta_version.producto.nombre }}</div>
+              </td>
+              <td class="text-muted text-sm">{{ p.fecha_inicio.strftime('%d/%m/%Y') }}</td>
+              <td>
+                {% if p.estado == 'finalizada' %}<span class="badge badge-success">Finalizada</span>
+                {% elif p.estado == 'en_proceso' %}<span class="badge badge-warning">En proceso</span>
+                {% else %}<span class="badge badge-muted">{{ p.estado }}</span>{% endif %}
+              </td>
+              <td class="text-sm">{{ p.cantidad_producida }} {{ p.receta_version.unidad_rendimiento }}</td>
+              <td>
+                {% if p.costo_unitario > 0 %}<strong>${{ "{:,.2f}".format(p.costo_unitario) }}</strong>
+                {% else %}—{% endif %}
+              </td>
+              <td style="display:flex;gap:4px">
+                <button class="btn btn-outline btn-sm" data-pid="{{ p.id }}" onclick="verDetalle(this.dataset.pid)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </button>
+                {% if p.estado == 'en_proceso' %}
+                <button class="btn btn-primary btn-sm"
+                  data-prod-id="{{ p.id }}" data-prod-lote="{{ p.numero_lote_produccion }}" data-prod-tipo="{{ p.tipo_produccion }}"
+                  onclick="abrirFinalizar(this.dataset.prodId, this.dataset.prodLote, this.dataset.prodTipo)">
+                  Finalizar
+                </button>
+                {% endif %}
+                <button class="btn btn-sm" style="color:var(--color-danger);border-color:rgba(239,68,68,0.3)"
+                  data-pid="{{ p.id }}" data-lote="{{ p.numero_lote_produccion }}"
+                  onclick="eliminarProduccion(this.dataset.pid, this.dataset.lote, this)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="7">
+              <div class="empty-state">
+                <div class="icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                </div>
+                <h3>Sin producciones de masa</h3>
+                <p class="text-muted text-sm">Iniciá la primera elaboración de masa</p>
+                <button class="btn btn-primary" onclick="abrirNuevaProduccion('masa')">+ Nueva Masa</button>
+              </div>
+            </td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── TAPAS PANEL ────────────────────────────────────────────────────────── -->
+<div class="tab-panel" id="panel-tapas">
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin:16px 0">
+    <div class="kpi-card">
+      <div class="kpi-label">En Proceso</div>
+      <div class="kpi-value">{{ prod_tapas|selectattr('estado','equalto','en_proceso')|list|length }}</div>
+      <div class="kpi-sub text-muted">lotes activos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Tapas Producidas</div>
+      <div class="kpi-value" id="kpi-tapas-total">—</div>
+      <div class="kpi-sub text-muted">historial cargado</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Rendimiento Prom.</div>
+      <div class="kpi-value" id="kpi-rendimiento">—</div>
+      <div class="kpi-sub text-muted">tapas reales / teóricas</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Finalizadas</div>
+      <div class="kpi-value">{{ prod_tapas|selectattr('estado','equalto','finalizada')|list|length }}</div>
+      <div class="kpi-sub text-muted">últimas 100</div>
+    </div>
+  </div>
+
+  <!-- Masa disponible para tapas -->
+  {% if lotes_masa %}
+  <div style="margin-bottom:14px">
+    <div class="text-xs fw-600 mb-2" style="color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px">Masa en stock para cocinar</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      {% for lm in lotes_masa %}
+      <div style="background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:8px;padding:8px 14px;display:flex;gap:14px;align-items:center">
+        <div>
+          <div class="fw-600 text-sm">{{ lm.producto.nombre if lm.producto else '—' }}</div>
+          <div class="text-xs text-muted">{{ lm.numero_lote }}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="fw-600" style="color:var(--color-accent)">{{ "{:.3f}".format(lm.cantidad_actual) }} kg</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div style="background:var(--color-bg-elevated);border-radius:8px;padding:10px 14px;color:var(--color-text-muted);font-size:0.82rem;margin-bottom:14px">
+    Sin masa en stock — primero producí masa para poder cocinar tapas
+  </div>
+  {% endif %}
+
+  <!-- Analytics tapas -->
+  <div class="card mb-3" id="panel-analytics" style="display:none">
+    <div class="card-header" style="padding:12px 20px;cursor:pointer" onclick="toggleAnalytics()">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="fw-600 text-sm">Analytics de Tapas — Promedios históricos</span>
+        <span id="analytics-toggle-icon">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+      </div>
+    </div>
+    <div class="card-body" id="analytics-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;padding:16px 20px"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="padding:14px 20px">
+      <h3>Historial de Tapas</h3>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Lote</th>
+            <th>Receta / Producto</th>
+            <th>Masa origen</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Tapas</th>
+            <th>Rendim.</th>
+            <th>Costo Unit.</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if prod_tapas %}
+            {% for p in prod_tapas %}
+            <tr>
+              <td class="fw-600">{{ p.numero_lote_produccion }}</td>
+              <td>
+                <div class="fw-600 text-sm">{{ p.receta_version.nombre }}</div>
+                <div class="text-muted text-xs">{{ p.receta_version.producto.nombre }}</div>
+              </td>
+              <td class="text-muted text-xs">
+                {% if p.lote_origen_id %}
+                  <span class="badge badge-muted">L#{{ p.lote_origen_id }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="text-muted text-sm">{{ p.fecha_inicio.strftime('%d/%m/%Y') }}</td>
+              <td>
+                {% if p.estado == 'finalizada' %}<span class="badge badge-success">Finalizada</span>
+                {% elif p.estado == 'en_proceso' %}<span class="badge badge-warning">En proceso</span>
+                {% else %}<span class="badge badge-muted">{{ p.estado }}</span>{% endif %}
+              </td>
+              <td class="text-sm">
+                {% if p.tapas_reales %}
+                  <span class="fw-600">{{ p.tapas_reales }}</span>
+                  {% if p.tapas_rotas %}<span class="text-danger text-xs"> ({{ p.tapas_rotas }}✕)</span>{% endif %}
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if p.rendimiento_real_pct is not none %}
+                  {% if p.rendimiento_real_pct >= 95 %}{% set rc='badge-success' %}
+                  {% elif p.rendimiento_real_pct >= 85 %}{% set rc='badge-warning' %}
+                  {% else %}{% set rc='badge-danger' %}{% endif %}
+                  <span class="badge {{ rc }}">{{ p.rendimiento_real_pct }}%</span>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if p.costo_unitario > 0 %}<strong>${{ "{:,.2f}".format(p.costo_unitario) }}</strong>
+                {% else %}—{% endif %}
+              </td>
+              <td style="display:flex;gap:4px;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm" data-pid="{{ p.id }}" onclick="verDetalle(this.dataset.pid)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </button>
+                {% if p.estado == 'en_proceso' %}
+                  <button class="btn btn-primary btn-sm"
+                    data-pid="{{ p.id }}" data-lote="{{ p.numero_lote_produccion }}"
+                    onclick="abrirRegistroTapas(this.dataset.pid, this.dataset.lote)">
+                    + Registrar
+                  </button>
+                {% endif %}
+                <button class="btn btn-sm" style="color:var(--color-danger);border-color:rgba(239,68,68,0.3)"
+                  data-pid="{{ p.id }}" data-lote="{{ p.numero_lote_produccion }}"
+                  onclick="eliminarProduccion(this.dataset.pid, this.dataset.lote, this)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="9">
+              <div class="empty-state">
+                <div class="icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>
+                </div>
+                <h3>Sin producciones de tapas</h3>
+                <button class="btn btn-primary" onclick="abrirNuevaProduccion('tapas')">+ Nueva Tapas</button>
+              </div>
+            </td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── ALFAJORES PANEL ────────────────────────────────────────────────────── -->
+<div class="tab-panel" id="panel-alfajores">
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin:16px 0">
+    <div class="kpi-card">
+      <div class="kpi-label">En Proceso</div>
+      <div class="kpi-value">{{ prod_armado|selectattr('estado','equalto','en_proceso')|list|length }}</div>
+      <div class="kpi-sub text-muted">lotes activos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Finalizados</div>
+      <div class="kpi-value">{{ prod_armado|selectattr('estado','equalto','finalizada')|list|length }}</div>
+      <div class="kpi-sub text-muted">últimas 100</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Costo Insumos</div>
+      <div class="kpi-value" style="font-size:1.1rem">
+        ${{ "{:,.0f}".format(prod_armado|selectattr('estado','equalto','finalizada')|sum(attribute='costo_total_insumos')) }}
+      </div>
+      <div class="kpi-sub text-muted">total registrado</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Alfajores Producidos</div>
+      <div class="kpi-value">
+        {{ prod_armado|selectattr('estado','equalto','finalizada')|sum(attribute='cantidad_producida')|int }}
+      </div>
+      <div class="kpi-sub text-muted">total acumulado</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="padding:14px 20px">
+      <h3>Historial de Armado</h3>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Lote</th>
+            <th>Receta / Producto</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Alfajores</th>
+            <th>Costo Unit.</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if prod_armado %}
+            {% for p in prod_armado %}
+            <tr>
+              <td class="fw-600">{{ p.numero_lote_produccion }}</td>
+              <td>
+                <div class="fw-600 text-sm">{{ p.receta_version.nombre }}</div>
+                <div class="text-muted text-xs">{{ p.receta_version.producto.nombre }}</div>
+              </td>
+              <td class="text-muted text-sm">{{ p.fecha_inicio.strftime('%d/%m/%Y') }}</td>
+              <td>
+                {% if p.estado == 'finalizada' %}<span class="badge badge-success">Finalizada</span>
+                {% elif p.estado == 'en_proceso' %}<span class="badge badge-warning">En proceso</span>
+                {% else %}<span class="badge badge-muted">{{ p.estado }}</span>{% endif %}
+              </td>
+              <td class="text-sm fw-600">
+                {% if p.cantidad_producida %}{{ p.cantidad_producida|int }}{% else %}—{% endif %}
+              </td>
+              <td>
+                {% if p.costo_unitario > 0 %}<strong>${{ "{:,.2f}".format(p.costo_unitario) }}</strong>
+                {% else %}—{% endif %}
+              </td>
+              <td style="display:flex;gap:4px">
+                <button class="btn btn-outline btn-sm" data-pid="{{ p.id }}" onclick="verDetalle(this.dataset.pid)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </button>
+                {% if p.estado == 'en_proceso' %}
+                <button class="btn btn-primary btn-sm"
+                  data-prod-id="{{ p.id }}" data-prod-lote="{{ p.numero_lote_produccion }}" data-prod-tipo="{{ p.tipo_produccion }}"
+                  onclick="abrirFinalizar(this.dataset.prodId, this.dataset.prodLote, this.dataset.prodTipo)">
+                  Finalizar
+                </button>
+                {% endif %}
+                <button class="btn btn-sm" style="color:var(--color-danger);border-color:rgba(239,68,68,0.3)"
+                  data-pid="{{ p.id }}" data-lote="{{ p.numero_lote_produccion }}"
+                  onclick="eliminarProduccion(this.dataset.pid, this.dataset.lote, this)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="7">
+              <div class="empty-state">
+                <div class="icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg>
+                </div>
+                <h3>Sin producciones de alfajores</h3>
+                <p class="text-muted text-sm">Necesitás tener tapas disponibles para armar alfajores</p>
+                <button class="btn btn-primary" onclick="abrirNuevaProduccion('armado')">+ Nuevo Armado</button>
+              </div>
+            </td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MODAL NUEVA PRODUCCIÓN (adapta según tab activa)
+══════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-produccion">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3 id="modal-prod-titulo">Nueva Producción</h3>
+      <button class="btn-icon" onclick="closeModal('modal-produccion')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="prod-tipo-actual" value="masa">
+
+      <div class="form-row form-row-2">
+        <div class="form-group" id="form-group-receta">
+          <label class="form-label">Receta *</label>
+          <select class="form-control" id="prod-receta" onchange="mostrarInfoReceta()">
+            <option value="">Seleccionar receta...</option>
+            {% for r in recetas %}
+            <option value="{{ r.id }}"
+              data-rendimiento="{{ r.rendimiento_esperado }}"
+              data-unidad="{{ r.unidad_rendimiento }}"
+              data-producto="{{ r.producto.nombre }}">
+              {{ r.nombre }} (v{{ r.version }}) — {{ r.producto.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Operario</label>
+          <input class="form-control" id="prod-operario" placeholder="Nombre del operario">
+        </div>
+      </div>
+
+      <!-- Info receta -->
+      <div id="info-receta" style="display:none" class="card mb-3">
+        <div class="card-body" style="padding:12px">
+          <div class="fw-600 text-sm mb-2">Ficha Técnica</div>
+          <div id="ficha-tecnica-body" class="text-sm text-muted">Cargando...</div>
+        </div>
+      </div>
+
+      <!-- MASA block -->
+      <div id="bloque-masa" style="display:none">
+        <div style="border-top:1px solid var(--color-border);padding-top:14px;margin-top:4px">
+
+          <!-- Ficha del alfajor desde la receta -->
+          <div id="masa-ficha-receta" style="display:none;background:var(--color-bg-elevated);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.8rem">
+            <div class="text-xs fw-600 mb-2" style="color:var(--color-accent);text-transform:uppercase;letter-spacing:0.5px">Ficha del alfajor (desde receta)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:16px" id="masa-ficha-body"></div>
+          </div>
+
+          <div class="form-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
+            <div class="form-group">
+              <label class="form-label">Cantidad de recetas</label>
+              <input class="form-control" id="prod-cantidad-recetas" type="number" step="0.5" value="1" min="0.1" oninput="recalcularMasa()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Peso tapa mín. cruda (g)</label>
+              <input class="form-control" id="prod-peso-tapa-min" type="number" step="0.1" placeholder="ej. 11" oninput="recalcularMasa()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Peso tapa máx. cruda (g)</label>
+              <input class="form-control" id="prod-peso-tapa-max" type="number" step="0.1" placeholder="ej. 13" oninput="recalcularMasa()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Objetivo cruda (g)</label>
+              <input class="form-control" id="prod-peso-tapa-masa" type="text" readonly placeholder="Auto (min+max)/2" style="background:var(--color-bg-elevated)">
+            </div>
+          </div>
+
+          <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:6px;padding:8px 12px;font-size:0.78rem;color:#93c5fd;margin-bottom:10px">
+            El <strong>kg totales de masa que salieron</strong> los ingresás al <strong>Finalizar</strong> — acá solo planificás la producción.
+          </div>
+
+          <div id="panel-calculo-masa" style="display:none;background:var(--color-bg-elevated);border-radius:8px;padding:12px;margin-bottom:8px">
+            <div class="text-xs text-muted fw-600 mb-2">Cálculo teórico de ingredientes</div>
+            <div id="tabla-calculo-masa"></div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;text-align:center;font-size:0.8rem;border-top:1px solid var(--color-border);padding-top:8px">
+              <div><div class="text-muted">Masa total est.</div><div class="fw-600" id="calc-masa-total">—</div></div>
+              <div><div class="text-muted">Tapas est. (cruda)</div><div class="fw-600" id="calc-tapas">—</div></div>
+              <div><div class="text-muted">Costo total</div><div class="fw-600" id="calc-costo-total">—</div></div>
+              <div><div class="text-muted">Costo/tapa</div><div class="fw-600" id="calc-costo-tapa">—</div></div>
+            </div>
+          </div>
+          <input type="hidden" id="prod-tapas-est">
+        </div>
+      </div>
+
+      <!-- TAPAS block -->
+      <div id="bloque-tapas" style="display:none">
+        <div style="border-top:1px solid var(--color-border);padding-top:14px;margin-top:4px">
+          <!-- Masa section — starts locked until a recipe is selected -->
+          <div id="tapas-masa-section" style="opacity:0.35;pointer-events:none;transition:opacity 0.2s ease">
+            <div style="background:var(--color-bg-elevated);border-radius:6px;padding:7px 10px;margin-bottom:10px;font-size:0.78rem;color:var(--color-text-muted)" id="tapas-masa-hint">
+              Seleccioná primero una receta para habilitar la selección de masa.
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lote de masa origen <span style="color:var(--color-danger)">*</span></label>
+              <select class="form-control" id="prod-lote-masa-origen" onchange="mostrarDatosMasaOrigen()">
+                <option value="">— Seleccioná un lote de masa —</option>
+              </select>
+            </div>
+            <div id="panel-masa-origen" style="display:none;background:var(--color-bg-elevated);border-radius:8px;padding:12px;font-size:0.82rem;margin-bottom:10px"></div>
+          </div>
+          <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <div class="form-group">
+              <label class="form-label">Peso obj./tapa (g)</label>
+              <input class="form-control" id="prod-peso-tapa" type="number" step="0.5" placeholder="ej. 15" oninput="calcularDesdeMasa()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tapas estimadas</label>
+              <input class="form-control" id="prod-tapas-teoricas" type="number" placeholder="Auto (receta)" oninput="calcularHorno()">
+            </div>
+          </div>
+          <div class="fw-600 mb-2 text-sm">Calculadora de horno</div>
+          <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <div class="form-group">
+              <label class="form-label">Tapas por hornada</label>
+              <input class="form-control" id="prod-hornada" type="number" value="80" oninput="calcularHorno()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Min. por hornada</label>
+              <input class="form-control" id="prod-min-hornada" type="number" value="6" oninput="calcularHorno()">
+            </div>
+          </div>
+          <div id="resumen-horno" class="card" style="display:none;background:var(--color-bg-elevated);padding:12px;border-radius:6px;margin-bottom:8px">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center">
+              <div><div class="text-muted text-xs">Hornadas</div><div class="fw-600" id="res-hornadas">—</div></div>
+              <div><div class="text-muted text-xs">Tiempo cocción</div><div class="fw-600" id="res-tiempo">—</div></div>
+              <div><div class="text-muted text-xs">Total c/ calent.</div><div class="fw-600" id="res-total">—</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ARMADO block -->
+      <div id="bloque-armado" style="display:none">
+        <div class="fw-600 text-sm mb-2">Seleccioná un lote de tapas para llenar</div>
+        <div id="armado-tapas-lista">
+          <div class="text-muted text-sm">Cargando...</div>
+        </div>
+        <div id="armado-cantidad-box" style="display:none;margin-top:12px;padding:12px;background:var(--color-bg-elevated);border-radius:8px">
+          <div class="text-xs fw-600 text-muted mb-2">TAPAS A USAR EN ESTE ARMADO</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input class="form-control" id="armado-cantidad-tapas" type="number" min="1" step="1" placeholder="Cantidad" style="max-width:130px">
+            <span class="text-muted text-sm" id="armado-max-label"></span>
+          </div>
+          <div class="text-xs text-muted mt-1">Las tapas restantes quedan en stock para otro armado.</div>
+        </div>
+      </div>
+
+      <div class="form-group mt-3">
+        <label class="form-label">Notas</label>
+        <textarea class="form-control" id="prod-notas" rows="2" placeholder="Observaciones..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="iniciarProduccion()">Iniciar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-produccion')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MODAL FINALIZAR
+══════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-finalizar">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3>Finalizar Producción</h3>
+      <button class="btn-icon" onclick="closeModal('modal-finalizar')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted mb-2 text-sm" id="fin-lote-info"></p>
+
+      <!-- MASA finalization -->
+      <div id="fin-seccion-masa" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Kg totales de masa cruda que salieron *</label>
+          <input class="form-control" id="fin-masa-real-kg" type="number" step="0.1" min="0.1" placeholder="ej. 4.8" oninput="actualizarComparacionMasa()">
+          <div class="text-muted text-xs mt-1">Pesá la masa antes de llevarla al frío. Este es el peso real total que salió de la amasada.</div>
+        </div>
+        <div id="panel-comp-masa" style="display:none;background:var(--color-bg-elevated);border-radius:8px;padding:12px;margin-bottom:12px;font-size:0.82rem">
+          <div class="text-xs fw-600 text-muted mb-2">Comparación teórico vs real</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+            <div><div class="text-muted text-xs">Masa teórica</div><div class="fw-600" id="comp-masa-teo">—</div></div>
+            <div><div class="text-muted text-xs">Masa real</div><div class="fw-600" id="comp-masa-real">—</div></div>
+            <div><div class="text-muted text-xs">Tapas (masa teo)</div><div class="fw-600" id="comp-tapas-teo-teo">—</div></div>
+            <div><div class="text-muted text-xs">Tapas (masa real)</div><div class="fw-600" id="comp-tapas-teo-real">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAPAS finalization -->
+      <div id="fin-seccion-tapas" style="display:none">
+        <div id="fin-panel-masa-ctx" style="display:none;background:var(--color-bg-elevated);border-radius:8px;padding:12px;margin-bottom:12px;font-size:0.82rem"></div>
+
+        <div style="border-top:1px solid var(--color-border);padding-top:14px;margin:4px 0 10px">
+          <div class="fw-600 mb-2 text-sm">Pesos tomados de tapas (g)</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <input type="number" id="fin-peso-nuevo" class="form-control" style="width:100px" step="0.1" placeholder="g"
+              onkeydown="if(event.key==='Enter'){agregarPesoMuestra();event.preventDefault();}">
+            <button class="btn btn-outline btn-sm" onclick="agregarPesoMuestra()">+ Agregar</button>
+            <span class="text-muted text-xs" id="fin-pesos-count">0 muestras</span>
+          </div>
+          <div id="fin-lista-pesos" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:8px"></div>
+          <div id="fin-stats-pesos" style="display:none;background:var(--color-bg);border-radius:6px;padding:8px;font-size:0.8rem">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+              <div><div class="text-muted">Promedio</div><div class="fw-600" id="stat-prom">—</div></div>
+              <div><div class="text-muted">Mín</div><div class="fw-600" id="stat-min">—</div></div>
+              <div><div class="text-muted">Máx</div><div class="fw-600" id="stat-max">—</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="form-group">
+            <label class="form-label">Tapas buenas *</label>
+            <input class="form-control" id="fin-tapas-reales" type="number" placeholder="—" oninput="actualizarComparacionTapas()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tapas rotas/desc.</label>
+            <input class="form-control" id="fin-tapas-rotas" type="number" placeholder="0" oninput="actualizarComparacionTapas()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Masa sobrante (g)</label>
+            <input class="form-control" id="fin-desperdicio" type="number" placeholder="0">
+          </div>
+        </div>
+
+        <div id="panel-comp-tapas" style="display:none;background:var(--color-bg-elevated);border-radius:8px;padding:12px;font-size:0.82rem;margin-bottom:10px">
+          <div class="text-xs fw-600 text-muted mb-2">Comparación completa</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center">
+            <div><div class="text-muted text-xs">Teo (masa teo)</div><div class="fw-600" id="ct-teo-teo">—</div></div>
+            <div><div class="text-muted text-xs">Teo (masa real)</div><div class="fw-600" id="ct-teo-real">—</div></div>
+            <div><div class="text-muted text-xs">Buenas</div><div class="fw-600" style="color:var(--color-success)" id="ct-buenas">—</div></div>
+            <div><div class="text-muted text-xs">Rotas</div><div class="fw-600" style="color:var(--color-danger)" id="ct-rotas">—</div></div>
+            <div><div class="text-muted text-xs">Rendimiento</div><div class="fw-600" id="ct-rend">—</div></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Horas horno total</label>
+          <input class="form-control" id="fin-horas-horno" type="number" step="0.1" placeholder="—" style="max-width:200px">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notas finales</label>
+        <textarea class="form-control" id="fin-notas" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="confirmarFinalizar()">Confirmar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-finalizar')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MODAL TAPAS — ETAPA 1: PESAJE CRUDAS
+══════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-pesaje-cruda">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div>
+        <h3>Etapa 1 — Pesaje de tapas crudas</h3>
+        <p class="text-muted text-xs" style="margin:2px 0 0" id="pesaje-lote-info"></p>
+      </div>
+      <button class="btn-icon" onclick="closeModal('modal-pesaje-cruda')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.82rem;color:var(--color-text-muted)">
+        Tomá una muestra de tapas y pesá cada una por separado. El sistema calcula el peso promedio.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Agregar peso (g)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="pesaje-input-g" class="form-control" style="width:120px" step="0.1" min="1" placeholder="ej. 11.5"
+            onkeydown="if(event.key==='Enter'){pesajeAgregar();event.preventDefault();}">
+          <button class="btn btn-outline btn-sm" onclick="pesajeAgregar()">+ Agregar</button>
+          <button class="btn btn-sm" style="color:var(--color-text-muted)" onclick="pesajeLimpiar()">Limpiar</button>
+        </div>
+      </div>
+      <div id="pesaje-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin:4px 0 12px"></div>
+      <div id="pesaje-stats" style="display:none;background:var(--color-bg-elevated);border-radius:8px;padding:12px;text-align:center">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+          <div><div class="text-xs text-muted">Muestras</div><div class="fw-600" id="ps-count">0</div></div>
+          <div><div class="text-xs text-muted">Promedio</div><div class="fw-600 text-primary" id="ps-prom">—</div></div>
+          <div><div class="text-xs text-muted">Mín</div><div class="fw-600" id="ps-min">—</div></div>
+          <div><div class="text-xs text-muted">Máx</div><div class="fw-600" id="ps-max">—</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="guardarPesajeCruda()">Guardar y continuar →</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-pesaje-cruda')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MODAL TAPAS — ETAPA 2: CONTEO CRUDO + SOBRANTE
+══════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-conteo-crudo">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div>
+        <h3>Etapa 2 — Tapas crudas + sobrante</h3>
+        <p class="text-muted text-xs" style="margin:2px 0 0" id="conteo-lote-info"></p>
+      </div>
+      <button class="btn-icon" onclick="closeModal('modal-conteo-crudo')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="conteo-ref-panel" style="background:var(--color-bg-elevated);border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.82rem">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center">
+          <div><div class="text-xs text-muted">Peso prom. cruda</div><div class="fw-600" id="cr-prom">—</div></div>
+          <div><div class="text-xs text-muted">Tapas estimadas</div><div class="fw-600 text-primary" id="cr-est">—</div></div>
+        </div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr">
+        <div class="form-group">
+          <label class="form-label">Tapas crudas contadas *</label>
+          <input class="form-control" id="conteo-tapas-crudas" type="number" min="1" placeholder="ej. 830">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Masa sobrante (g)</label>
+          <input class="form-control" id="conteo-sobrante-g" type="number" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="guardarConteoCrudo()">Guardar y continuar →</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-conteo-crudo')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MODAL TAPAS — ETAPA 3: COCCIÓN → FINALIZAR
+══════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-coccion">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div>
+        <h3>Etapa 3 — Cocción y finalización</h3>
+        <p class="text-muted text-xs" style="margin:2px 0 0" id="coccion-lote-info"></p>
+      </div>
+      <button class="btn-icon" onclick="closeModal('modal-coccion')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="coccion-ref-panel" style="background:var(--color-bg-elevated);border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.82rem;text-align:center">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><div class="text-xs text-muted">Tapas crudas al horno</div><div class="fw-600 text-primary" id="coc-crudas">—</div></div>
+          <div><div class="text-xs text-muted">Tapas totales (buenas + rotas)</div><div class="fw-600" id="coc-total">—</div></div>
+        </div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr">
+        <div class="form-group">
+          <label class="form-label">Tapas buenas *</label>
+          <input class="form-control" id="coccion-tapas-buenas" type="number" min="0" placeholder="—"
+            oninput="coccionActualizarTotal()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tapas rotas / descartadas</label>
+          <input class="form-control" id="coccion-tapas-rotas" type="number" min="0" placeholder="0"
+            oninput="coccionActualizarTotal()">
+        </div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr">
+        <div class="form-group">
+          <label class="form-label">Tiempo de cocción</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="form-control" id="coccion-horas" type="number" min="0" step="0.5" placeholder="hs" style="width:80px">
+            <span class="text-muted text-sm">hs</span>
+            <input class="form-control" id="coccion-minutos" type="number" min="0" max="59" placeholder="min" style="width:80px">
+            <span class="text-muted text-sm">min</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Peso prom. cocida (g)</label>
+          <input class="form-control" id="coccion-peso-cocida" type="number" step="0.1" placeholder="opcional">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas</label>
+        <textarea class="form-control" id="coccion-notas" rows="2" placeholder="Observaciones del horneado..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="confirmarCoccion()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px"><polyline points="20 6 9 17 4 12"/></svg>
+        Finalizar producción
+      </button>
+      <button class="btn btn-outline" onclick="closeModal('modal-coccion')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRO TAPAS PARCIAL -->
+<div class="modal-overlay" id="modal-registro-tapas">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3>Registrar tapas cocidas</h3>
+      <button class="btn-icon" onclick="closeModal('modal-registro-tapas')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:.78rem;color:var(--color-text-muted);margin-bottom:14px">
+        Lote: <strong id="rt-lote-label">—</strong>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label class="form-label">Fecha de la hornada</label>
+          <input class="form-control" type="date" id="rt-fecha" />
+        </div>
+        <div>
+          <label class="form-label">Tapas OK <span class="text-danger">*</span></label>
+          <input class="form-control" type="number" id="rt-tapas-ok" min="0" placeholder="0" oninput="rtActualizar()" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label class="form-label">Tapas rotas / descartadas</label>
+        <input class="form-control" type="number" id="rt-tapas-rotas" min="0" value="0" placeholder="0" style="max-width:160px" />
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label class="form-label">Pesos tapas cocidas (g) <span class="text-muted text-xs">— calcula el promedio solo</span></label>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <input type="number" id="rt-peso-cocida-input" class="form-control" style="width:100px" step="0.1" min="1" placeholder="ej. 10.8"
+            onkeydown="if(event.key==='Enter'){rtPesoCocidaAgregar();event.preventDefault();}">
+          <button class="btn btn-outline btn-sm" onclick="rtPesoCocidaAgregar()">+ Agregar</button>
+          <button class="btn btn-sm" style="color:var(--color-text-muted)" onclick="rtPesoCocidaLimpiar()">Limpiar</button>
+        </div>
+        <div id="rt-peso-cocida-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:6px"></div>
+        <div id="rt-peso-cocida-stats" style="display:none;background:var(--color-bg-elevated);border-radius:6px;padding:8px;font-size:0.78rem;text-align:center">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+            <div><div class="text-muted">Muestras</div><div class="fw-600" id="rtpc-count">0</div></div>
+            <div><div class="text-muted">Promedio</div><div class="fw-600 text-primary" id="rtpc-prom">—</div></div>
+            <div><div class="text-muted">Mín</div><div class="fw-600" id="rtpc-min">—</div></div>
+            <div><div class="text-muted">Máx</div><div class="fw-600" id="rtpc-max">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label class="form-label">Tiempo de cocción (min)</label>
+          <input class="form-control" type="number" id="rt-tiempo-min" min="0" placeholder="ej: 60" />
+        </div>
+        <div>
+          <label class="form-label">Desperdicio de masa (g)</label>
+          <input class="form-control" type="number" id="rt-desperdicio" min="0" step="0.1" placeholder="0" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:8px">
+        <label class="form-label">Notas</label>
+        <input class="form-control" type="text" id="rt-notas" placeholder="Observaciones opcionales..." />
+      </div>
+
+      <!-- Acumulado en vivo -->
+      <div id="rt-resumen-registros" style="margin-top:14px;padding:12px;background:var(--color-bg-elevated);border-radius:8px;border:1px solid var(--color-border);font-size:.78rem;display:none">
+        <div style="font-weight:600;color:var(--color-text);margin-bottom:8px">Registros anteriores de este lote:</div>
+        <div id="rt-tabla-registros"></div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--color-border);display:flex;gap:20px">
+          <span>Total tapas ok: <strong id="rt-total-ok" style="color:#22c55e">0</strong></span>
+          <span>Rotas: <strong id="rt-total-rotas" style="color:#ef4444">0</strong></span>
+          <span>Tiempo: <strong id="rt-total-tiempo" style="color:var(--color-text)">—</strong></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-registro-tapas')">Cancelar</button>
+      <button class="btn btn-success" onclick="guardarRegistroTapas()" id="rt-btn-guardar">
+        Guardar registro
+      </button>
+      <button class="btn btn-primary" onclick="finalizarDesdRegistro()" id="rt-btn-finalizar" style="display:none">
+        ✔ Finalizar lote de tapas
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="modal-overlay" id="modal-detalle">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <h3 id="detalle-titulo">Detalle de Producción</h3>
+      <button class="btn-icon" onclick="closeModal('modal-detalle')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="detalle-body">
+      <div class="text-muted">Cargando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MODAL PANEL DE ARMADO
+══════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-armado">
+  <div class="modal" style="max-width:800px;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="flex-shrink:0">
+      <div>
+        <h3>Panel de Armado — Relleno y Baño</h3>
+        <div class="text-muted text-xs" id="armado-lote-info"></div>
+      </div>
+      <button class="btn-icon" onclick="closeModal('modal-armado')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="armado-body" style="overflow-y:auto;flex:1">
+      <div class="text-muted text-center" style="padding:40px">Cargando...</div>
+    </div>
+    <div style="flex-shrink:0;border-top:1px solid var(--color-border);padding:10px 20px;background:var(--color-bg-card)">
+      <!-- Resumen pesajes -->
+      <div id="armado-pesajes-resumen" style="display:none;margin-bottom:10px;font-size:0.8rem;display:flex;gap:16px">
+        <span id="arm-res-sin-bano" class="text-muted"></span>
+        <span id="arm-res-con-bano" class="text-muted"></span>
+      </div>
+      <!-- Botones de etapas -->
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+        <button class="btn btn-sm" style="background:rgba(99,102,241,0.1);border-color:rgba(99,102,241,0.3);color:#818cf8"
+          onclick="abrirPesajeArmado('sin_bano')">
+          ⚖️ Pesaje sin baño
+        </button>
+        <button class="btn btn-sm" style="background:rgba(139,92,246,0.1);border-color:rgba(139,92,246,0.3);color:#a78bfa"
+          onclick="abrirPesajeArmado('con_bano')">
+          🍫 Pesaje con baño
+        </button>
+        <div style="width:1px;height:20px;background:var(--color-border);margin:0 4px"></div>
+        <button class="btn btn-primary btn-sm" onclick="abrirEnvasado()">
+          📦 Envasar y Finalizar
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modal-armado')" style="margin-left:auto">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MODAL ENVASADO Y FINALIZACIÓN
+══════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-envasado">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <div>
+        <h3>📦 Envasado y Finalización</h3>
+        <p class="text-muted text-xs" style="margin:2px 0 0" id="envasado-lote-info"></p>
+      </div>
+      <button class="btn-icon" onclick="closeModal('modal-envasado')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Cantidad -->
+      <div class="form-group">
+        <label class="form-label">Total alfajores a envasar *</label>
+        <input class="form-control" id="env-cantidad" type="number" min="1" step="1" placeholder="ej. 80"
+          style="max-width:140px" oninput="envasadoActualizar()">
+      </div>
+
+      <!-- Envoltorio -->
+      <div style="background:var(--color-bg-elevated);border-radius:8px;padding:14px;margin-bottom:14px">
+        <div class="fw-600 text-sm mb-2">Envoltorio</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <select class="form-control" id="env-insumo-envoltorio" style="flex:1" onchange="envasadoActualizar()">
+            <option value="">— Sin descuento de envoltorio —</option>
+          </select>
+          <div style="font-size:0.82rem;min-width:100px;text-align:right">
+            <span class="text-muted">Cantidad:</span>
+            <strong id="env-cant-envoltorio">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Etiquetas -->
+      <div style="background:var(--color-bg-elevated);border-radius:8px;padding:14px;margin-bottom:14px">
+        <div class="fw-600 text-sm mb-3">Etiquetas</div>
+
+        <!-- Tipo etiqueta -->
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <button id="env-btn-simple" class="btn btn-sm env-tipo-btn active-tipo"
+            onclick="setTipoEtiqueta('simple')" style="flex:1">
+            Solo frente<br><span class="text-xs text-muted">1 etiqueta / u</span>
+          </button>
+          <button id="env-btn-doble" class="btn btn-sm env-tipo-btn"
+            onclick="setTipoEtiqueta('doble')" style="flex:1">
+            Ambas caras<br><span class="text-xs text-muted">2 etiquetas / u</span>
+          </button>
+          <button id="env-btn-mixto" class="btn btn-sm env-tipo-btn"
+            onclick="setTipoEtiqueta('mixto')" style="flex:1">
+            Mixto<br><span class="text-xs text-muted">cantidades separadas</span>
+          </button>
+        </div>
+
+        <!-- Mixto inputs -->
+        <div id="env-mixto-inputs" style="display:none;margin-bottom:12px">
+          <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <div class="form-group">
+              <label class="form-label text-xs">Frente solo (u)</label>
+              <input class="form-control" id="env-mixto-simple" type="number" min="0" value="0" oninput="envasadoActualizar()">
+            </div>
+            <div class="form-group">
+              <label class="form-label text-xs">Ambas caras (u)</label>
+              <input class="form-control" id="env-mixto-doble" type="number" min="0" value="0" oninput="envasadoActualizar()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Insumo etiqueta + total -->
+        <div style="display:flex;gap:10px;align-items:center">
+          <select class="form-control" id="env-insumo-etiqueta" style="flex:1" onchange="envasadoActualizar()">
+            <option value="">— Sin descuento de etiquetas —</option>
+          </select>
+          <div style="font-size:0.82rem;min-width:110px;text-align:right">
+            <span class="text-muted">Total etiquetas:</span>
+            <strong id="env-cant-etiquetas">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen -->
+      <div id="env-resumen" style="display:none;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:12px;font-size:0.82rem">
+        <div class="fw-600 mb-2" style="color:var(--color-success)">Resumen de envasado</div>
+        <div id="env-resumen-detalle"></div>
+      </div>
+
+      <!-- Vencimiento -->
+      <div class="form-group mt-2">
+        <label class="form-label">Días de vencimiento</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input class="form-control" id="env-dias-vto" type="number" min="1" step="1"
+            style="max-width:100px" oninput="actualizarFechaVto()">
+          <span class="text-sm" id="env-fecha-vto-label" style="color:var(--color-accent)"></span>
+        </div>
+        <div class="text-xs text-muted mt-1">Precargado desde la receta — ajustá si hace falta.</div>
+      </div>
+
+      <div class="form-group mt-2">
+        <label class="form-label">Notas</label>
+        <textarea class="form-control" id="env-notas" rows="2" placeholder="Observaciones..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="confirmarEnvasado()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px"><polyline points="20 6 9 17 4 12"/></svg>
+        Envasar y poner en stock
+      </button>
+      <button class="btn btn-outline" onclick="closeModal('modal-envasado')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MODAL ARMADO — PESAJE (sin baño / con baño)
+══════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-pesaje-armado">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div>
+        <h3 id="pesaje-armado-titulo">Pesaje</h3>
+        <p class="text-muted text-xs" style="margin:2px 0 0" id="pesaje-armado-subtitulo"></p>
+      </div>
+      <button class="btn-icon" onclick="closeModal('modal-pesaje-armado')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="pesaje-armado-info" style="background:var(--color-bg-elevated);border-radius:8px;padding:10px;margin-bottom:14px;font-size:0.82rem;color:var(--color-text-muted)"></div>
+      <div class="form-group">
+        <label class="form-label">Agregar peso (g)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="pesaje-armado-input" class="form-control" style="width:120px" step="0.1" min="1" placeholder="ej. 52.3"
+            onkeydown="if(event.key==='Enter'){pesajeArmadoAgregar();event.preventDefault();}">
+          <button class="btn btn-outline btn-sm" onclick="pesajeArmadoAgregar()">+ Agregar</button>
+          <button class="btn btn-sm" style="color:var(--color-text-muted)" onclick="pesajeArmadoLimpiar()">Limpiar</button>
+        </div>
+      </div>
+      <div id="pesaje-armado-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin:4px 0 12px"></div>
+      <div id="pesaje-armado-stats" style="display:none;background:var(--color-bg);border-radius:6px;padding:10px;text-align:center">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+          <div><div class="text-xs text-muted">Muestras</div><div class="fw-600" id="pa-count">0</div></div>
+          <div><div class="text-xs text-muted">Promedio</div><div class="fw-600 text-primary" id="pa-prom">—</div></div>
+          <div><div class="text-xs text-muted">Mín</div><div class="fw-600" id="pa-min">—</div></div>
+          <div><div class="text-xs text-muted">Máx</div><div class="fw-600" id="pa-max">—</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="guardarPesajeArmado()">Guardar</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-pesaje-armado')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let produccionActivaId = null;
+let produccionActivaTipo = 'general';
+let tapasTeoricas = null;
+let lotesMasaData = [];
+let pesosMuestra = [];
+let masaOrigenCtx = null;
+let _finProdData = null;
+let _calcMasaTotalG = 0;
+
+// ── Tabs ──────────────────────────────────────────────────────────
+const TAB_ACTIONS = {
+  masa: `<button class="btn btn-primary" onclick="abrirNuevaProduccion('masa')">+ Nueva Masa</button>`,
+  tapas: `<button class="btn btn-primary" onclick="abrirNuevaProduccion('tapas')">+ Nueva Tapas</button>`,
+  alfajores: `<button class="btn btn-primary" onclick="abrirNuevaProduccion('armado')">+ Nuevo Armado</button>`,
+};
+
+function switchTab(name) {
+  document.querySelectorAll('.page-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-btn-' + name).classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+  document.getElementById('tab-actions').innerHTML = TAB_ACTIONS[name] || '';
+  localStorage.setItem('prod-tab', name);
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+(function init() {
+  const saved = localStorage.getItem('prod-tab') || 'masa';
+  const param = new URLSearchParams(location.search).get('tab');
+  const tab = param || saved;
+  switchTab(['masa','tapas','alfajores'].includes(tab) ? tab : 'masa');
+  cargarAnalytics();
+})();
+
+// ── Analytics tapas ───────────────────────────────────────────────
+async function cargarAnalytics() {
+  try {
+    const d = await apiGet('/produccion/api/analytics/tapas');
+    if (d.registros === 0) return;
+    document.getElementById('panel-analytics').style.display = 'block';
+    document.getElementById('kpi-rendimiento').textContent = d.promedio_rendimiento_pct ? d.promedio_rendimiento_pct + '%' : '—';
+    document.getElementById('analytics-body').innerHTML = `
+      <div style="text-align:center">
+        <div class="text-muted text-xs mb-1">Peso cruda prom.</div>
+        <div class="fw-600" style="font-size:1.3rem">${d.promedio_peso_cruda_g ? d.promedio_peso_cruda_g + 'g' : '—'}</div>
+      </div>
+      <div style="text-align:center">
+        <div class="text-muted text-xs mb-1">Peso cocida prom.</div>
+        <div class="fw-600" style="font-size:1.3rem">${d.promedio_peso_cocida_g ? d.promedio_peso_cocida_g + 'g' : '—'}</div>
+      </div>
+      <div style="text-align:center">
+        <div class="text-muted text-xs mb-1">Merma por cocción</div>
+        <div class="fw-600" style="font-size:1.3rem;color:var(--color-warning)">${d.merma_coccion_pct ? d.merma_coccion_pct + '%' : '—'}</div>
+      </div>
+      <div style="text-align:center">
+        <div class="text-muted text-xs mb-1">Desperdicio masa prom.</div>
+        <div class="fw-600" style="font-size:1.3rem;color:var(--color-danger)">${d.promedio_desperdicio_g ? d.promedio_desperdicio_g + 'g' : '—'}</div>
+      </div>`;
+    const total = d.ultimas.reduce((s, p) => s + (p.tapas_reales || 0), 0);
+    document.getElementById('kpi-tapas-total').textContent = total > 0 ? total : '—';
+  } catch(e) {}
+}
+
+function toggleAnalytics() {
+  const body = document.getElementById('analytics-body');
+  body.style.display = body.style.display === 'none' ? 'grid' : 'none';
+}
+
+// ── Utility ───────────────────────────────────────────────────────
+function estimarPesoG(cantidad, unidad) {
+  const u = (unidad || '').toLowerCase();
+  if (u === 'kg') return cantidad * 1000;
+  if (u === 'g') return cantidad;
+  if (u === 'litro' || u === 'l') return cantidad * 1000;
+  if (u === 'ml') return cantidad;
+  if (u === 'huevo' || u === 'huevos' || u === 'unidad' || u === 'unidades') return cantidad * 55;
+  return cantidad * 1000;
+}
+function formatG(g) {
+  if (g >= 1000) return `${(g / 1000).toFixed(2)} kg`;
+  return `${Math.round(g)} g`;
+}
+
+// ── Nueva producción ──────────────────────────────────────────────
+async function abrirNuevaProduccion(tipo) {
+  document.getElementById('prod-tipo-actual').value = tipo;
+  const titulos = { masa: 'Nueva Elaboración de Masa', tapas: 'Nueva Producción de Tapas', armado: 'Nuevo Armado de Alfajores' };
+  document.getElementById('modal-prod-titulo').textContent = titulos[tipo] || 'Nueva Producción';
+
+  document.getElementById('bloque-masa').style.display = tipo === 'masa' ? 'block' : 'none';
+  document.getElementById('bloque-tapas').style.display = tipo === 'tapas' ? 'block' : 'none';
+  document.getElementById('bloque-armado').style.display = tipo === 'armado' ? 'block' : 'none';
+
+  // Receta: visible para masa/tapas, oculto para armado (auto-detectado desde lote tapas)
+  const fgReceta = document.getElementById('form-group-receta');
+  if (fgReceta) fgReceta.style.display = tipo === 'armado' ? 'none' : 'block';
+
+  ['prod-receta','prod-operario','prod-notas'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('prod-cantidad-recetas').value = '1';
+  document.getElementById('prod-peso-tapa-masa').value = '';
+  document.getElementById('prod-tapas-est').value = '';
+  const minEl = document.getElementById('prod-peso-tapa-min');
+  const maxEl = document.getElementById('prod-peso-tapa-max');
+  if (minEl) minEl.value = '';
+  if (maxEl) maxEl.value = '';
+  document.getElementById('panel-calculo-masa').style.display = 'none';
+  document.getElementById('info-receta').style.display = 'none';
+  const fichaEl = document.getElementById('masa-ficha-receta');
+  if (fichaEl) fichaEl.style.display = 'none';
+  _calcMasaTotalG = 0;
+
+  if (tipo === 'tapas') {
+    // Lock masa section until recipe is selected
+    const masaSection = document.getElementById('tapas-masa-section');
+    const masaHint = document.getElementById('tapas-masa-hint');
+    if (masaSection) { masaSection.style.opacity = '0.35'; masaSection.style.pointerEvents = 'none'; }
+    if (masaHint) masaHint.style.display = 'block';
+
+    try {
+      lotesMasaData = await apiGet('/produccion/api/lotes/masa');
+      const sel = document.getElementById('prod-lote-masa-origen');
+      sel.innerHTML = lotesMasaData.length
+        ? '<option value="">— Seleccioná un lote de masa —</option>'
+        : '<option value="">Sin masa libre — si ya tenés tapas en proceso, usá "+ Registrar"</option>';
+      for (const l of lotesMasaData) {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = `${l.numero_lote} — ${l.producto_nombre} (${l.cantidad_actual.toFixed(2)} kg)`;
+        sel.appendChild(opt);
+      }
+      document.getElementById('panel-masa-origen').style.display = 'none';
+    } catch(e) {
+      document.getElementById('prod-lote-masa-origen').innerHTML = '<option value="">No se pudieron cargar los lotes</option>';
+    }
+    document.getElementById('prod-peso-tapa').value = '';
+    document.getElementById('prod-tapas-teoricas').value = '';
+    document.getElementById('prod-hornada').value = '80';
+    document.getElementById('prod-min-hornada').value = '6';
+    document.getElementById('resumen-horno').style.display = 'none';
+  }
+
+  if (tipo === 'armado') {
+    document.getElementById('form-group-receta').style.display = 'none';
+    document.getElementById('info-receta').style.display = 'none';
+    document.getElementById('armado-cantidad-box').style.display = 'none';
+    window._selectedLoteTapas = null;
+    const lista = document.getElementById('armado-tapas-lista');
+    lista.innerHTML = '<div class="text-muted text-sm">Cargando lotes de tapas...</div>';
+    try {
+      const lotesTapas = await apiGet('/produccion/api/lotes/tapas');
+      if (!lotesTapas.length) {
+        lista.innerHTML = '<div style="color:var(--color-warning);font-size:0.82rem;padding:8px 0">Sin tapas disponibles. Registrá una sesión de tapas primero.</div>';
+      } else {
+        lista.innerHTML = lotesTapas.map(l => {
+          const libre = Math.floor(l.cantidad_libre ?? l.cantidad_actual);
+          return `<div class="tapas-lote-item" data-id="${l.id}"
+            onclick="seleccionarLoteTapas(this, ${JSON.stringify(l).replace(/"/g, '&quot;')})"
+            style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--color-bg-elevated);border:2px solid var(--color-border);border-radius:8px;margin-bottom:6px;font-size:0.82rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s">
+            <span class="badge badge-warning">${l.numero_lote}</span>
+            <span style="flex:1;font-weight:600">${l.producto_nombre}</span>
+            <strong style="color:var(--color-accent)">${libre} tapas libres</strong>
+            ${l.peso_tapa_cocida_g ? `<span class="text-muted text-xs">${l.peso_tapa_cocida_g}g c/u</span>` : ''}
+            ${l.fecha_vencimiento ? `<span class="text-muted text-xs">Vto: ${l.fecha_vencimiento.slice(0,10)}</span>` : ''}
+          </div>`;
+        }).join('');
+      }
+    } catch(e) {
+      lista.innerHTML = '<div class="text-muted text-sm">No se pudieron cargar los lotes</div>';
+    }
+  }
+
+  openModal('modal-produccion');
+}
+
+// ── Receta info ───────────────────────────────────────────────────
+async function mostrarInfoReceta() {
+  const sel = document.getElementById('prod-receta');
+  const opt = sel.selectedOptions[0];
+  const tipo = document.getElementById('prod-tipo-actual').value;
+  const info = document.getElementById('info-receta');
+  if (!opt?.value) { info.style.display = 'none'; return; }
+
+  tapasTeoricas = parseFloat(opt.dataset.rendimiento);
+
+  if (tipo === 'tapas') {
+    document.getElementById('prod-tapas-teoricas').value = opt.dataset.rendimiento;
+    calcularHorno();
+    info.style.display = 'block';
+    document.getElementById('ficha-tecnica-body').textContent = `Rendimiento: ${opt.dataset.rendimiento} ${opt.dataset.unidad} · Producto: ${opt.dataset.producto}`;
+    // Unlock masa section now that a recipe is selected
+    const masaSection = document.getElementById('tapas-masa-section');
+    const masaHint = document.getElementById('tapas-masa-hint');
+    if (masaSection) { masaSection.style.opacity = '1'; masaSection.style.pointerEvents = 'auto'; }
+    if (masaHint) masaHint.style.display = 'none';
+    return;
+  }
+
+  if (tipo === 'masa') {
+    // Cargar ficha del alfajor desde la receta y auto-fill campos
+    try {
+      const ft = await apiGet(`/recetas/api/${opt.value}/ficha-tecnica?cantidad_objetivo=1`);
+      const fichaEl = document.getElementById('masa-ficha-receta');
+      const fichaBody = document.getElementById('masa-ficha-body');
+      const items = [];
+      if (ft.peso_tapa_objetivo_g) items.push(`<div><div class="text-muted text-xs">Peso tapa obj.</div><div class="fw-600">${ft.peso_tapa_objetivo_g}g</div></div>`);
+      if (ft.tapas_por_alfajor) items.push(`<div><div class="text-muted text-xs">Tapas/alfajor</div><div class="fw-600">${ft.tapas_por_alfajor}</div></div>`);
+      if (ft.peso_relleno_objetivo_g) items.push(`<div><div class="text-muted text-xs">Relleno</div><div class="fw-600">${ft.peso_relleno_objetivo_g}g</div></div>`);
+      if (ft.peso_bano_objetivo_g) items.push(`<div><div class="text-muted text-xs">Baño</div><div class="fw-600">${ft.peso_bano_objetivo_g}g</div></div>`);
+      if (ft.peso_alfajor_objetivo_g) items.push(`<div><div class="text-muted text-xs">Peso final</div><div class="fw-600">${ft.peso_alfajor_objetivo_g}g</div></div>`);
+      if (items.length > 0) { fichaBody.innerHTML = items.join(''); fichaEl.style.display = 'block'; }
+      else fichaEl.style.display = 'none';
+      // Auto-fill peso tapa min/max si la receta tiene el objetivo
+      if (ft.peso_tapa_objetivo_g) {
+        const minEl = document.getElementById('prod-peso-tapa-min');
+        const maxEl = document.getElementById('prod-peso-tapa-max');
+        if (minEl && !minEl.value) minEl.value = (ft.peso_tapa_objetivo_g - 1.5).toFixed(1);
+        if (maxEl && !maxEl.value) maxEl.value = (ft.peso_tapa_objetivo_g + 1.5).toFixed(1);
+      }
+    } catch(e) { document.getElementById('masa-ficha-receta').style.display = 'none'; }
+    recalcularMasa();
+    return;
+  }
+
+  // armado — show standard ficha
+  info.style.display = 'block';
+  document.getElementById('ficha-tecnica-body').textContent = 'Cargando...';
+  try {
+    const ft = await apiGet(`/recetas/api/${opt.value}/ficha-tecnica?cantidad_objetivo=${opt.dataset.rendimiento}`);
+    document.getElementById('ficha-tecnica-body').innerHTML = `
+      <div style="margin-bottom:8px">Rendimiento: <strong>${ft.rendimiento_base} ${ft.unidad_rendimiento}</strong> · Costo: <strong>$${ft.costo_por_unidad.toFixed(2)}/u</strong></div>
+      <table class="table" style="font-size:0.78rem">
+        <thead><tr><th>Ingrediente</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
+        <tbody>${ft.ingredientes.map(i => `<tr><td>${i.nombre}</td><td>${i.cantidad_objetivo} ${i.unidad}</td><td>$${i.costo_total_ingrediente.toFixed(2)}</td></tr>`).join('')}</tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('ficha-tecnica-body').textContent = 'Sin ficha técnica disponible';
+  }
+}
+
+// ── Masa calculation ──────────────────────────────────────────────
+async function recalcularMasa() {
+  const sel = document.getElementById('prod-receta');
+  const opt = sel.selectedOptions[0];
+  if (!opt?.value) return;
+
+  const nRecetas = parseFloat(document.getElementById('prod-cantidad-recetas').value) || 1;
+  const pesoMin = parseFloat(document.getElementById('prod-peso-tapa-min').value) || 0;
+  const pesoMax = parseFloat(document.getElementById('prod-peso-tapa-max').value) || 0;
+
+  // Calcular objetivo como promedio de min/max
+  let pesoTapaObj = 0;
+  if (pesoMin > 0 && pesoMax > 0) {
+    pesoTapaObj = (pesoMin + pesoMax) / 2;
+    document.getElementById('prod-peso-tapa-masa').value = pesoTapaObj.toFixed(1);
+  } else if (pesoMin > 0) {
+    pesoTapaObj = pesoMin;
+    document.getElementById('prod-peso-tapa-masa').value = pesoMin.toFixed(1);
+  } else if (pesoMax > 0) {
+    pesoTapaObj = pesoMax;
+    document.getElementById('prod-peso-tapa-masa').value = pesoMax.toFixed(1);
+  } else {
+    document.getElementById('prod-peso-tapa-masa').value = '';
+  }
+
+  const rendBase = parseFloat(opt.dataset.rendimiento);
+  const cantObj = rendBase * nRecetas;
+
+  try {
+    const ft = await apiGet(`/recetas/api/${opt.value}/ficha-tecnica?cantidad_objetivo=${cantObj}`);
+
+    document.getElementById('info-receta').style.display = 'block';
+    document.getElementById('ficha-tecnica-body').innerHTML =
+      `Rendimiento base: <strong>${ft.rendimiento_base} ${ft.unidad_rendimiento}</strong> × <strong>${nRecetas} receta${nRecetas !== 1 ? 's' : ''}</strong>`;
+
+    let totalG = 0;
+    const rows = ft.ingredientes.map(i => {
+      const g = estimarPesoG(i.cantidad_objetivo, i.unidad);
+      totalG += g;
+      return `<tr><td>${i.nombre}</td><td>${i.cantidad_objetivo} ${i.unidad}</td><td class="text-muted">${formatG(g)}</td><td>$${i.costo_total_ingrediente.toFixed(2)}</td></tr>`;
+    }).join('');
+
+    document.getElementById('tabla-calculo-masa').innerHTML = `
+      <table class="table" style="font-size:0.78rem;margin-bottom:0">
+        <thead><tr><th>Ingrediente</th><th>Cantidad</th><th>Peso est.</th><th>Subtotal</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    _calcMasaTotalG = totalG;
+    document.getElementById('calc-masa-total').textContent = formatG(totalG);
+    document.getElementById('calc-costo-total').textContent = `$${ft.costo_total_estimado.toFixed(2)}`;
+
+    if (pesoTapaObj > 0 && totalG > 0) {
+      const tapasEst = Math.floor(totalG / pesoTapaObj);
+      document.getElementById('prod-tapas-est').value = tapasEst;
+      document.getElementById('calc-tapas').textContent = tapasEst;
+      document.getElementById('calc-costo-tapa').textContent = `$${(ft.costo_total_estimado / tapasEst).toFixed(2)}`;
+      tapasTeoricas = tapasEst;
+    } else {
+      document.getElementById('prod-tapas-est').value = '';
+      document.getElementById('calc-tapas').textContent = '—';
+      document.getElementById('calc-costo-tapa').textContent = '—';
+    }
+
+    document.getElementById('panel-calculo-masa').style.display = 'block';
+  } catch(e) {}
+}
+
+// ── Tapas — lote masa selector ────────────────────────────────────
+function mostrarDatosMasaOrigen() {
+  const sel = document.getElementById('prod-lote-masa-origen');
+  const loteId = parseInt(sel.value);
+  const lote = lotesMasaData.find(l => l.id === loteId);
+  const panel = document.getElementById('panel-masa-origen');
+  if (!lote) { panel.style.display = 'none'; return; }
+
+  const pesoTapa = parseFloat(document.getElementById('prod-peso-tapa').value);
+  let tapasTeoTeo = lote.tapas_teo_desde_teo;
+  let tapasTeoReal = lote.tapas_teo_desde_real;
+  if (pesoTapa > 0) {
+    if (lote.peso_masa_teo_g) tapasTeoTeo = Math.floor(lote.peso_masa_teo_g / pesoTapa);
+    if (lote.masa_real_g) tapasTeoReal = Math.floor(lote.masa_real_g / pesoTapa);
+  }
+
+  // Auto-fill peso tapa from masa lot if available
+  if (lote.peso_tapa_objetivo_g) {
+    const ptEl = document.getElementById('prod-peso-tapa');
+    if (ptEl && !ptEl.value) ptEl.value = lote.peso_tapa_objetivo_g;
+  }
+
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="fw-600 text-xs text-muted mb-2">Datos del lote: ${lote.numero_lote}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+      <div><div class="text-muted text-xs">Masa teórica</div><div class="fw-600">${lote.peso_masa_teo_g ? formatG(lote.peso_masa_teo_g) : '—'}</div></div>
+      <div><div class="text-muted text-xs">Masa real</div><div class="fw-600">${lote.masa_real_g ? formatG(lote.masa_real_g) : '—'}</div></div>
+      <div><div class="text-muted text-xs">Tapas (masa teo)</div><div class="fw-600">${tapasTeoTeo != null ? tapasTeoTeo : '—'}</div></div>
+      <div><div class="text-muted text-xs">Tapas (masa real)</div><div class="fw-600">${tapasTeoReal != null ? tapasTeoReal : '—'}</div></div>
+    </div>`;
+}
+
+function calcularDesdeMasa() {
+  mostrarDatosMasaOrigen();
+  calcularHorno();
+}
+
+function seleccionarLoteTapas(el, lote) {
+  document.querySelectorAll('.tapas-lote-item').forEach(i => {
+    i.style.borderColor = 'var(--color-border)';
+  });
+  el.style.borderColor = 'var(--color-accent)';
+  window._selectedLoteTapas = lote;
+  const libre = Math.floor(lote.cantidad_libre ?? lote.cantidad_actual);
+  const box = document.getElementById('armado-cantidad-box');
+  const inp = document.getElementById('armado-cantidad-tapas');
+  const lbl = document.getElementById('armado-max-label');
+  inp.max = libre;
+  inp.value = libre;
+  lbl.textContent = `máx. ${libre} (todas las disponibles)`;
+  box.style.display = 'block';
+}
+
+function calcularHorno() {
+  const teoricas = parseFloat(document.getElementById('prod-tapas-teoricas')?.value) || tapasTeoricas;
+  const xHornada = parseInt(document.getElementById('prod-hornada')?.value) || 80;
+  const minXHornada = parseInt(document.getElementById('prod-min-hornada')?.value) || 6;
+  const resHorno = document.getElementById('resumen-horno');
+  if (!teoricas || !xHornada || !resHorno) return;
+  const hornadas = Math.ceil(teoricas / xHornada);
+  const minCoccion = hornadas * minXHornada;
+  document.getElementById('res-hornadas').textContent = hornadas;
+  document.getElementById('res-tiempo').textContent = `${minCoccion} min`;
+  document.getElementById('res-total').textContent = `~${((minCoccion + 30) / 60).toFixed(1)} hs`;
+  resHorno.style.display = 'block';
+}
+
+async function iniciarProduccion() {
+  const tipo = document.getElementById('prod-tipo-actual').value;
+
+  if (tipo === 'armado') {
+    const lote = window._selectedLoteTapas;
+    if (!lote) { toast('Seleccioná un lote de tapas para armar', 'error'); return; }
+    if (!lote.receta_version_id) { toast('Este lote de tapas no tiene receta asociada en el sistema', 'error'); return; }
+    const cantidadEl = document.getElementById('armado-cantidad-tapas');
+    const cantidad = parseInt(cantidadEl?.value);
+    if (!cantidad || cantidad <= 0) { toast('Ingresá cuántas tapas vas a usar', 'error'); return; }
+    const libre = Math.floor(lote.cantidad_libre ?? lote.cantidad_actual);
+    if (cantidad > libre) { toast(`Solo hay ${libre} tapas disponibles`, 'error'); return; }
+    try {
+      const r = await apiPost('/produccion/api/iniciar', {
+        receta_version_id: lote.receta_version_id,
+        operario: document.getElementById('prod-operario').value || null,
+        notas: document.getElementById('prod-notas').value || null,
+        tipo_produccion: 'armado',
+        lote_origen_id: lote.id,
+        cantidad_tapas_a_usar: cantidad,
+      });
+      toast(`Lote ${r.numero_lote_produccion} iniciado (Armado)`, 'success');
+      closeModal('modal-produccion');
+      setTimeout(() => location.reload(), 800);
+    } catch(e) { toast(e.message, 'error'); }
+    return;
+  }
+
+  const recetaId = document.getElementById('prod-receta').value;
+  if (!recetaId) { toast('Seleccioná una receta', 'error'); return; }
+
+  const payload = {
+    receta_version_id: parseInt(recetaId),
+    operario: document.getElementById('prod-operario').value || null,
+    notas: document.getElementById('prod-notas').value || null,
+    tipo_produccion: tipo,
+  };
+
+  if (tipo === 'masa') {
+    const nRecetas = parseFloat(document.getElementById('prod-cantidad-recetas').value) || 1;
+    const pesoTapaObj = parseFloat(document.getElementById('prod-peso-tapa-masa').value) || null;
+    const pesoMin = parseFloat(document.getElementById('prod-peso-tapa-min').value) || null;
+    const pesoMax = parseFloat(document.getElementById('prod-peso-tapa-max').value) || null;
+    payload.cantidad_recetas = nRecetas;
+    if (pesoTapaObj) payload.peso_tapa_objetivo_g = pesoTapaObj;
+    if (pesoMin) payload.peso_tapa_min_g = pesoMin;
+    if (pesoMax) payload.peso_tapa_max_g = pesoMax;
+    if (_calcMasaTotalG > 0) payload.peso_masa_total_g = _calcMasaTotalG;
+  }
+
+  if (tipo === 'tapas') {
+    const loteOrigenEl = document.getElementById('prod-lote-masa-origen');
+    if (!loteOrigenEl?.value) {
+      toast('Seleccioná un lote de masa antes de iniciar las tapas', 'error');
+      return;
+    }
+    payload.lote_origen_id = parseInt(loteOrigenEl.value);
+    const pesoTapa = parseFloat(document.getElementById('prod-peso-tapa')?.value) || null;
+    if (pesoTapa) payload.peso_tapa_objetivo_g = pesoTapa;
+  }
+
+  try {
+    const r = await apiPost('/produccion/api/iniciar', payload);
+    const nombre = { masa: 'Masa', tapas: 'Tapas', armado: 'Armado' }[tipo] || tipo;
+    toast(`Lote ${r.numero_lote_produccion} iniciado (${nombre})`, 'success');
+    closeModal('modal-produccion');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Finalizar ─────────────────────────────────────────────────────
+async function abrirFinalizar(id, lote, tipo) {
+  if (tipo === 'armado' || tipo === 'general') {
+    abrirPanelArmado(id, lote);
+    return;
+  }
+  produccionActivaId = parseInt(id);
+  produccionActivaTipo = tipo;
+  document.getElementById('fin-lote-info').textContent = `Lote: ${lote}`;
+  document.getElementById('fin-seccion-masa').style.display = tipo === 'masa' ? 'block' : 'none';
+  document.getElementById('fin-seccion-tapas').style.display = tipo === 'tapas' ? 'block' : 'none';
+
+  // Reset
+  _finProdData = null;
+  masaOrigenCtx = null;
+  pesosMuestra = [];
+  renderPesosMuestra();
+  ['fin-masa-real-kg','fin-tapas-reales','fin-tapas-rotas','fin-desperdicio','fin-horas-horno','fin-notas'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('panel-comp-masa').style.display = 'none';
+  document.getElementById('panel-comp-tapas').style.display = 'none';
+  document.getElementById('fin-panel-masa-ctx').style.display = 'none';
+
+  try {
+    _finProdData = await apiGet(`/produccion/api/${id}`);
+
+    if (tipo === 'masa' && _finProdData.peso_masa_total_g) {
+      document.getElementById('comp-masa-teo').textContent = formatG(_finProdData.peso_masa_total_g);
+      if (_finProdData.peso_tapa_objetivo_g) {
+        document.getElementById('comp-tapas-teo-teo').textContent =
+          Math.floor(_finProdData.peso_masa_total_g / _finProdData.peso_tapa_objetivo_g);
+      }
+    }
+
+    if (tipo === 'tapas' && _finProdData.lote_origen_id) {
+      try {
+        const ori = await apiGet(`/produccion/api/${id}/origen-masa`);
+        masaOrigenCtx = ori.lote_origen;
+        if (masaOrigenCtx) {
+          const panel = document.getElementById('fin-panel-masa-ctx');
+          panel.style.display = 'block';
+          panel.innerHTML = `
+            <div class="fw-600 text-xs text-muted mb-2">Masa de origen: ${masaOrigenCtx.numero_lote}</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+              <div><div class="text-muted text-xs">Masa teórica</div><div class="fw-600">${masaOrigenCtx.peso_masa_teo_g ? formatG(masaOrigenCtx.peso_masa_teo_g) : '—'}</div></div>
+              <div><div class="text-muted text-xs">Masa real</div><div class="fw-600">${masaOrigenCtx.masa_real_g ? formatG(masaOrigenCtx.masa_real_g) : '—'}</div></div>
+              <div><div class="text-muted text-xs">Tapas (masa teo)</div><div class="fw-600">${masaOrigenCtx.tapas_teo_desde_teo ?? '—'}</div></div>
+              <div><div class="text-muted text-xs">Tapas (masa real)</div><div class="fw-600">${masaOrigenCtx.tapas_teo_desde_real ?? '—'}</div></div>
+            </div>`;
+        }
+      } catch(e) {}
+    }
+  } catch(e) {}
+
+  openModal('modal-finalizar');
+}
+
+// ── Masa comparison ───────────────────────────────────────────────
+function actualizarComparacionMasa() {
+  const realKg = parseFloat(document.getElementById('fin-masa-real-kg').value);
+  if (!realKg || realKg <= 0) { document.getElementById('panel-comp-masa').style.display = 'none'; return; }
+  const realG = realKg * 1000;
+  document.getElementById('comp-masa-real').textContent = formatG(realG);
+  if (_finProdData?.peso_tapa_objetivo_g) {
+    const pt = _finProdData.peso_tapa_objetivo_g;
+    document.getElementById('comp-tapas-teo-real').textContent = Math.floor(realG / pt);
+    if (_finProdData.peso_masa_total_g)
+      document.getElementById('comp-tapas-teo-teo').textContent = Math.floor(_finProdData.peso_masa_total_g / pt);
+  }
+  document.getElementById('panel-comp-masa').style.display = 'block';
+}
+
+// ── Pesos muestra ─────────────────────────────────────────────────
+function agregarPesoMuestra() {
+  const inp = document.getElementById('fin-peso-nuevo');
+  const v = parseFloat(inp.value);
+  if (!v || v <= 0) { toast('Ingresá un peso válido', 'error'); return; }
+  pesosMuestra.push(v);
+  inp.value = '';
+  inp.focus();
+  renderPesosMuestra();
+  actualizarComparacionTapas();
+}
+
+function eliminarPesoMuestra(idx) {
+  pesosMuestra.splice(idx, 1);
+  renderPesosMuestra();
+  actualizarComparacionTapas();
+}
+
+function renderPesosMuestra() {
+  const container = document.getElementById('fin-lista-pesos');
+  const stats = document.getElementById('fin-stats-pesos');
+  document.getElementById('fin-pesos-count').textContent = `${pesosMuestra.length} muestra${pesosMuestra.length !== 1 ? 's' : ''}`;
+
+  if (!pesosMuestra.length) {
+    container.innerHTML = '<span class="text-muted text-xs">Sin muestras todavía</span>';
+    stats.style.display = 'none';
+    return;
+  }
+
+  container.innerHTML = pesosMuestra.map((p, i) =>
+    `<span style="background:var(--color-bg-elevated);border-radius:16px;padding:3px 10px;font-size:0.78rem;display:inline-flex;align-items:center;gap:5px">
+      ${p}g
+      <button onclick="eliminarPesoMuestra(${i})" style="background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:0.95rem;line-height:1">×</button>
+    </span>`
+  ).join('');
+
+  const sum = pesosMuestra.reduce((a, b) => a + b, 0);
+  const prom = sum / pesosMuestra.length;
+  document.getElementById('stat-prom').textContent = `${prom.toFixed(1)}g`;
+  document.getElementById('stat-min').textContent = `${Math.min(...pesosMuestra)}g`;
+  document.getElementById('stat-max').textContent = `${Math.max(...pesosMuestra)}g`;
+  stats.style.display = 'block';
+}
+
+// ── Tapas comparison ──────────────────────────────────────────────
+function actualizarComparacionTapas() {
+  const buenas = parseInt(document.getElementById('fin-tapas-reales').value);
+  const rotas = parseInt(document.getElementById('fin-tapas-rotas').value) || 0;
+  if (!buenas) { document.getElementById('panel-comp-tapas').style.display = 'none'; return; }
+
+  let tapasTeoTeo = null, tapasTeoReal = null;
+  if (masaOrigenCtx) {
+    tapasTeoTeo = masaOrigenCtx.tapas_teo_desde_teo;
+    tapasTeoReal = masaOrigenCtx.tapas_teo_desde_real;
+  } else if (_finProdData) {
+    tapasTeoTeo = _finProdData.tapas_desde_masa ?? _finProdData.tapas_teoricas;
+  }
+
+  const rendBase = tapasTeoTeo || tapasTeoReal;
+  const rendPct = rendBase ? ((buenas / rendBase) * 100).toFixed(1) : null;
+
+  document.getElementById('ct-teo-teo').textContent = tapasTeoTeo ?? '—';
+  document.getElementById('ct-teo-real').textContent = tapasTeoReal ?? '—';
+  document.getElementById('ct-buenas').textContent = buenas;
+  document.getElementById('ct-rotas').textContent = rotas > 0 ? rotas : '—';
+  const rendEl = document.getElementById('ct-rend');
+  rendEl.textContent = rendPct ? `${rendPct}%` : '—';
+  rendEl.style.color = rendPct >= 95 ? 'var(--color-success)' : rendPct >= 85 ? 'var(--color-warning)' : rendPct ? 'var(--color-danger)' : '';
+  document.getElementById('panel-comp-tapas').style.display = 'block';
+}
+
+async function confirmarFinalizar() {
+  const tipo = produccionActivaTipo;
+  const payload = { notas: document.getElementById('fin-notas').value || null };
+
+  if (tipo === 'masa') {
+    const kg = parseFloat(document.getElementById('fin-masa-real-kg').value);
+    if (!kg || kg <= 0) { toast('Ingresá los kg de masa al frío', 'error'); return; }
+    payload.cantidad_producida = kg;
+    payload.masa_real_g = Math.round(kg * 1000);
+  } else if (tipo === 'tapas') {
+    const buenas = parseInt(document.getElementById('fin-tapas-reales').value);
+    if (!buenas || buenas <= 0) { toast('Ingresá la cantidad de tapas buenas', 'error'); return; }
+    payload.cantidad_producida = buenas;
+    payload.tapas_reales = buenas;
+    const rotas = parseInt(document.getElementById('fin-tapas-rotas').value) || null;
+    const desp = parseFloat(document.getElementById('fin-desperdicio').value) || null;
+    const horno = parseFloat(document.getElementById('fin-horas-horno').value) || null;
+    if (rotas) payload.tapas_rotas = rotas;
+    if (desp) payload.masa_desperdiciada_g = desp;
+    if (horno) payload.horas_horno_total = horno;
+    if (pesosMuestra.length > 0) {
+      const sum = pesosMuestra.reduce((a, b) => a + b, 0);
+      payload.peso_tapa_cruda_promedio_g = parseFloat((sum / pesosMuestra.length).toFixed(2));
+      payload.pesos_muestra_json = JSON.stringify(pesosMuestra);
+    }
+  } else {
+    const cant = parseFloat(document.getElementById('fin-cantidad')?.value);
+    if (!cant) { toast('Ingresá la cantidad producida', 'error'); return; }
+    payload.cantidad_producida = cant;
+  }
+
+  try {
+    const r = await apiPost(`/produccion/api/${produccionActivaId}/finalizar`, payload);
+    toast(`Producción finalizada — $${r.costo_unitario.toFixed(2)}/u`, 'success');
+    closeModal('modal-finalizar');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PANEL DE ARMADO
+// ══════════════════════════════════════════════════════════════════
+let armadoProdId = null;
+let armadoCtx = null;
+
+async function abrirPanelArmado(id, lote) {
+  armadoProdId = parseInt(id);
+  document.getElementById('armado-lote-info').textContent = `Lote: ${lote}`;
+  document.getElementById('armado-cantidad').value = '';
+  openModal('modal-armado');
+  await recargarArmado();
+}
+
+async function recargarArmado() {
+  document.getElementById('armado-body').innerHTML = '<div class="text-muted text-center" style="padding:40px">Cargando...</div>';
+  try {
+    armadoCtx = await apiGet(`/produccion/api/${armadoProdId}/armado-context`);
+    renderArmado();
+  } catch(e) {
+    document.getElementById('armado-body').innerHTML = '<div class="text-danger text-center" style="padding:40px">Error al cargar contexto</div>';
+  }
+}
+
+function _gToUnidad(gramos, unidad) {
+  const u = (unidad || '').toLowerCase();
+  if (u === 'kg') return gramos / 1000;
+  if (u === 'litro' || u === 'l') return gramos / 1000;
+  if (u === 'ml') return gramos;
+  return gramos / 1000;
+}
+function _unidadToG(cantidad, unidad) {
+  const u = (unidad || '').toLowerCase();
+  if (u === 'kg') return cantidad * 1000;
+  if (u === 'g') return cantidad;
+  if (u === 'litro' || u === 'l') return cantidad * 1000;
+  if (u === 'ml') return cantidad;
+  return cantidad * 1000;
+}
+
+function renderArmado() {
+  const ctx = armadoCtx;
+  const tachos = ctx.tachos;
+  let html = '';
+
+  for (const ing of ctx.ingredientes) {
+    if (ing.tipo === 'producto_terminado') {
+      const registradas = tachos.filter(t => t.tipo === 'tapas');
+      const totalReg = registradas.reduce((s, t) => s + (t.cantidad_tapas || 0), 0);
+      const pct = ing.cantidad_necesaria > 0 ? Math.min(100, Math.round(totalReg / ing.cantidad_necesaria * 100)) : 0;
+      const colorPct = pct >= 100 ? 'var(--color-success)' : pct >= 50 ? 'var(--color-warning)' : 'var(--color-danger)';
+
+      html += `<div class="card mb-3" style="border:2px solid var(--color-warning)">
+        <div class="card-body" style="padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="fw-600">Tapas — ${ing.nombre}</div>
+            <div class="text-sm">Receta: <strong>${ing.cantidad_necesaria} ${ing.unidad}</strong> — Registrado: <strong style="color:${colorPct}">${totalReg} (${pct}%)</strong></div>
+          </div>`;
+
+      if (ing.lotes_disponibles.length > 0) {
+        html += `<div class="text-xs text-muted fw-600 mb-2">Lotes disponibles:</div>`;
+        for (const lote of ing.lotes_disponibles) {
+          html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--color-bg-elevated);border-radius:6px;margin-bottom:6px">
+            <div style="flex:1">
+              <span class="badge badge-warning">${lote.numero_lote}</span>
+              <span class="text-sm ml-2">Libre: <strong>${lote.cantidad_libre}</strong> tapas</span>
+              ${lote.fecha_vencimiento ? `<span class="text-muted text-xs ml-2">Vence: ${lote.fecha_vencimiento.slice(0,10)}</span>` : ''}
+            </div>
+            <input type="number" class="form-control" id="tapas-qty-${lote.id}" placeholder="cant." min="1" max="${lote.cantidad_libre}" step="1" style="width:90px">
+            <button class="btn btn-sm btn-primary" onclick="registrarTapas(${lote.id})">+ Agregar</button>
+          </div>`;
+        }
+      } else {
+        html += `<div class="text-warning text-sm">Sin stock de tapas disponible</div>`;
+      }
+
+      if (registradas.length > 0) {
+        html += `<div class="text-xs fw-600 text-muted mt-3 mb-2">Ya registradas:</div>`;
+        for (const t of registradas) {
+          html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(34,197,94,0.08);border-radius:6px;margin-bottom:4px;font-size:0.82rem">
+            <span style="flex:1"><strong>${t.cantidad_tapas}</strong> tapas — lote #${t.lote_producto_id}${t.notas ? ` (${t.notas})` : ''}</span>
+            <button class="btn btn-xs" style="background:var(--color-danger);color:#fff;padding:2px 8px;border-radius:4px" onclick="eliminarTachoArmado(${t.id})">✕</button>
+          </div>`;
+        }
+      }
+      html += `</div></div>`;
+
+    } else {
+      const insumoTachos = tachos.filter(t => t.tipo === 'insumo' && t.insumo_id == ing.insumo_id);
+      const totalG = ctx.totales_insumo_g[ing.insumo_id] || 0;
+      const necesarioG = _unidadToG(ing.cantidad_necesaria, ing.unidad_medida);
+      const pct = necesarioG > 0 ? Math.min(100, Math.round(totalG / necesarioG * 100)) : 0;
+      const colorPct = pct >= 100 ? 'var(--color-success)' : pct >= 50 ? 'var(--color-warning)' : 'var(--color-danger)';
+      const proxApertura = insumoTachos.length + 1;
+
+      html += `<div class="card mb-3">
+        <div class="card-body" style="padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="fw-600">${ing.nombre}</div>
+            <div class="text-sm">Est: <strong>${necesarioG.toFixed(0)}g</strong> — Registrado: <strong style="color:${colorPct}">${totalG.toFixed(0)}g (${pct}%)</strong></div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <div class="form-group mb-0" style="flex:1;min-width:140px">
+              <label class="form-label text-xs">Apertura N°${proxApertura} — Gramos</label>
+              <input type="number" class="form-control" id="tacho-g-${ing.insumo_id}" placeholder="ej. 2500" step="50" min="1">
+            </div>
+            <div class="form-group mb-0" style="min-width:180px">
+              <label class="form-label text-xs">Lote (opcional)</label>
+              <select class="form-control" id="tacho-lote-${ing.insumo_id}">
+                <option value="">FEFO automático</option>
+                ${ing.lotes_disponibles.map(l => `<option value="${l.id}">${l.numero_lote} (${l.cantidad_actual} ${ing.unidad_medida})</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group mb-0" style="min-width:140px">
+              <label class="form-label text-xs">Nota</label>
+              <input type="text" class="form-control" id="tacho-nota-${ing.insumo_id}" placeholder="ej. tacho nuevo">
+            </div>
+            <button class="btn btn-primary" style="height:38px" onclick="registrarTacho(${ing.insumo_id})">+ Tacho</button>
+          </div>`;
+
+      if (insumoTachos.length > 0) {
+        html += `<div class="text-xs fw-600 text-muted mt-3 mb-2">Tachos registrados:</div>`;
+        for (const t of insumoTachos) {
+          html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--color-bg-elevated);border-radius:6px;margin-bottom:4px;font-size:0.82rem">
+            <span style="flex:1">Apertura #${t.numero_apertura}: <strong>${t.gramos_usados}g</strong>${t.notas ? ` — ${t.notas}` : ''}</span>
+            <button class="btn btn-xs" style="background:var(--color-danger);color:#fff;padding:2px 8px;border-radius:4px" onclick="eliminarTachoArmado(${t.id})">✕</button>
+          </div>`;
+        }
+        html += `<div class="text-xs text-muted mt-1">Total: <strong>${totalG.toFixed(0)}g</strong> / ${necesarioG.toFixed(0)}g estimados</div>`;
+      }
+      html += `</div></div>`;
+    }
+  }
+
+  if (!ctx.ingredientes.length) {
+    html = '<div class="text-muted text-center" style="padding:40px">La receta no tiene ingredientes cargados</div>';
+  }
+
+  document.getElementById('armado-body').innerHTML = html;
+}
+
+async function registrarTapas(loteId) {
+  const el = document.getElementById(`tapas-qty-${loteId}`);
+  const qty = parseFloat(el?.value);
+  if (!qty || qty <= 0) { toast('Ingresá la cantidad de tapas', 'error'); return; }
+  try {
+    await apiPost(`/produccion/api/${armadoProdId}/registrar-tapas`, { lote_producto_id: loteId, cantidad_tapas: qty });
+    toast('Tapas registradas', 'success');
+    await recargarArmado();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function registrarTacho(insumoId) {
+  const gramos = parseFloat(document.getElementById(`tacho-g-${insumoId}`)?.value);
+  if (!gramos || gramos <= 0) { toast('Ingresá los gramos usados', 'error'); return; }
+  const loteVal = document.getElementById(`tacho-lote-${insumoId}`)?.value;
+  const nota = document.getElementById(`tacho-nota-${insumoId}`)?.value || null;
+  try {
+    await apiPost(`/produccion/api/${armadoProdId}/registrar-insumo`, {
+      insumo_id: insumoId,
+      lote_insumo_id: loteVal ? parseInt(loteVal) : null,
+      gramos_usados: gramos,
+      notas: nota,
+    });
+    toast('Tacho registrado', 'success');
+    await recargarArmado();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function eliminarTachoArmado(tachoId) {
+  try {
+    await apiCall('DELETE', `/produccion/api/${armadoProdId}/tacho/${tachoId}`);
+    toast('Eliminado', 'success');
+    await recargarArmado();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function finalizarArmado() {
+  const cantidad = parseFloat(document.getElementById('armado-cantidad').value);
+  if (!cantidad || cantidad <= 0) { toast('Ingresá la cantidad de alfajores producidos', 'error'); return; }
+  try {
+    const r = await apiPost(`/produccion/api/${armadoProdId}/finalizar-armado`, { cantidad_producida: cantidad });
+    toast(`¡Producción finalizada! ${cantidad} alfajores — $${r.costo_unitario.toFixed(2)}/u`, 'success');
+    closeModal('modal-armado');
+    setTimeout(() => location.reload(), 1000);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Detalle ───────────────────────────────────────────────────────
+async function verDetalle(pid) {
+  document.getElementById('detalle-titulo').textContent = `Detalle Producción #${pid}`;
+  document.getElementById('detalle-body').innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">Cargando...</div>';
+  openModal('modal-detalle');
+  try {
+    const [prod, usos] = await Promise.all([
+      apiGet(`/produccion/api/${pid}`),
+      apiGet(`/produccion/api/${pid}/insumos-usados`),
+    ]);
+
+    let masaOrigenData = null, registrosTapasData = null;
+    if (prod.tipo_produccion === 'tapas') {
+      [masaOrigenData, registrosTapasData] = await Promise.all([
+        prod.lote_origen_id ? apiGet(`/produccion/api/${pid}/origen-masa`).catch(()=>null) : Promise.resolve(null),
+        apiGet(`/produccion/api/${pid}/registros-tapas`).catch(()=>null),
+      ]);
+    }
+
+    // Etapa actual (tapas)
+    const etapaLabel = { pesaje_cruda: '✅ Pesaje crudas hecho', conteo_crudo: '✅ Conteo crudo hecho' };
+    const etapaBadge = prod.tipo_produccion === 'tapas' ? `
+      <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;font-size:0.8rem">
+        <span style="padding:3px 10px;border-radius:12px;background:${prod.etapa_tapas ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)'};border:1px solid ${prod.etapa_tapas ? 'rgba(34,197,94,0.3)' : 'rgba(99,102,241,0.3)'};color:${prod.etapa_tapas ? 'var(--color-success)' : '#818cf8'}">
+          ${prod.etapa_tapas ? etapaLabel[prod.etapa_tapas] || prod.etapa_tapas : '⏳ Pendiente pesaje crudas'}
+        </span>
+      </div>` : '';
+
+    // Datos de tapas (pesaje + conteo)
+    let tapasRow = '';
+    if (prod.tipo_produccion === 'tapas') {
+      const pesos = prod.pesos_muestra_json ? JSON.parse(prod.pesos_muestra_json) : [];
+      tapasRow = `
+      <div style="background:var(--color-bg-elevated);border-radius:8px;padding:14px;margin-bottom:12px;font-size:0.82rem">
+        <div class="fw-600 mb-2 text-sm">Estado de tapas</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center">
+          <div><div class="text-muted text-xs">Estimadas</div><div class="fw-600">${masaOrigenData?.lote_origen?.tapas_teo_desde_real ?? prod.tapas_teoricas ?? '—'}</div></div>
+          <div><div class="text-muted text-xs">Crudas contadas</div><div class="fw-600">${prod.tapas_crudas_contadas ?? '—'}</div></div>
+          <div><div class="text-muted text-xs">Buenas (cocción)</div><div class="fw-600 text-success">${prod.tapas_reales ?? '—'}</div></div>
+          <div><div class="text-muted text-xs">Rotas</div><div class="fw-600 text-danger">${prod.tapas_rotas ?? '—'}</div></div>
+        </div>
+        ${prod.peso_tapa_cruda_promedio_g || prod.peso_tapa_cocida_promedio_g || prod.masa_desperdiciada_g ? `
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--color-border)">
+          <div><div class="text-muted text-xs">Peso prom. cruda</div><div class="fw-600">${prod.peso_tapa_cruda_promedio_g ? prod.peso_tapa_cruda_promedio_g + ' g' : '—'}</div></div>
+          <div><div class="text-muted text-xs">Peso prom. cocida</div><div class="fw-600">${prod.peso_tapa_cocida_promedio_g ? prod.peso_tapa_cocida_promedio_g + ' g' : '—'}</div></div>
+          <div><div class="text-muted text-xs">Masa sobrante</div><div class="fw-600">${prod.masa_desperdiciada_g ? prod.masa_desperdiciada_g + ' g' : '—'}</div></div>
+          <div><div class="text-muted text-xs">Rendimiento</div><div class="fw-600" style="color:${(prod.rendimiento_real_pct||0) >= 95 ? 'var(--color-success)' : (prod.rendimiento_real_pct||0) >= 85 ? 'var(--color-warning)' : 'var(--color-danger)'}">${prod.rendimiento_real_pct ? prod.rendimiento_real_pct + '%' : '—'}</div></div>
+        </div>` : ''}
+        ${pesos.length ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--color-border)"><div class="text-xs text-muted mb-1">Muestra de pesos crudos (g)</div><div style="display:flex;flex-wrap:wrap;gap:4px">${pesos.map(p => `<span style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:1px 8px;font-size:0.75rem">${p}g</span>`).join('')}</div></div>` : ''}
+        ${prod.horas_horno_total ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--color-text-muted)">🔥 Tiempo horno: <strong>${prod.horas_horno_total.toFixed(1)} hs</strong></div>` : ''}
+      </div>`;
+    }
+
+    // Masa origen (trazabilidad tapas → masa)
+    let masaOrigenRow = '';
+    if (masaOrigenData?.lote_origen) {
+      const mo = masaOrigenData.lote_origen;
+      masaOrigenRow = `
+      <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:0.82rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span class="text-xs fw-600" style="color:#93c5fd;white-space:nowrap">Masa origen</span>
+        <span class="badge" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#93c5fd">${mo.numero_lote}</span>
+        <span>${mo.producto_nombre}</span>
+        ${mo.masa_real_g ? `<span class="text-muted">Real: <strong>${(mo.masa_real_g/1000).toFixed(2)} kg</strong></span>` : ''}
+        ${mo.tapas_teo_desde_real ? `<span class="text-muted">→ <strong>${mo.tapas_teo_desde_real} tapas est.</strong></span>` : ''}
+      </div>`;
+    }
+
+    // Historial de hornadas parciales
+    let registrosRow = '';
+    if (registrosTapasData?.registros?.length > 0) {
+      const regs = registrosTapasData.registros;
+      const tot = registrosTapasData.totales;
+      registrosRow = `
+      <div style="background:var(--color-bg-elevated);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:0.8rem">
+        <div class="text-xs fw-600 mb-2" style="text-transform:uppercase;letter-spacing:0.5px;color:var(--color-text-muted)">Historial de hornadas (${regs.length})</div>
+        <table style="width:100%;border-collapse:collapse;font-size:0.77rem">
+          <thead><tr style="color:var(--color-text-muted)">
+            <th style="padding:2px 6px;text-align:left;font-weight:500">Fecha</th>
+            <th style="padding:2px 6px;text-align:right;font-weight:500">OK</th>
+            <th style="padding:2px 6px;text-align:right;font-weight:500">Rotas</th>
+            <th style="padding:2px 6px;text-align:right;font-weight:500">Peso coc.</th>
+            <th style="padding:2px 6px;text-align:right;font-weight:500">Tiempo</th>
+          </tr></thead>
+          <tbody>
+            ${regs.map(r => `<tr style="border-top:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:3px 6px">${r.fecha}</td>
+              <td style="padding:3px 6px;text-align:right;color:var(--color-success);font-weight:600">${r.tapas_ok}</td>
+              <td style="padding:3px 6px;text-align:right;color:${r.tapas_rotas>0?'var(--color-danger)':'var(--color-text-muted)'}">${r.tapas_rotas||'—'}</td>
+              <td style="padding:3px 6px;text-align:right">${r.peso_tapa_cocida_g ? r.peso_tapa_cocida_g+'g' : '—'}</td>
+              <td style="padding:3px 6px;text-align:right">${r.tiempo_coccion_min ? r.tiempo_coccion_min+'min' : '—'}</td>
+            </tr>`).join('')}
+            <tr style="border-top:2px solid var(--color-border);font-weight:600">
+              <td style="padding:4px 6px">Total</td>
+              <td style="padding:4px 6px;text-align:right;color:var(--color-success)">${tot.tapas_ok}</td>
+              <td style="padding:4px 6px;text-align:right;color:${tot.tapas_rotas>0?'var(--color-danger)':'var(--color-text-muted)'}">${tot.tapas_rotas||'—'}</td>
+              <td style="padding:4px 6px;text-align:right">—</td>
+              <td style="padding:4px 6px;text-align:right">${tot.tiempo_coccion_min ? tot.tiempo_coccion_min+'min' : '—'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+    }
+
+    // Masa
+    const masaRow = prod.peso_masa_total_g ? `
+      <div style="background:var(--color-bg-elevated);border-radius:8px;padding:14px;margin-bottom:12px;font-size:0.82rem">
+        <div class="fw-600 mb-2 text-sm">Masa</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center">
+          <div><div class="text-muted text-xs">Masa teórica</div><div class="fw-600">${prod.peso_masa_total_g ? (prod.peso_masa_total_g/1000).toFixed(2)+' kg' : '—'}</div></div>
+          <div><div class="text-muted text-xs">Masa real</div><div class="fw-600">${prod.masa_real_g ? (prod.masa_real_g/1000).toFixed(2)+' kg' : '—'}</div></div>
+          <div><div class="text-muted text-xs">Tapas est. (teo)</div><div class="fw-600">${prod.tapas_desde_masa ?? '—'}</div></div>
+          <div><div class="text-muted text-xs">Peso obj. tapa</div><div class="fw-600">${prod.peso_tapa_objetivo_g ? prod.peso_tapa_objetivo_g+' g' : '—'}</div></div>
+        </div>
+      </div>` : '';
+
+    const usosTable = usos.length ? `
+      <div class="fw-600 text-sm mb-2">Insumos consumidos — trazabilidad por lote</div>
+      <table class="table" style="font-size:0.8rem">
+        <thead><tr><th>Ingrediente</th><th>Lote</th><th>Proveedor</th><th>Cantidad</th><th>Costo Unit.</th><th>Subtotal</th></tr></thead>
+        <tbody>${usos.map(u => `
+          <tr>
+            <td class="fw-600">${u.nombre || '—'}</td>
+            <td><span class="badge badge-muted">${u.numero_lote || '—'}</span></td>
+            <td class="text-muted">${u.proveedor || '—'}</td>
+            <td>${(u.cantidad_usada||0).toFixed(3)} ${u.unidad||''}</td>
+            <td>$${(u.costo_unitario||0).toFixed(2)}</td>
+            <td class="fw-600">$${(u.costo_total||0).toFixed(2)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<div class="text-muted text-sm" style="padding:8px 0">Sin insumos registrados</div>';
+
+    const costoRow = `
+      <div style="display:flex;justify-content:flex-end;gap:20px;padding:10px 0;border-top:1px solid var(--color-border);font-size:0.82rem;margin-top:4px">
+        <span class="text-muted">Costo total insumos: <strong>$${(prod.costo_total_insumos||0).toFixed(2)}</strong></span>
+        ${prod.costo_unitario > 0 ? `<span class="text-muted">Costo unitario: <strong>$${prod.costo_unitario.toFixed(2)}</strong></span>` : ''}
+      </div>`;
+
+    document.getElementById('detalle-body').innerHTML = etapaBadge + masaOrigenRow + tapasRow + registrosRow + masaRow + usosTable + (usos.length ? costoRow : '');
+  } catch(e) {
+    document.getElementById('detalle-body').innerHTML = `<div class="text-danger" style="padding:16px">Error al cargar: ${e.message}</div>`;
+  }
+}
+
+// ── Tapas: Etapa 1 — Pesaje crudas ───────────────────────────────
+let _pesajeProdId = null, _pesajeLote = null, _pesajeData = [];
+
+function abrirPesajeCrudo(id, lote) {
+  _pesajeProdId = id; _pesajeLote = lote; _pesajeData = [];
+  document.getElementById('pesaje-lote-info').textContent = `Lote: ${lote}`;
+  document.getElementById('pesaje-input-g').value = '';
+  pesajeRenderChips();
+  openModal('modal-pesaje-cruda');
+  setTimeout(() => document.getElementById('pesaje-input-g').focus(), 150);
+}
+
+function pesajeAgregar() {
+  const v = parseFloat(document.getElementById('pesaje-input-g').value);
+  if (!v || v <= 0) return;
+  _pesajeData.push(v);
+  document.getElementById('pesaje-input-g').value = '';
+  document.getElementById('pesaje-input-g').focus();
+  pesajeRenderChips();
+}
+
+function pesajeLimpiar() { _pesajeData = []; pesajeRenderChips(); }
+
+function pesajeRenderChips() {
+  const c = document.getElementById('pesaje-chips');
+  c.innerHTML = _pesajeData.map((p, i) =>
+    `<span style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;padding:2px 10px;font-size:0.8rem;cursor:pointer" onclick="_pesajeData.splice(${i},1);pesajeRenderChips()" title="Click para quitar">${p}g ✕</span>`
+  ).join('');
+  const stats = document.getElementById('pesaje-stats');
+  if (_pesajeData.length === 0) { stats.style.display = 'none'; return; }
+  stats.style.display = 'block';
+  const prom = _pesajeData.reduce((a,b) => a+b, 0) / _pesajeData.length;
+  document.getElementById('ps-count').textContent = _pesajeData.length;
+  document.getElementById('ps-prom').textContent = prom.toFixed(1) + ' g';
+  document.getElementById('ps-min').textContent = Math.min(..._pesajeData).toFixed(1) + ' g';
+  document.getElementById('ps-max').textContent = Math.max(..._pesajeData).toFixed(1) + ' g';
+}
+
+async function guardarPesajeCruda() {
+  if (_pesajeData.length === 0) { toast('Ingresá al menos un peso', 'warning'); return; }
+  try {
+    const r = await apiPost(`/produccion/api/${_pesajeProdId}/guardar-pesaje-cruda`, { pesos: _pesajeData });
+    toast(`Pesaje guardado — promedio ${r.promedio_g}g`, 'success');
+    closeModal('modal-pesaje-cruda');
+    setTimeout(() => location.reload(), 600);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Tapas: Etapa 2 — Conteo crudo + sobrante ─────────────────────
+let _conteoProdId = null, _conteoLote = null;
+
+function abrirConteoCrudo(id, lote, promedio) {
+  _conteoProdId = id; _conteoLote = lote;
+  document.getElementById('conteo-lote-info').textContent = `Lote: ${lote}`;
+  document.getElementById('cr-prom').textContent = promedio > 0 ? promedio + ' g' : '—';
+  document.getElementById('cr-est').textContent = '—';
+  document.getElementById('conteo-tapas-crudas').value = '';
+  document.getElementById('conteo-sobrante-g').value = '';
+  openModal('modal-conteo-crudo');
+  setTimeout(() => document.getElementById('conteo-tapas-crudas').focus(), 150);
+}
+
+async function guardarConteoCrudo() {
+  const tapas = parseInt(document.getElementById('conteo-tapas-crudas').value);
+  if (!tapas || tapas <= 0) { toast('Ingresá la cantidad de tapas crudas', 'warning'); return; }
+  const sobrante = parseFloat(document.getElementById('conteo-sobrante-g').value) || 0;
+  try {
+    await apiPost(`/produccion/api/${_conteoProdId}/guardar-conteo-crudo`, { tapas_crudas: tapas, masa_sobrante_g: sobrante });
+    toast(`Conteo guardado — ${tapas} tapas crudas`, 'success');
+    closeModal('modal-conteo-crudo');
+    setTimeout(() => location.reload(), 600);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Tapas: Etapa 3 — Cocción → Finalizar ─────────────────────────
+let _coccionProdId = null, _coccionLote = null;
+
+function abrirCoccion(id, lote, crudas) {
+  _coccionProdId = id; _coccionLote = lote;
+  document.getElementById('coccion-lote-info').textContent = `Lote: ${lote}`;
+  document.getElementById('coc-crudas').textContent = crudas > 0 ? crudas + ' tapas' : '—';
+  document.getElementById('coc-total').textContent = '—';
+  document.getElementById('coccion-tapas-buenas').value = '';
+  document.getElementById('coccion-tapas-rotas').value = '';
+  document.getElementById('coccion-horas').value = '';
+  document.getElementById('coccion-minutos').value = '';
+  document.getElementById('coccion-peso-cocida').value = '';
+  document.getElementById('coccion-notas').value = '';
+  openModal('modal-coccion');
+  setTimeout(() => document.getElementById('coccion-tapas-buenas').focus(), 150);
+}
+
+function coccionActualizarTotal() {
+  const b = parseInt(document.getElementById('coccion-tapas-buenas').value) || 0;
+  const r = parseInt(document.getElementById('coccion-tapas-rotas').value) || 0;
+  document.getElementById('coc-total').textContent = (b + r) > 0 ? (b + r) + ' tapas' : '—';
+}
+
+async function confirmarCoccion() {
+  const buenas = parseInt(document.getElementById('coccion-tapas-buenas').value);
+  if (!buenas || buenas <= 0) { toast('Ingresá la cantidad de tapas buenas', 'warning'); return; }
+  const rotas = parseInt(document.getElementById('coccion-tapas-rotas').value) || 0;
+  const hs = parseFloat(document.getElementById('coccion-horas').value) || 0;
+  const min = parseFloat(document.getElementById('coccion-minutos').value) || 0;
+  const horas_total = hs + (min / 60);
+  const pesoCocida = parseFloat(document.getElementById('coccion-peso-cocida').value) || null;
+  const notas = document.getElementById('coccion-notas').value;
+  try {
+    const r = await apiPost(`/produccion/api/${_coccionProdId}/finalizar`, {
+      tapas_reales: buenas,
+      tapas_rotas: rotas,
+      horas_horno_total: horas_total > 0 ? horas_total : null,
+      peso_tapa_cocida_promedio_g: pesoCocida,
+      notas,
+    });
+    toast(`¡Lote finalizado! ${buenas} tapas — $${r.costo_unitario.toFixed(2)}/u`, 'success');
+    closeModal('modal-coccion');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Armado: pesaje sin baño / con baño ───────────────────────────
+let _pesajeArmadoEtapa = null, _pesajeArmadoData = [];
+
+function abrirPesajeArmado(etapa) {
+  _pesajeArmadoEtapa = etapa;
+  _pesajeArmadoData = [];
+  const esSin = etapa === 'sin_bano';
+  document.getElementById('pesaje-armado-titulo').textContent = esSin ? '⚖️ Pesaje sin baño' : '🍫 Pesaje con baño';
+  document.getElementById('pesaje-armado-subtitulo').textContent = esSin
+    ? 'Pesá cada alfajor relleno antes del baño de chocolate'
+    : 'Pesá cada alfajor ya bañado en chocolate';
+  document.getElementById('pesaje-armado-info').textContent = esSin
+    ? 'Peso: tapa inferior + relleno + tapa superior. Sin baño todavía.'
+    : 'Peso final del alfajor completo con cobertura.';
+  document.getElementById('pesaje-armado-input').value = '';
+  pesajeArmadoRender();
+  openModal('modal-pesaje-armado');
+  setTimeout(() => document.getElementById('pesaje-armado-input').focus(), 150);
+}
+
+function pesajeArmadoAgregar() {
+  const v = parseFloat(document.getElementById('pesaje-armado-input').value);
+  if (!v || v <= 0) return;
+  _pesajeArmadoData.push(v);
+  document.getElementById('pesaje-armado-input').value = '';
+  document.getElementById('pesaje-armado-input').focus();
+  pesajeArmadoRender();
+}
+
+function pesajeArmadoLimpiar() { _pesajeArmadoData = []; pesajeArmadoRender(); }
+
+function pesajeArmadoRender() {
+  const color = _pesajeArmadoEtapa === 'sin_bano' ? '99,102,241' : '139,92,246';
+  const c = document.getElementById('pesaje-armado-chips');
+  c.innerHTML = _pesajeArmadoData.map((p, i) =>
+    `<span style="background:rgba(${color},0.1);border:1px solid rgba(${color},0.3);border-radius:20px;padding:2px 10px;font-size:0.8rem;cursor:pointer" onclick="_pesajeArmadoData.splice(${i},1);pesajeArmadoRender()" title="Click para quitar">${p}g ✕</span>`
+  ).join('');
+  const stats = document.getElementById('pesaje-armado-stats');
+  if (_pesajeArmadoData.length === 0) { stats.style.display = 'none'; return; }
+  stats.style.display = 'block';
+  const prom = _pesajeArmadoData.reduce((a,b) => a+b, 0) / _pesajeArmadoData.length;
+  document.getElementById('pa-count').textContent = _pesajeArmadoData.length;
+  document.getElementById('pa-prom').textContent = prom.toFixed(1) + ' g';
+  document.getElementById('pa-min').textContent = Math.min(..._pesajeArmadoData).toFixed(1) + ' g';
+  document.getElementById('pa-max').textContent = Math.max(..._pesajeArmadoData).toFixed(1) + ' g';
+}
+
+async function guardarPesajeArmado() {
+  if (_pesajeArmadoData.length === 0) { toast('Ingresá al menos un peso', 'warning'); return; }
+  try {
+    const r = await apiPost(`/produccion/api/${armadoProdId}/guardar-pesaje-armado`, {
+      pesos: _pesajeArmadoData,
+      etapa: _pesajeArmadoEtapa,
+    });
+    const label = _pesajeArmadoEtapa === 'sin_bano' ? 'sin baño' : 'con baño';
+    toast(`Pesaje ${label} guardado — promedio ${r.promedio_g}g`, 'success');
+    closeModal('modal-pesaje-armado');
+    // Actualizar resumen en footer
+    const resumen = document.getElementById('armado-pesajes-resumen');
+    if (resumen) resumen.style.display = 'flex';
+    const id = _pesajeArmadoEtapa === 'sin_bano' ? 'arm-res-sin-bano' : 'arm-res-con-bano';
+    const el = document.getElementById(id);
+    if (el) el.textContent = (_pesajeArmadoEtapa === 'sin_bano' ? '⚖️ Sin baño: ' : '🍫 Con baño: ') + r.promedio_g + 'g prom.';
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Envasado y finalización ───────────────────────────────────────
+let _tipoEtiqueta = 'simple';
+let _insumos_cache = null;
+
+function actualizarFechaVto() {
+  const dias = parseInt(document.getElementById('env-dias-vto').value);
+  const lbl = document.getElementById('env-fecha-vto-label');
+  if (!dias || dias <= 0) { lbl.textContent = ''; return; }
+  const vto = new Date();
+  vto.setDate(vto.getDate() + dias);
+  lbl.textContent = `Vence: ${vto.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'})}`;
+}
+
+async function abrirEnvasado() {
+  document.getElementById('envasado-lote-info').textContent = `Lote: ${document.getElementById('armado-lote-info').textContent.replace('Lote: ','')}`;
+  document.getElementById('env-cantidad').value = '';
+  document.getElementById('env-notas').value = '';
+  // Pre-cargar días de vencimiento desde la receta
+  const diasVto = armadoCtx?.produccion?.dias_vida_util || '';
+  document.getElementById('env-dias-vto').value = diasVto;
+  actualizarFechaVto();
+  document.getElementById('env-mixto-simple').value = '0';
+  document.getElementById('env-mixto-doble').value = '0';
+  setTipoEtiqueta('simple');
+  // Cargar insumos si no están cacheados
+  if (!_insumos_cache) {
+    try { _insumos_cache = await apiGet('/insumos/api'); } catch { _insumos_cache = []; }
+  }
+  const opts = ['<option value="">— Sin descuento —</option>',
+    ..._insumos_cache.map(i => `<option value="${i.id}">${i.nombre} (${i.unidad_medida})</option>`)
+  ].join('');
+  document.getElementById('env-insumo-envoltorio').innerHTML = opts;
+  document.getElementById('env-insumo-etiqueta').innerHTML = opts;
+  envasadoActualizar();
+  closeModal('modal-armado');
+  openModal('modal-envasado');
+  setTimeout(() => document.getElementById('env-cantidad').focus(), 150);
+}
+
+function setTipoEtiqueta(tipo) {
+  _tipoEtiqueta = tipo;
+  ['simple','doble','mixto'].forEach(t => {
+    const btn = document.getElementById(`env-btn-${t}`);
+    if (btn) {
+      btn.style.background = t === tipo ? 'rgba(34,197,94,0.12)' : '';
+      btn.style.borderColor = t === tipo ? 'rgba(34,197,94,0.4)' : '';
+      btn.style.color = t === tipo ? 'var(--color-success)' : '';
+    }
+  });
+  document.getElementById('env-mixto-inputs').style.display = tipo === 'mixto' ? 'block' : 'none';
+  envasadoActualizar();
+}
+
+function envasadoActualizar() {
+  const total = parseInt(document.getElementById('env-cantidad').value) || 0;
+  // Envoltorios
+  const envId = document.getElementById('env-insumo-envoltorio').value;
+  document.getElementById('env-cant-envoltorio').textContent = total > 0 ? total + ' u' : '—';
+  // Etiquetas
+  let totalEtiquetas = 0;
+  if (_tipoEtiqueta === 'simple') totalEtiquetas = total;
+  else if (_tipoEtiqueta === 'doble') totalEtiquetas = total * 2;
+  else {
+    const s = parseInt(document.getElementById('env-mixto-simple').value) || 0;
+    const d = parseInt(document.getElementById('env-mixto-doble').value) || 0;
+    totalEtiquetas = s + d * 2;
+  }
+  document.getElementById('env-cant-etiquetas').textContent = totalEtiquetas > 0 ? totalEtiquetas + ' u' : '—';
+  // Resumen
+  const resumen = document.getElementById('env-resumen');
+  if (total > 0) {
+    resumen.style.display = 'block';
+    let detalle = `<div>📦 <strong>${total}</strong> alfajores envasados</div>`;
+    if (envId) detalle += `<div>🎁 Envoltorios a descontar: <strong>${total}</strong></div>`;
+    if (totalEtiquetas > 0) {
+      if (_tipoEtiqueta === 'mixto') {
+        const s = parseInt(document.getElementById('env-mixto-simple').value) || 0;
+        const d = parseInt(document.getElementById('env-mixto-doble').value) || 0;
+        detalle += `<div>🏷️ Etiquetas: ${s} con frente + ${d} con ambas caras = <strong>${totalEtiquetas} etiquetas</strong></div>`;
+      } else {
+        detalle += `<div>🏷️ Etiquetas (${_tipoEtiqueta === 'doble' ? 'doble cara' : 'frente solo'}): <strong>${totalEtiquetas}</strong></div>`;
+      }
+    }
+    document.getElementById('env-resumen-detalle').innerHTML = detalle;
+  } else {
+    resumen.style.display = 'none';
+  }
+}
+
+async function confirmarEnvasado() {
+  const unidades = parseInt(document.getElementById('env-cantidad').value);
+  if (!unidades || unidades <= 0) { toast('Ingresá la cantidad de alfajores', 'warning'); return; }
+  if (_tipoEtiqueta === 'mixto') {
+    const s = parseInt(document.getElementById('env-mixto-simple').value) || 0;
+    const d = parseInt(document.getElementById('env-mixto-doble').value) || 0;
+    if (s + d !== unidades) {
+      toast(`La suma de frente solo (${s}) + ambas caras (${d}) = ${s+d}, pero hay ${unidades} alfajores`, 'warning');
+      return;
+    }
+  }
+  const diasVto = parseInt(document.getElementById('env-dias-vto').value) || null;
+  const payload = {
+    unidades,
+    notas: document.getElementById('env-notas').value || null,
+    dias_vencimiento: diasVto,
+    tipo_etiqueta: _tipoEtiqueta,
+    insumo_envoltorio_id: parseInt(document.getElementById('env-insumo-envoltorio').value) || null,
+    insumo_etiqueta_id: parseInt(document.getElementById('env-insumo-etiqueta').value) || null,
+    unidades_etiqueta_simple: _tipoEtiqueta === 'mixto' ? (parseInt(document.getElementById('env-mixto-simple').value) || 0) : 0,
+    unidades_etiqueta_doble: _tipoEtiqueta === 'mixto' ? (parseInt(document.getElementById('env-mixto-doble').value) || 0) : 0,
+  };
+  try {
+    const r = await apiPost(`/produccion/api/${armadoProdId}/envasar-y-finalizar`, payload);
+    toast(`✅ ${unidades} alfajores en stock — $${r.costo_unitario.toFixed(2)}/u`, 'success');
+    closeModal('modal-envasado');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Eliminar producción ───────────────────────────────────────────
+async function eliminarProduccion(id, lote, btn) {
+  if (!confirm(`¿Eliminar producción ${lote}?\n\nSi estaba en proceso se restaurará el stock consumido. Si estaba finalizada se desactivará el lote de producto creado.\n\nEsta acción no se puede deshacer.`)) return;
+  btn.disabled = true;
+  try {
+    await apiDelete(`/produccion/api/${id}`);
+    toast(`Producción ${lote} eliminada`, 'success');
+    const row = btn.closest('tr');
+    if (row) { row.style.opacity = '0.3'; setTimeout(() => row.remove(), 500); }
+  } catch(e) {
+    btn.disabled = false;
+    toast(e.message || 'Error al eliminar', 'error');
+  }
+}
+
+// ── Registro parcial de tapas ─────────────────────────────────────────────
+let _rtPid = null;
+let _rtLote = null;
+let _rtPesosCocida = [];
+
+async function abrirRegistroTapas(pid, lote) {
+  _rtPid  = parseInt(pid);
+  _rtLote = lote;
+  document.getElementById('rt-lote-label').textContent = lote;
+  // Fecha de hoy por defecto
+  document.getElementById('rt-fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('rt-tapas-ok').value    = '';
+  document.getElementById('rt-tapas-rotas').value = '0';
+  document.getElementById('rt-tiempo-min').value  = '';
+  document.getElementById('rt-desperdicio').value = '';
+  document.getElementById('rt-notas').value       = '';
+  _rtPesosCocida = [];
+  rtPesoCocidaRender();
+
+  // Cargar registros anteriores
+  await rtCargarRegistros();
+  openModal('modal-registro-tapas');
+  setTimeout(() => document.getElementById('rt-tapas-ok').focus(), 150);
+}
+
+async function rtCargarRegistros() {
+  try {
+    const d = await apiGet(`/produccion/api/${_rtPid}/registros-tapas`);
+    const contenedor = document.getElementById('rt-resumen-registros');
+    const tablaEl   = document.getElementById('rt-tabla-registros');
+
+    if (!d.registros.length) {
+      contenedor.style.display = 'none';
+      document.getElementById('rt-btn-finalizar').style.display = 'none';
+      return;
+    }
+
+    contenedor.style.display = 'block';
+    document.getElementById('rt-btn-finalizar').style.display = '';
+    document.getElementById('rt-total-ok').textContent    = d.totales.tapas_ok;
+    document.getElementById('rt-total-rotas').textContent = d.totales.tapas_rotas;
+    const min = d.totales.tiempo_coccion_min;
+    document.getElementById('rt-total-tiempo').textContent = min
+      ? `${Math.floor(min/60)}h ${min%60}min` : '—';
+
+    tablaEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.75rem">
+      <thead><tr style="color:var(--color-text-muted)">
+        <th style="padding:3px 6px;text-align:left">Fecha</th>
+        <th style="padding:3px 6px;text-align:right">OK</th>
+        <th style="padding:3px 6px;text-align:right">Rotas</th>
+        <th style="padding:3px 6px;text-align:right">Peso coc.</th>
+        <th style="padding:3px 6px;text-align:right">Tiempo</th>
+        <th style="padding:3px 6px;text-align:right">Desp.</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${d.registros.map(r => `
+        <tr style="border-top:1px solid #1a1a1a">
+          <td style="padding:4px 6px">${r.fecha}</td>
+          <td style="padding:4px 6px;text-align:right;color:#22c55e;font-weight:600">${r.tapas_ok}</td>
+          <td style="padding:4px 6px;text-align:right;color:${r.tapas_rotas > 0 ? '#ef4444' : 'var(--color-text-muted)'}">${r.tapas_rotas}</td>
+          <td style="padding:4px 6px;text-align:right;color:var(--color-text-muted)">${r.peso_tapa_cocida_g ? r.peso_tapa_cocida_g + 'g' : '—'}</td>
+          <td style="padding:4px 6px;text-align:right;color:var(--color-text-muted)">${r.tiempo_coccion_min ? r.tiempo_coccion_min + 'min' : '—'}</td>
+          <td style="padding:4px 6px;text-align:right;color:var(--color-text-muted)">${r.masa_desperdiciada_g ? r.masa_desperdiciada_g + 'g' : '—'}</td>
+          <td style="padding:4px 6px"><button onclick="rtEliminarRegistro(${r.id})" style="background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:.85rem;padding:0 3px" title="Eliminar">✕</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  } catch(e) { console.error(e); }
+}
+
+async function rtEliminarRegistro(regId) {
+  if (!confirm('¿Eliminar este registro?')) return;
+  try {
+    await apiDelete(`/produccion/api/${_rtPid}/registros-tapas/${regId}`);
+    toast('Registro eliminado', 'info');
+    await rtCargarRegistros();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function rtActualizar() {}
+
+function rtPesoCocidaAgregar() {
+  const v = parseFloat(document.getElementById('rt-peso-cocida-input').value);
+  if (!v || v <= 0) return;
+  _rtPesosCocida.push(v);
+  document.getElementById('rt-peso-cocida-input').value = '';
+  document.getElementById('rt-peso-cocida-input').focus();
+  rtPesoCocidaRender();
+}
+
+function rtPesoCocidaLimpiar() { _rtPesosCocida = []; rtPesoCocidaRender(); }
+
+function rtPesoCocidaRender() {
+  const c = document.getElementById('rt-peso-cocida-chips');
+  c.innerHTML = _rtPesosCocida.map((p, i) =>
+    `<span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:2px 10px;font-size:0.8rem;cursor:pointer" onclick="_rtPesosCocida.splice(${i},1);rtPesoCocidaRender()" title="Click para quitar">${p}g ✕</span>`
+  ).join('');
+  const stats = document.getElementById('rt-peso-cocida-stats');
+  if (_rtPesosCocida.length === 0) { stats.style.display = 'none'; return; }
+  stats.style.display = 'block';
+  const prom = _rtPesosCocida.reduce((a, b) => a + b, 0) / _rtPesosCocida.length;
+  document.getElementById('rtpc-count').textContent = _rtPesosCocida.length;
+  document.getElementById('rtpc-prom').textContent = prom.toFixed(1) + ' g';
+  document.getElementById('rtpc-min').textContent = Math.min(..._rtPesosCocida).toFixed(1) + ' g';
+  document.getElementById('rtpc-max').textContent = Math.max(..._rtPesosCocida).toFixed(1) + ' g';
+}
+
+async function guardarRegistroTapas() {
+  const tapasOk = parseInt(document.getElementById('rt-tapas-ok').value);
+  if (isNaN(tapasOk) || tapasOk < 0) { toast('Ingresá la cantidad de tapas ok', 'error'); return; }
+
+  const btn = document.getElementById('rt-btn-guardar');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+
+  const payload = {
+    tapas_ok:            tapasOk,
+    tapas_rotas:         parseInt(document.getElementById('rt-tapas-rotas').value) || 0,
+    peso_tapa_cocida_g:  _rtPesosCocida.length > 0 ? parseFloat((_rtPesosCocida.reduce((a,b)=>a+b,0)/_rtPesosCocida.length).toFixed(2)) : null,
+    tiempo_coccion_min:  parseInt(document.getElementById('rt-tiempo-min').value) || null,
+    masa_desperdiciada_g:parseFloat(document.getElementById('rt-desperdicio').value) || null,
+    notas:               document.getElementById('rt-notas').value.trim() || null,
+    fecha:               document.getElementById('rt-fecha').value || null,
+  };
+
+  try {
+    await apiPost(`/produccion/api/${_rtPid}/agregar-registro-tapas`, payload);
+    toast(`Registro guardado — ${tapasOk} tapas`, 'success');
+    await rtCargarRegistros();
+    // Limpiar campos para próximo registro
+    document.getElementById('rt-tapas-ok').value    = '';
+    document.getElementById('rt-tapas-rotas').value = '0';
+    document.getElementById('rt-tiempo-min').value  = '';
+    document.getElementById('rt-desperdicio').value = '';
+    document.getElementById('rt-notas').value       = '';
+    _rtPesosCocida = [];
+    rtPesoCocidaRender();
+    document.getElementById('rt-tapas-ok').focus();
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Guardar registro'; }
+}
+
+async function finalizarDesdRegistro() {
+  if (!confirm('¿Finalizar el lote de tapas? Esto creará el stock disponible para armado.')) return;
+  try {
+    await apiPost(`/produccion/api/${_rtPid}/finalizar`, {});
+    toast('Lote de tapas finalizado ✔', 'success');
+    closeModal('modal-registro-tapas');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+</script>
+{% endblock %}

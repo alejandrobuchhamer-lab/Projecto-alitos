@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Clientes{% endblock %}
+{% block page_title %}Clientes{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>👥 Clientes</h1>
+    <div class="subtitle">Gestión de cartera de clientes</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-cliente')">+ Nuevo Cliente</button>
+</div>
+
+<div class="card">
+  <div class="table-wrapper" style="border:none">
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Tipo</th>
+          <th>Contacto</th>
+          <th>Deuda</th>
+          <th>Crédito Disponible</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if clientes %}
+          {% for c in clientes %}
+          <tr>
+            <td>
+              <div class="fw-600">{{ c.nombre_completo }}</div>
+              {% if c.empresa %}<div class="text-muted text-xs">{{ c.empresa }}</div>{% endif %}
+            </td>
+            <td><span class="badge badge-muted">{{ c.tipo_cliente|capitalize }}</span></td>
+            <td>
+              <div class="text-sm">{{ c.email or '—' }}</div>
+              <div class="text-muted text-xs">{{ c.telefono or '' }}</div>
+            </td>
+            <td class="{% if c.deuda_total > 0 %}text-warning fw-bold{% else %}text-muted{% endif %}">
+              ${{ "{:,.0f}".format(c.deuda_total) }}
+            </td>
+            <td class="{% if c.credito_disponible > 0 %}text-success{% else %}text-muted{% endif %}">
+              ${{ "{:,.0f}".format(c.credito_disponible) }}
+            </td>
+            <td>
+              <div style="display:flex;gap:6px">
+                <a href="/ventas/" class="btn btn-accent btn-sm">Vender</a>
+                <button class="btn btn-outline btn-sm" onclick="editarCliente({{ c.id }})">✏️</button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="6">
+            <div class="empty-state">
+              <div class="icon">👥</div>
+              <h3>Sin clientes registrados</h3>
+              <p>Agregá tu primer cliente</p>
+              <button class="btn btn-primary" onclick="openModal('modal-cliente')">+ Nuevo Cliente</button>
+            </div>
+          </td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL CLIENTE -->
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>👤 Nuevo Cliente</h3>
+      <button class="btn-icon" onclick="closeModal('modal-cliente')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Nombre *</label>
+          <input class="form-control" id="cli-nombre" placeholder="Nombre">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Apellido</label>
+          <input class="form-control" id="cli-apellido" placeholder="Apellido">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Empresa</label>
+          <input class="form-control" id="cli-empresa" placeholder="Nombre empresa (opcional)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo de Cliente</label>
+          <select class="form-control" id="cli-tipo">
+            <option value="minorista">Minorista</option>
+            <option value="mayorista">Mayorista</option>
+            <option value="distribuidor">Distribuidor</option>
+            <option value="institucional">Institucional</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-control" id="cli-email" type="email" placeholder="email@ejemplo.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Teléfono</label>
+          <input class="form-control" id="cli-telefono" placeholder="+54 9 11 0000-0000">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Límite de Crédito</label>
+          <input class="form-control" id="cli-credito" type="number" step="100" value="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dirección</label>
+        <textarea class="form-control" id="cli-direccion" rows="2" placeholder="Dirección de entrega..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="crearCliente()">Guardar Cliente</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-cliente')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function crearCliente() {
+  const nombre = document.getElementById('cli-nombre').value.trim();
+  if (!nombre) { toast('El nombre es requerido', 'error'); return; }
+  try {
+    await apiPost('/clientes/api', {
+      nombre,
+      apellido:      document.getElementById('cli-apellido').value || null,
+      empresa:       document.getElementById('cli-empresa').value || null,
+      tipo_cliente:  document.getElementById('cli-tipo').value,
+      email:         document.getElementById('cli-email').value || null,
+      telefono:      document.getElementById('cli-telefono').value || null,
+      limite_credito: parseFloat(document.getElementById('cli-credito').value) || 0,
+      direccion:     document.getElementById('cli-direccion').value || null,
+    });
+    toast('Cliente creado correctamente', 'success');
+    closeModal('modal-cliente');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function editarCliente(id) {
+  toast('Editor de cliente — próximamente', 'info');
+}
+</script>
+{% endblock %}

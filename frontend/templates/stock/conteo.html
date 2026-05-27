@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+{% block title %}Conteo de Stock{% endblock %}
+{% block page_title %}Conteo de Stock{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Layout wizard ── */
+  .wiz-wrap {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  /* ── Progreso ── */
+  .wiz-progress-bar {
+    height: 4px;
+    background: var(--color-border);
+    border-radius: 2px;
+    margin-bottom: 28px;
+    overflow: hidden;
+  }
+  .wiz-progress-fill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+  .wiz-progress-label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── Card del wizard ── */
+  .wiz-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: 32px;
+    text-align: center;
+  }
+
+  .wiz-tipo-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 12px;
+  }
+  .wiz-tipo-insumo  { background: rgba(99,102,241,.15); color: #818cf8; }
+  .wiz-tipo-alfajor { background: rgba(34,197,94,.12); color: #22c55e; }
+
+  .wiz-nombre {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 6px;
+  }
+  .wiz-sistema {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin-bottom: 28px;
+  }
+  .wiz-sistema strong { color: var(--color-text); }
+
+  /* ── Input grande ── */
+  .wiz-input-wrap {
+    position: relative;
+    max-width: 260px;
+    margin: 0 auto 28px;
+  }
+  .wiz-input {
+    width: 100%;
+    padding: 16px 60px 16px 20px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    border: 2px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+    text-align: center;
+    font-family: inherit;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+  .wiz-input:focus { outline: none; border-color: var(--color-primary); }
+  .wiz-unidad {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+
+  /* ── Diferencia en vivo ── */
+  .wiz-diff {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 28px;
+    min-height: 24px;
+  }
+  .wiz-diff.pos { color: #22c55e; }
+  .wiz-diff.neg { color: #ef4444; }
+  .wiz-diff.ok  { color: var(--color-text-muted); }
+
+  /* ── Botones ── */
+  .wiz-btns {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  /* ── Pantalla de inicio ── */
+  .wiz-start {
+    text-align: center;
+    padding: 40px 32px;
+  }
+  .wiz-start-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+  }
+  .wiz-start h2 { font-size: 1.2rem; font-weight: 700; color: var(--color-text); margin-bottom: 8px; }
+  .wiz-start p  { font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 24px; line-height: 1.5; }
+
+  .wiz-category-chips {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .wiz-chip {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--color-border);
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all 0.12s;
+    user-select: none;
+  }
+  .wiz-chip.active {
+    border-color: var(--color-primary);
+    background: rgba(99,102,241,.12);
+    color: var(--color-primary);
+  }
+
+  /* ── Resumen final ── */
+  .wiz-summary {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .wiz-summary-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .wiz-summary-title { font-size: 1rem; font-weight: 700; color: var(--color-text); }
+  .sum-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .sum-table th { padding: 10px 16px; text-align: left; font-size: 0.7rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; border-bottom: 1px solid var(--color-border); }
+  .sum-table td { padding: 10px 16px; color: var(--color-text); border-bottom: 1px solid #151515; }
+  .sum-table tr:last-child td { border-bottom: none; }
+  .sum-table .skip { opacity: 0.4; }
+  .sum-diff-pos { color: #22c55e; font-weight: 600; }
+  .sum-diff-neg { color: #ef4444; font-weight: 600; }
+  .sum-diff-ok  { color: var(--color-text-muted); }
+  .wiz-summary-footer { padding: 16px 24px; border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+
+  /* ── Historial ── */
+  .hist-panel {
+    margin-top: 32px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .hist-header { padding: 12px 16px; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; }
+  .hist-title  { font-size: 0.85rem; font-weight: 600; color: var(--color-text); }
+  .hist-table  { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .hist-table th { padding: 9px 14px; text-align: left; font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; border-bottom: 1px solid var(--color-border); }
+  .hist-table td { padding: 9px 14px; color: var(--color-text); border-bottom: 1px solid #151515; }
+  .hist-table tr:last-child td { border-bottom: none; }
+  .hist-empty  { padding: 24px; text-align: center; color: var(--color-text-muted); font-size: 0.8rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wiz-wrap">
+
+  <!-- ═══ INICIO ═══ -->
+  <div id="screen-inicio">
+    <div class="wiz-card wiz-start">
+      <div class="wiz-start-icon">📦</div>
+      <h2>Conteo de stock físico</h2>
+      <p>Te va a mostrar cada ítem de a uno.<br>Ingresás la cantidad real que tenés y el sistema se ajusta automáticamente.<br><strong>La masa y tapas no se modifican</strong> — esas son exactas.</p>
+
+      <div style="margin-bottom:16px;font-size:0.78rem;color:var(--color-text-muted)">¿Qué querés contar?</div>
+      <div class="wiz-category-chips" id="filter-chips">
+        <div class="wiz-chip active" data-cat="insumos" onclick="toggleCat(this)">Insumos / packaging</div>
+        <div class="wiz-chip active" data-cat="alfajores" onclick="toggleCat(this)">Alfajores terminados</div>
+      </div>
+
+      <button class="btn btn-primary" style="padding:10px 28px;font-size:0.9rem" onclick="iniciarConteo()" id="btn-iniciar">
+        Cargar items →
+      </button>
+    </div>
+
+    <!-- Historial -->
+    <div class="hist-panel">
+      <div class="hist-header">
+        <span class="hist-title">Historial de ajustes anteriores</span>
+        <button onclick="cargarHistorial()" style="background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:0.75rem">↻ Actualizar</button>
+      </div>
+      <div id="hist-body">
+        <div class="hist-empty">Cargando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ WIZARD ═══ -->
+  <div id="screen-wizard" style="display:none">
+
+    <!-- Progreso -->
+    <div class="wiz-progress-label">
+      <span id="prog-label">Ítem 1 de N</span>
+      <span id="prog-pct">0%</span>
+    </div>
+    <div class="wiz-progress-bar">
+      <div class="wiz-progress-fill" id="prog-fill" style="width:0%"></div>
+    </div>
+
+    <!-- Card del ítem actual -->
+    <div class="wiz-card" id="wiz-card">
+      <div class="wiz-tipo-badge" id="wiz-tipo-badge">insumo</div>
+      <div class="wiz-nombre" id="wiz-nombre">—</div>
+      <div class="wiz-sistema" id="wiz-sistema">Sistema: <strong>—</strong></div>
+
+      <div class="wiz-input-wrap">
+        <input class="wiz-input" type="number" id="wiz-real" min="0" step="0.001"
+               placeholder="0" oninput="actualizarDiff()" />
+        <span class="wiz-unidad" id="wiz-unidad">u</span>
+      </div>
+
+      <div class="wiz-diff ok" id="wiz-diff">Ingresá la cantidad real</div>
+
+      <div class="wiz-btns">
+        <button class="btn btn-secondary" onclick="saltarItem()">Saltar (sin cambio)</button>
+        <button class="btn btn-primary" onclick="confirmarItem()" id="btn-confirmar">Confirmar →</button>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;text-align:center">
+      <button onclick="cancelarConteo()" style="background:none;border:none;color:var(--color-text-muted);font-size:0.78rem;cursor:pointer;text-decoration:underline">✕ Cancelar conteo</button>
+    </div>
+  </div>
+
+  <!-- ═══ RESUMEN ═══ -->
+  <div id="screen-resumen" style="display:none">
+    <div class="wiz-summary">
+      <div class="wiz-summary-header">
+        <span class="wiz-summary-title">Resumen del conteo</span>
+        <span id="sum-stats" style="font-size:0.78rem;color:var(--color-text-muted)"></span>
+      </div>
+      <table class="sum-table">
+        <thead>
+          <tr>
+            <th>Ítem</th>
+            <th>Sistema</th>
+            <th>Contado</th>
+            <th>Diferencia</th>
+          </tr>
+        </thead>
+        <tbody id="sum-tbody"></tbody>
+      </table>
+      <div class="wiz-summary-footer">
+        <button class="btn btn-secondary" onclick="volverWizard()">← Revisar</button>
+        <button class="btn btn-primary" onclick="aplicarAjustes()" id="btn-aplicar" style="padding:10px 24px">
+          Aplicar ajustes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ COMPLETADO ═══ -->
+  <div id="screen-done" style="display:none">
+    <div class="wiz-card wiz-start">
+      <div class="wiz-start-icon">✅</div>
+      <h2>Conteo aplicado</h2>
+      <p id="done-msg">Se ajustaron N ítems correctamente.</p>
+      <button class="btn btn-primary" onclick="reiniciar()" style="padding:10px 24px">Hacer otro conteo</button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Estado ────────────────────────────────────────────────────────────────
+let _items    = [];   // todos los items cargados
+let _idx      = 0;    // índice actual
+let _conteos  = [];   // {item, real, saltado}
+let _catsActivas = new Set(['insumos', 'alfajores']);
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+const $fmt = (n, u) => `${Number(n).toLocaleString('es-AR', {maximumFractionDigits:3})} ${u}`;
+const show  = id => document.getElementById(id).style.display = '';
+const hide  = id => document.getElementById(id).style.display = 'none';
+
+function toggleCat(chip) {
+  const cat = chip.dataset.cat;
+  if (_catsActivas.has(cat)) {
+    if (_catsActivas.size === 1) return; // mínimo 1
+    _catsActivas.delete(cat);
+    chip.classList.remove('active');
+  } else {
+    _catsActivas.add(cat);
+    chip.classList.add('active');
+  }
+}
+
+// ── Pantalla inicio ───────────────────────────────────────────────────────
+async function iniciarConteo() {
+  const btn = document.getElementById('btn-iniciar');
+  btn.textContent = 'Cargando...'; btn.disabled = true;
+  try {
+    const data = await apiGet('/stock/api/items-conteo');
+    let items = [];
+    if (_catsActivas.has('insumos'))   items = items.concat(data.insumos);
+    if (_catsActivas.has('alfajores')) items = items.concat(data.alfajores);
+
+    if (!items.length) {
+      toast('No hay ítems para contar con los filtros seleccionados', 'error');
+      btn.textContent = 'Cargar items →'; btn.disabled = false;
+      return;
+    }
+
+    _items   = items;
+    _idx     = 0;
+    _conteos = items.map(item => ({ item, real: null, saltado: true }));
+
+    hide('screen-inicio');
+    show('screen-wizard');
+    mostrarItem(_idx);
+  } catch(e) {
+    toast(e.message, 'error');
+    btn.textContent = 'Cargar items →'; btn.disabled = false;
+  }
+}
+
+// ── Wizard ────────────────────────────────────────────────────────────────
+function mostrarItem(idx) {
+  const item = _items[idx];
+  const total = _items.length;
+
+  // Progreso
+  const pct = Math.round((idx / total) * 100);
+  document.getElementById('prog-label').textContent = `Ítem ${idx + 1} de ${total}`;
+  document.getElementById('prog-pct').textContent   = pct + '%';
+  document.getElementById('prog-fill').style.width  = pct + '%';
+
+  // Tipo badge
+  const badge = document.getElementById('wiz-tipo-badge');
+  badge.textContent = item.tipo === 'alfajor' ? 'Alfajor terminado' : (item.categoria === 'envase' ? 'Packaging' : 'Insumo');
+  badge.className = `wiz-tipo-badge wiz-tipo-${item.tipo === 'alfajor' ? 'alfajor' : 'insumo'}`;
+
+  // Info
+  document.getElementById('wiz-nombre').textContent  = item.nombre;
+  document.getElementById('wiz-sistema').innerHTML   = `Sistema dice: <strong>${$fmt(item.stock_sistema, item.unidad)}</strong>`;
+  document.getElementById('wiz-unidad').textContent  = item.unidad;
+
+  // Input
+  const inp = document.getElementById('wiz-real');
+  // Si ya lo habíamos completado, pre-llenar
+  const prev = _conteos[idx];
+  inp.value = (prev && !prev.saltado && prev.real !== null) ? prev.real : '';
+  inp.focus();
+
+  actualizarDiff();
+}
+
+function actualizarDiff() {
+  const item = _items[_idx];
+  const real = parseFloat(document.getElementById('wiz-real').value);
+  const el   = document.getElementById('wiz-diff');
+
+  if (isNaN(real) || document.getElementById('wiz-real').value === '') {
+    el.textContent = 'Ingresá la cantidad real que tenés'; el.className = 'wiz-diff ok';
+    return;
+  }
+  const diff = real - item.stock_sistema;
+  if (Math.abs(diff) < 0.001) {
+    el.textContent = 'Sin diferencia — stock coincide'; el.className = 'wiz-diff ok';
+  } else if (diff > 0) {
+    el.textContent = `+${$fmt(diff, item.unidad)} más de lo esperado`; el.className = 'wiz-diff pos';
+  } else {
+    el.textContent = `${$fmt(diff, item.unidad)} menos de lo esperado`; el.className = 'wiz-diff neg';
+  }
+}
+
+function confirmarItem() {
+  const real = parseFloat(document.getElementById('wiz-real').value);
+  if (isNaN(real) || real < 0) { toast('Ingresá una cantidad válida', 'error'); return; }
+  _conteos[_idx] = { item: _items[_idx], real, saltado: false };
+  avanzar();
+}
+
+function saltarItem() {
+  _conteos[_idx] = { item: _items[_idx], real: _items[_idx].stock_sistema, saltado: true };
+  avanzar();
+}
+
+function avanzar() {
+  _idx++;
+  if (_idx >= _items.length) {
+    mostrarResumen();
+  } else {
+    mostrarItem(_idx);
+  }
+}
+
+function cancelarConteo() {
+  if (!confirm('¿Cancelar el conteo? Se perderán los datos ingresados.')) return;
+  reiniciar();
+}
+
+// ── Resumen ───────────────────────────────────────────────────────────────
+function mostrarResumen() {
+  hide('screen-wizard');
+  show('screen-resumen');
+
+  const conCambio  = _conteos.filter(c => !c.saltado && Math.abs(c.real - c.item.stock_sistema) > 0.001);
+  const saltados   = _conteos.filter(c => c.saltado).length;
+  const total      = _conteos.length;
+
+  document.getElementById('sum-stats').textContent =
+    `${conCambio.length} ajustes · ${saltados} saltados · ${total} total`;
+
+  const tbody = document.getElementById('sum-tbody');
+  tbody.innerHTML = _conteos.map(c => {
+    const diff = c.saltado ? 0 : (c.real - c.item.stock_sistema);
+    const diffClass = Math.abs(diff) < 0.001 ? 'sum-diff-ok' : (diff > 0 ? 'sum-diff-pos' : 'sum-diff-neg');
+    const diffText  = Math.abs(diff) < 0.001
+      ? '— sin cambio'
+      : `${diff > 0 ? '+' : ''}${$fmt(diff, c.item.unidad)}`;
+    return `<tr class="${c.saltado ? 'skip' : ''}">
+      <td>${c.item.nombre}</td>
+      <td style="color:var(--color-text-muted)">${$fmt(c.item.stock_sistema, c.item.unidad)}</td>
+      <td>${c.saltado ? '<em style="color:var(--color-text-muted)">saltado</em>' : $fmt(c.real, c.item.unidad)}</td>
+      <td class="${diffClass}">${c.saltado ? '—' : diffText}</td>
+    </tr>`;
+  }).join('');
+}
+
+function volverWizard() {
+  hide('screen-resumen');
+  show('screen-wizard');
+  _idx = Math.max(0, _items.length - 1);
+  mostrarItem(_idx);
+}
+
+// ── Aplicar ───────────────────────────────────────────────────────────────
+async function aplicarAjustes() {
+  const btn = document.getElementById('btn-aplicar');
+  btn.textContent = 'Aplicando...'; btn.disabled = true;
+
+  const payload = _conteos
+    .filter(c => !c.saltado)
+    .map(c => ({
+      tipo:          c.item.tipo,
+      id:            c.item.id,
+      nombre:        c.item.nombre,
+      stock_sistema: c.item.stock_sistema,
+      stock_real:    c.real,
+      motivo:        'conteo físico',
+    }));
+
+  try {
+    const r = await apiPost('/stock/api/aplicar-ajuste', payload);
+    hide('screen-resumen');
+    show('screen-done');
+    document.getElementById('done-msg').textContent =
+      `Se aplicaron ${r.ajustados} ajuste${r.ajustados !== 1 ? 's' : ''} correctamente.`;
+    cargarHistorial();
+  } catch(e) {
+    toast(e.message, 'error');
+    btn.textContent = 'Aplicar ajustes'; btn.disabled = false;
+  }
+}
+
+function reiniciar() {
+  _items = []; _idx = 0; _conteos = [];
+  hide('screen-wizard'); hide('screen-resumen'); hide('screen-done');
+  show('screen-inicio');
+  document.getElementById('btn-iniciar').textContent = 'Cargar items →';
+  document.getElementById('btn-iniciar').disabled = false;
+}
+
+// ── Historial ─────────────────────────────────────────────────────────────
+async function cargarHistorial() {
+  const el = document.getElementById('hist-body');
+  try {
+    const data = await apiGet('/stock/api/historial-ajustes');
+    if (!data.length) {
+      el.innerHTML = '<div class="hist-empty">Sin ajustes registrados todavía</div>';
+      return;
+    }
+    const tipoColors = { insumo: '#818cf8', alfajor: '#22c55e' };
+    el.innerHTML = `<table class="hist-table">
+      <thead><tr><th>Fecha</th><th>Nombre</th><th>Tipo</th><th>Sistema</th><th>Real</th><th>Diferencia</th></tr></thead>
+      <tbody>
+        ${data.map(a => {
+          const diffClass = a.diferencia > 0 ? 'sum-diff-pos' : (a.diferencia < 0 ? 'sum-diff-neg' : 'sum-diff-ok');
+          return `<tr>
+            <td style="font-size:0.75rem;color:var(--color-text-muted);white-space:nowrap">${a.fecha}</td>
+            <td>${a.nombre}</td>
+            <td><span style="color:${tipoColors[a.tipo]||'#9ca3af'};font-size:0.7rem;font-weight:700;text-transform:uppercase">${a.tipo}</span></td>
+            <td style="color:var(--color-text-muted)">${a.stock_sistema}</td>
+            <td>${a.stock_real}</td>
+            <td class="${diffClass}">${a.diferencia > 0 ? '+' : ''}${a.diferencia}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  } catch(e) {
+    el.innerHTML = '<div class="hist-empty">Error cargando historial</div>';
+  }
+}
+
+// ── Teclado: Enter confirma ───────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('screen-wizard').style.display !== 'none') {
+    confirmarItem();
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+cargarHistorial();
+</script>
+{% endblock %}

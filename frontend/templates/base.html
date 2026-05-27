@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ALITOS{% endblock %} — Sistema Operativo</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/static/css/main.css?v=9" />
+
+  {% block extra_css %}{% endblock %}
+
+  <style>
+    /* ── Topbar user menu ── */
+    .user-menu { position: relative; }
+
+    .user-trigger {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 10px 4px 4px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--color-text-muted);
+      font-size: 0.82rem;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+
+    .user-trigger:hover {
+      background: var(--color-bg-elevated);
+      border-color: var(--color-border);
+      color: var(--color-text);
+    }
+
+    .user-avatar {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      background: #1f1f1f;
+      border: 1px solid var(--color-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700;
+      color: var(--color-text);
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .user-name { font-weight: 500; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-role { font-size: 0.68rem; color: var(--color-text-dim); }
+
+    .user-chevron {
+      width: 14px; height: 14px;
+      color: var(--color-text-dim);
+      transition: transform 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .user-menu.open .user-chevron { transform: rotate(180deg); }
+
+    .user-dropdown {
+      position: fixed;
+      top: calc(var(--topbar-height) + 4px); right: 14px;
+      background: #141414;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+      min-width: 190px;
+      z-index: 400;
+      overflow: hidden;
+      opacity: 0; pointer-events: none;
+      transform: translateY(-6px) scale(0.97);
+      transform-origin: top right;
+      transition: all 0.15s cubic-bezier(0.34, 1.4, 0.64, 1);
+    }
+
+    .user-menu.open .user-dropdown {
+      opacity: 1; pointer-events: all;
+      transform: translateY(0) scale(1);
+    }
+
+    .user-dropdown-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .user-dropdown-name { font-size: 0.82rem; font-weight: 600; color: var(--color-text); }
+    .user-dropdown-role { font-size: 0.68rem; color: var(--color-text-muted); margin-top: 1px; text-transform: capitalize; }
+
+    .user-dropdown-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 14px;
+      font-size: 0.82rem;
+      color: var(--color-text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      background: transparent; border: none;
+      width: 100%; text-align: left;
+      font-family: inherit;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+
+    .user-dropdown-item:hover { background: #1c1c1c; color: var(--color-text); }
+    .user-dropdown-item.danger:hover { color: var(--color-danger); background: rgba(239,68,68,0.06); }
+
+    .user-dropdown-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .user-dropdown-sep { border: none; border-top: 1px solid var(--color-border); margin: 0; }
+
+    /* ── Theme toggle ── */
+    .theme-toggle {
+      width: 30px; height: 30px;
+      border: 1px solid var(--color-border);
+      background: transparent;
+      color: var(--color-text-muted);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--color-border-glow);
+      color: var(--color-text);
+      background: var(--color-bg-elevated);
+    }
+
+    .theme-toggle svg { width: 15px; height: 15px; }
+
+    /* ── Alert badge btn ── */
+    .alert-btn {
+      position: relative;
+    }
+
+    .alert-btn-count {
+      position: absolute;
+      top: -4px; right: -4px;
+      background: var(--color-danger);
+      color: white;
+      font-size: 0.58rem; font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 8px;
+      min-width: 14px; text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ====== SIDEBAR ====== -->
+<nav class="sidebar collapsed" id="sidebar">
+
+  <div class="sidebar-logo">
+    <img src="/static/img/logo1.png" alt="ALITOS" class="sidebar-logo-img">
+    <div class="sidebar-logo-text">
+      <span class="brand">ALITOS</span>
+      <span class="sub">Sistema Operativo</span>
+    </div>
+  </div>
+
+  <div class="sidebar-nav">
+
+    <a href="/" class="nav-item" data-tip="Dashboard">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </span>
+      <span class="label">Dashboard</span>
+    </a>
+
+    <div class="nav-section-label">Operaciones</div>
+
+    <a href="/produccion/" class="nav-item" data-tip="Producción">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 20h20M4 20V10l4-4 4 4 4-6 4 6v10"/><path d="M10 20v-5h4v5"/>
+        </svg>
+      </span>
+      <span class="label">Producción</span>
+    </a>
+
+    <a href="/insumos/" class="nav-item" data-tip="Insumos & Stock">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+      </span>
+      <span class="label">Insumos & Stock</span>
+    </a>
+
+    <a href="/productos/" class="nav-item" data-tip="Productos">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+      </span>
+      <span class="label">Productos</span>
+    </a>
+
+    <a href="/recetas/" class="nav-item" data-tip="Recetas">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+          <rect x="9" y="3" width="6" height="4" rx="1"/>
+          <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/>
+        </svg>
+      </span>
+      <span class="label">Recetas</span>
+    </a>
+
+    <div class="nav-section-label">Comercial</div>
+
+    <a href="/ventas/" class="nav-item" data-tip="Ventas">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"/>
+          <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+        </svg>
+      </span>
+      <span class="label">Ventas</span>
+    </a>
+
+    <a href="/ventas/pedidos" class="nav-item" data-tip="Pedidos">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+          <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.99-1.77l1.38-9.23H6"/>
+        </svg>
+      </span>
+      <span class="label">Pedidos</span>
+    </a>
+
+    <a href="/clientes/" class="nav-item" data-tip="Clientes">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+      </span>
+      <span class="label">Clientes</span>
+    </a>
+
+    <a href="/finanzas/" class="nav-item" data-tip="Finanzas">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2"/>
+          <line x1="2" y1="10" x2="22" y2="10"/>
+          <line x1="6" y1="15" x2="10" y2="15"/>
+        </svg>
+      </span>
+      <span class="label">Finanzas</span>
+    </a>
+
+    <div class="nav-section-label">Calidad & IA</div>
+
+    <a href="/sensorial/" class="nav-item" data-tip="Lab Sensorial">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+        </svg>
+      </span>
+      <span class="label">Lab Sensorial</span>
+    </a>
+
+    <a href="/alertas/" class="nav-item" data-tip="Alertas">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+      </span>
+      <span class="label">Alertas</span>
+      <span class="nav-badge" id="alertas-badge" style="display:none">0</span>
+    </a>
+
+    <a href="/ia/asistente" class="nav-item" data-tip="Asistente ALITO">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="10" rx="2"/>
+          <circle cx="12" cy="5" r="2"/>
+          <path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/>
+        </svg>
+      </span>
+      <span class="label">Asistente ALITO</span>
+    </a>
+
+    <a href="/ia/precios-insumos" class="nav-item" data-tip="Análisis Precios">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+          <polyline points="17 6 23 6 23 12"/>
+        </svg>
+      </span>
+      <span class="label">Análisis Precios</span>
+    </a>
+
+    <div class="nav-section-label">Sistema</div>
+
+    <a href="/admin/" class="nav-item" data-tip="Administración">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
+          <path d="M12 2v2m0 16v2M2 12h2m16 0h2"/>
+        </svg>
+      </span>
+      <span class="label">Administración</span>
+    </a>
+
+    <a href="/docs" class="nav-item" data-tip="API Docs" target="_blank">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+      </span>
+      <span class="label">API Docs</span>
+    </a>
+
+  </div>
+
+  <div class="sidebar-toggle" id="sidebar-toggle-btn">
+    <svg class="toggle-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+    <span class="toggle-label">Contraer</span>
+  </div>
+
+</nav>
+
+<!-- ====== MAIN ====== -->
+<div class="main-wrapper sidebar-collapsed" id="main-wrapper">
+
+  <!-- ===== TOPBAR ===== -->
+  <header class="topbar">
+
+    <div class="topbar-title">
+      {% block page_title %}ALITOS{% endblock %}
+    </div>
+
+    <div class="topbar-actions">
+
+      <!-- Alertas -->
+      <div style="position:relative" id="notif-menu">
+        <button class="theme-toggle alert-btn" title="Notificaciones" onclick="toggleNotifPanel()" id="notif-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 01-3.46 0"/>
+          </svg>
+          <span class="alert-btn-count" id="alertas-badge-top" style="display:none">0</span>
+        </button>
+        <div id="notif-panel" style="
+          position:fixed; top:calc(var(--topbar-height) + 4px); right:14px;
+          width:320px; max-height:420px;
+          background:#141414; border:1px solid var(--color-border);
+          border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,0.7);
+          z-index:400; overflow:hidden;
+          opacity:0; pointer-events:none; transform:translateY(-6px) scale(0.97);
+          transform-origin:top right;
+          transition:all 0.15s cubic-bezier(0.34,1.4,0.64,1);
+          display:flex; flex-direction:column;">
+          <div style="padding:12px 14px; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:center; flex-shrink:0">
+            <span style="font-size:0.82rem; font-weight:600; color:var(--color-text)">Notificaciones</span>
+            <button onclick="verificarAlertas()" style="background:none;border:none;color:var(--color-text-muted);font-size:0.72rem;cursor:pointer;padding:2px 6px;border-radius:4px;border:1px solid var(--color-border)" title="Actualizar">↻ Actualizar</button>
+          </div>
+          <div id="notif-list" style="overflow-y:auto; flex:1; padding:6px 0">
+            <div style="padding:20px; text-align:center; color:var(--color-text-muted); font-size:0.8rem">Cargando...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Claro / Oscuro -->
+      <button class="theme-toggle" id="theme-toggle-btn" title="Cambiar tema" onclick="toggleLightDark()">
+        <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+        <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </button>
+
+      <!-- User menu -->
+      <div class="user-menu" id="user-menu">
+        <button class="user-trigger" id="user-trigger" onclick="toggleUserMenu()">
+          <div class="user-avatar" id="user-avatar">
+            {{ (request.state.user.nombre or request.state.user.username or 'U')[0] | upper }}
+          </div>
+          <div style="text-align:left">
+            <div class="user-name">{{ request.state.user.nombre or request.state.user.username }}</div>
+            <div class="user-role">{{ request.state.user.rol }}</div>
+          </div>
+          <svg class="user-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        <div class="user-dropdown" id="user-dropdown">
+          <div class="user-dropdown-header">
+            <div class="user-dropdown-name">{{ request.state.user.nombre or request.state.user.username }}</div>
+            <div class="user-dropdown-role">{{ request.state.user.rol }}</div>
+          </div>
+          <a href="/admin/" class="user-dropdown-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7"/>
+            </svg>
+            Administración
+          </a>
+          <hr class="user-dropdown-sep">
+          <a href="/auth/logout" class="user-dropdown-item danger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Cerrar sesión
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+  </header>
+
+  <!-- ===== CONTENT ===== -->
+  <main class="page-content">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+
+<script src="/static/js/main.js"></script>
+
+<script>
+  // ===== SIDEBAR TOOLTIP =====
+  (function() {
+    const tip = document.createElement('div');
+    tip.className = 'sidebar-tooltip';
+    document.body.appendChild(tip);
+
+    document.querySelectorAll('.nav-item[data-tip]').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        if (!document.getElementById('sidebar').classList.contains('collapsed')) return;
+        tip.textContent = el.dataset.tip;
+        tip.style.opacity = '1';
+        const r = el.getBoundingClientRect();
+        tip.style.left = (r.right + 10) + 'px';
+        tip.style.top  = (r.top + r.height / 2 - 14) + 'px';
+      });
+      el.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
+    });
+
+    // Hide tooltip when sidebar expands
+    document.getElementById('sidebar-toggle-btn')?.addEventListener('click', () => {
+      tip.style.opacity = '0';
+    });
+  })();
+
+  // ===== SIDEBAR =====
+  function setSidebarState(collapsed) {
+    const sidebar = document.getElementById('sidebar');
+    const main    = document.getElementById('main-wrapper');
+    const label   = sidebar?.querySelector('.toggle-label');
+    sidebar?.classList.toggle('collapsed', collapsed);
+    main?.classList.toggle('sidebar-collapsed', collapsed);
+    if (label) label.textContent = collapsed ? 'Expandir' : 'Contraer';
+    localStorage.setItem('sidebar-collapsed', String(collapsed));
+  }
+
+  document.getElementById('sidebar-toggle-btn')?.addEventListener('click', () => {
+    const isCollapsed = document.getElementById('sidebar')?.classList.contains('collapsed');
+    setSidebarState(!isCollapsed);
+  });
+
+  // Marcar item activo según URL actual
+  (function() {
+    const path = window.location.pathname;
+    document.querySelectorAll('.nav-item').forEach(el => {
+      const href = el.getAttribute('href');
+      if (!href || href === '#') return;
+      // Match exacto o prefijo (excepto "/" que solo matchea dashboard)
+      const isActive = href === '/' ? path === '/' : path.startsWith(href);
+      if (isActive) el.classList.add('active');
+    });
+  })();
+
+  (function() {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    const sidebar = document.getElementById('sidebar');
+    const main    = document.getElementById('main-wrapper');
+    [sidebar, main].forEach(el => { if (el) el.classList.add('no-transition'); });
+    setSidebarState(saved !== 'false');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
+    }));
+  })();
+
+  // ===== LIGHT / DARK =====
+  function updateThemeIcons() {
+    const isLight = document.body.classList.contains('light');
+    document.getElementById('icon-moon').style.display = isLight ? 'none' : 'block';
+    document.getElementById('icon-sun').style.display  = isLight ? 'block' : 'none';
+  }
+
+  function toggleLightDark() {
+    document.body.classList.toggle('light');
+    const isLight = document.body.classList.contains('light');
+    const t = JSON.parse(localStorage.getItem('alitos-theme') || '{}');
+    t.light = isLight;
+    localStorage.setItem('alitos-theme', JSON.stringify(t));
+    updateThemeIcons();
+  }
+
+  // Restore theme on load
+  (function() {
+    const t = JSON.parse(localStorage.getItem('alitos-theme') || '{}');
+    if (t.light) document.body.classList.add('light');
+    updateThemeIcons();
+  })();
+
+  // ===== USER MENU =====
+  function toggleUserMenu() {
+    document.getElementById('user-menu').classList.toggle('open');
+  }
+
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('user-menu');
+    if (menu && !menu.contains(e.target)) {
+      menu.classList.remove('open');
+    }
+  });
+
+  // ===== NOTIFICACIONES =====
+  let _notifOpen = false;
+
+  function toggleNotifPanel() {
+    _notifOpen = !_notifOpen;
+    const panel = document.getElementById('notif-panel');
+    panel.style.opacity = _notifOpen ? '1' : '0';
+    panel.style.pointerEvents = _notifOpen ? 'all' : 'none';
+    panel.style.transform = _notifOpen ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)';
+    if (_notifOpen) renderNotifList();
+  }
+
+  document.addEventListener('click', e => {
+    const menu = document.getElementById('notif-menu');
+    if (_notifOpen && menu && !menu.contains(e.target)) {
+      _notifOpen = false;
+      const panel = document.getElementById('notif-panel');
+      panel.style.opacity = '0';
+      panel.style.pointerEvents = 'none';
+      panel.style.transform = 'translateY(-6px) scale(0.97)';
+    }
+  });
+
+  const _prioColor = { alta: '#ef4444', media: '#f59e0b', baja: '#3b82f6' };
+  const _prioLabel = { alta: 'Alta', media: 'Media', baja: 'Baja' };
+
+  async function renderNotifList() {
+    const list = document.getElementById('notif-list');
+    try {
+      const alertas = await apiGet('/alertas/api');
+      if (!alertas.length) {
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--color-text-muted);font-size:0.8rem">Sin alertas activas</div>';
+        return;
+      }
+      list.innerHTML = alertas.map(a => `
+        <div style="padding:10px 14px;border-bottom:1px solid #1e1e1e;display:flex;gap:10px;align-items:flex-start">
+          <div style="width:6px;height:6px;border-radius:50%;background:${_prioColor[a.prioridad]||'#6b7280'};margin-top:5px;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.79rem;font-weight:500;color:var(--color-text);line-height:1.3">${a.mensaje||a.tipo}</div>
+            <div style="font-size:0.69rem;color:var(--color-text-muted);margin-top:2px">${_prioLabel[a.prioridad]||a.prioridad} · ${a.tipo}</div>
+          </div>
+        </div>`).join('');
+    } catch(e) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--color-text-muted);font-size:0.8rem">Error cargando alertas</div>';
+    }
+  }
+
+  async function verificarAlertas() {
+    try {
+      const r = await apiPost('/alertas/api/verificar', {});
+      toast(`${r.alertas_generadas} alertas generadas`, 'info');
+      await loadAlertasCount();
+      if (_notifOpen) renderNotifList();
+    } catch(e) { toast(e.message, 'error'); }
+  }
+
+  async function loadAlertasCount() {
+    try {
+      const alertas = await apiGet('/alertas/api');
+      const sidebar = document.getElementById('alertas-badge');
+      const top     = document.getElementById('alertas-badge-top');
+      const n = alertas.length;
+      if (sidebar) { sidebar.textContent = n; sidebar.style.display = n > 0 ? 'inline-flex' : 'none'; }
+      if (top)     { top.textContent = n;     top.style.display     = n > 0 ? 'block' : 'none'; }
+    } catch (_) {}
+  }
+
+  loadAlertasCount();
+</script>
+
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>
