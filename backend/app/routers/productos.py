@@ -47,8 +47,39 @@ class ProductoUpdate(BaseModel):
 
 @router.get("/", response_class=HTMLResponse)
 def lista_productos_html(request: Request, db: Session = Depends(get_db)):
+    from datetime import datetime
     productos = db.query(ProductoTerminado).filter(ProductoTerminado.activo == True).order_by(ProductoTerminado.nombre).all()
-    return templates.TemplateResponse("productos/lista.html", {"request": request, "productos": productos})
+    # Lotes alfajor activos con stock para la vista Stock Comercial
+    lotes_alfajor = (
+        db.query(LoteProductoTerminado)
+        .filter(
+            LoteProductoTerminado.tipo == "alfajor",
+            LoteProductoTerminado.activo == True,
+            LoteProductoTerminado.cantidad_actual > 0,
+        )
+        .order_by(LoteProductoTerminado.fecha_vencimiento.asc().nullslast())
+        .all()
+    )
+    # Mapa producto_id → producto para el template
+    prod_map = {p.id: p for p in productos}
+    # Totales para KPIs
+    total_unidades = sum(l.cantidad_actual for l in lotes_alfajor)
+    total_costo = sum(l.cantidad_actual * (l.costo_unitario_calculado or 0) for l in lotes_alfajor)
+    total_venta = sum(
+        l.cantidad_actual * (prod_map.get(l.producto_id, {}) and prod_map[l.producto_id].precio_venta_base or 0)
+        for l in lotes_alfajor if l.producto_id in prod_map
+    )
+    margen_total = total_venta - total_costo
+    return templates.TemplateResponse("productos/lista.html", {
+        "request": request,
+        "productos": productos,
+        "lotes_alfajor": lotes_alfajor,
+        "prod_map": prod_map,
+        "kpi_unidades": int(total_unidades),
+        "kpi_costo": round(total_costo, 0),
+        "kpi_venta": round(total_venta, 0),
+        "kpi_margen": round(margen_total, 0),
+    })
 
 
 @router.get("/api", response_model=list[ProductoOut])

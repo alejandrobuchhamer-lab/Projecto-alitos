@@ -32,7 +32,10 @@ def _numero_lote_tapas(producto_nombre: str, fecha_hoy: datetime, julian_masa: i
 
 
 def _numero_lote_armado(producto_nombre: str, fecha_hoy: datetime, julian_masa: int) -> str:
-    nombre_safe = producto_nombre.upper().replace(" ", "_")
+    nombre = producto_nombre.strip()
+    if nombre.lower().startswith("alfajor"):
+        nombre = nombre[7:].strip()
+    nombre_safe = nombre.upper().replace(" ", "_") if nombre else "XX"
     return f"ALFAJOR-{nombre_safe}-{_yymmdd(fecha_hoy)}-L{julian_masa}"
 
 
@@ -132,7 +135,7 @@ def iniciar_produccion(
             continue
         cantidad_necesaria = ingrediente.cantidad * escala
         if ingrediente.tipo_ingrediente == "producto_terminado":
-            from app.models.producto import LoteProductoTerminado, ProductoTerminado
+            from app.models.producto import ProductoTerminado
             lotes = db.query(LoteProductoTerminado).filter(
                 LoteProductoTerminado.producto_id == ingrediente.producto_terminado_id,
                 LoteProductoTerminado.activo == True,
@@ -323,8 +326,15 @@ def finalizar_armado(
                     )
                     db.add(uso)
                     costo_total += c["cantidad_consumida"] * c["costo_unitario"]
-            except ValueError as e:
-                raise ValueError(f"Error al descontar '{insumo.nombre}': {e}")
+            except ValueError:
+                # Stock insuficiente — registrar sin deducción (stock ficticio)
+                uso = ProduccionInsumo(
+                    produccion_id=produccion.id,
+                    lote_insumo_id=None,
+                    cantidad_usada=cantidad_en_unidad,
+                    costo_unitario=0.0,
+                )
+                db.add(uso)
 
     db.flush()
 

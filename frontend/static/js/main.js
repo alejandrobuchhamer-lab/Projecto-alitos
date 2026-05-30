@@ -2,27 +2,7 @@
    ALITOS — Main JS
    ============================================================ */
 
-// ====== SIDEBAR ======
-const sidebar = document.querySelector('.sidebar');
-const mainWrapper = document.querySelector('.main-wrapper');
-const toggleBtn = document.querySelector('.sidebar-toggle');
-
-function loadSidebarState() {
-  const collapsed = localStorage.getItem('sidebar-collapsed') === 'true';
-  if (collapsed) {
-    sidebar?.classList.add('collapsed');
-    mainWrapper?.classList.add('sidebar-collapsed');
-  }
-}
-
-function toggleSidebar() {
-  const isCollapsed = sidebar.classList.toggle('collapsed');
-  mainWrapper?.classList.toggle('sidebar-collapsed', isCollapsed);
-  localStorage.setItem('sidebar-collapsed', isCollapsed);
-}
-
-toggleBtn?.addEventListener('click', toggleSidebar);
-loadSidebarState();
+// Sidebar manejado completamente por base.html (setSidebarState)
 
 // ====== THEME ======
 function applyTheme(primary, accent, bg) {

@@ -371,5 +371,27 @@ async function cobrarVenta(id, factura) {
 }
 
 cargarTopProductos();
+
+// ── Auto-abrir con lote pre-seleccionado desde ?lote_id=X ───────
+document.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(location.search);
+  const loteId = parseInt(params.get('lote_id'));
+  if (!loteId) return;
+  await abrirNuevaVenta();
+  // Buscar la línea recién agregada (siempre la primera) y pre-seleccionar el lote
+  const sel = document.getElementById('lin-lote-1');
+  if (sel) {
+    const opt = [...sel.options].find(o => parseInt(o.value) === loteId);
+    if (opt) {
+      sel.value = loteId;
+      updatePrecio(1);
+      toast('Lote pre-seleccionado — completá cliente y forma de pago', 'info');
+    } else {
+      toast('Lote no disponible para venta', 'warning');
+    }
+  }
+  // Limpiar URL sin recargar
+  history.replaceState({}, '', '/ventas/');
+});
 </script>
 {% endblock %}

@@ -225,6 +225,53 @@
     /* ── LOADING ── */
     .spinner-sm { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin .7s linear infinite; display:inline-block; }
     @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── SEARCH ── */
+    .search-wrap { position:relative; margin-bottom:12px; }
+    .search-input {
+      width:100%; padding:10px 14px 10px 36px;
+      background:var(--surface); border:1px solid var(--border); border-radius:10px;
+      color:var(--text); font-size:.85rem; font-family:inherit; outline:none;
+    }
+    .search-input:focus { border-color:var(--gold-dim); }
+    .search-input::placeholder { color:var(--text-dim); }
+    .search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-dim); pointer-events:none; }
+
+    /* ── DESCUENTO ── */
+    .desc-row { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+    .desc-label { font-size:.75rem; color:var(--text-dim); flex:1; }
+    .desc-input {
+      width:64px; padding:6px 8px; text-align:center;
+      background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); font-size:.85rem; font-family:inherit; outline:none;
+    }
+    .desc-input:focus { border-color:var(--gold-dim); }
+    .desc-amount { font-size:.75rem; color:var(--danger); min-width:52px; text-align:right; font-weight:600; }
+
+    /* ── HISTORIAL ── */
+    .hist-item {
+      background:var(--surface); border:1px solid var(--border); border-radius:10px;
+      padding:12px 14px; margin-bottom:8px; cursor:pointer;
+      transition:border-color .15s;
+    }
+    .hist-item:active { border-color:var(--gold-dim); }
+    .hist-row { display:flex; justify-content:space-between; align-items:center; }
+    .hist-factura { font-size:.75rem; color:var(--text-dim); }
+    .hist-hora { font-size:.7rem; color:var(--text-mute); }
+    .hist-total { font-size:1rem; font-weight:700; color:var(--gold); }
+    .hist-pago { font-size:.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:var(--text-dim); margin-top:2px; }
+    .hist-items-count { font-size:.65rem; color:var(--text-dim); margin-top:4px; }
+    .hist-detail { display:none; margin-top:10px; border-top:1px solid var(--border); padding-top:10px; }
+    .hist-detail.open { display:block; }
+    .hist-det-row { display:flex; justify-content:space-between; font-size:.75rem; padding:3px 0; color:var(--text-dim); }
+    .hist-det-name { flex:1; }
+    .hist-det-sub { color:var(--gold-dim); font-weight:600; }
+    .hist-day-total {
+      background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+      padding:12px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;
+    }
+    .hist-day-label { font-size:.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
+    .hist-day-val { font-size:1.1rem; font-weight:700; color:var(--gold); }
   </style>
 </head>
 <body>
@@ -263,7 +310,10 @@
 
 <!-- ══ SCREEN: VENTA ══ -->
 <div class="screen" id="screen-venta">
-  <div class="sec-title">Tocá un producto para agregar al carrito</div>
+  <div class="search-wrap">
+    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input class="search-input" id="venta-search" type="text" placeholder="Buscar producto..." oninput="filterProds(this.value)" autocomplete="off"/>
+  </div>
   <div class="prod-grid" id="venta-grid">
     <div class="empty"><div class="spinner-sm"></div></div>
   </div>
@@ -275,6 +325,15 @@
   <div id="stock-list">
     <div class="empty"><div class="spinner-sm"></div></div>
   </div>
+</div>
+
+<!-- ══ SCREEN: HISTORIAL ══ -->
+<div class="screen" id="screen-historial">
+  <div id="historial-resumen" class="hist-day-total">
+    <div><div class="hist-day-label">Total del día</div><div class="hist-day-val" id="hist-total-dia">—</div></div>
+    <div style="text-align:right"><div class="hist-day-label">Ventas</div><div class="hist-day-val" id="hist-cant-dia">—</div></div>
+  </div>
+  <div id="hist-list"><div class="empty"><div class="spinner-sm"></div></div></div>
 </div>
 
 <!-- ══ SCREEN: PERFIL ══ -->
@@ -312,6 +371,12 @@
     </svg>
     <span>Stock</span>
   </button>
+  <button class="nav-item" id="nav-historial" onclick="showScreen('historial')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/>
+    </svg>
+    <span>Historial</span>
+  </button>
   <button class="nav-item" id="nav-perfil" onclick="showScreen('perfil')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
@@ -341,6 +406,11 @@
     <div class="total-row">
       <span class="total-label">Total</span>
       <span class="total-amount" id="cart-total-amount">$0</span>
+    </div>
+    <div class="desc-row">
+      <span class="desc-label">Descuento %</span>
+      <input class="desc-input" id="desc-pct" type="number" min="0" max="100" value="0" oninput="updateDescuento()"/>
+      <span class="desc-amount" id="desc-monto"></span>
     </div>
     <div class="pago-grid">
       <div class="pago-btn active" data-pago="efectivo" onclick="selectPago(this)">Efectivo</div>
@@ -412,10 +482,12 @@ function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
-  document.getElementById('nav-' + name).classList.add('active');
-  if (name === 'home') loadDashboard();
-  if (name === 'venta') loadVenta();
-  if (name === 'stock') loadStockScreen();
+  const navEl = document.getElementById('nav-' + name);
+  if (navEl) navEl.classList.add('active');
+  if (name === 'home')      loadDashboard();
+  if (name === 'venta')     loadVenta();
+  if (name === 'stock')     loadStockScreen();
+  if (name === 'historial') loadHistorial();
 }
 
 function goVenta() { showScreen('venta'); }
@@ -445,13 +517,23 @@ async function loadVenta() {
   }
 }
 
+let _searchQuery = '';
+
+function filterProds(q) {
+  _searchQuery = q.toLowerCase();
+  renderProdGrid();
+}
+
 function renderProdGrid() {
   const grid = document.getElementById('venta-grid');
-  if (!stockData.length) {
-    grid.innerHTML = '<div class="empty" style="grid-column:span 2"><div class="empty-icon">📦</div><div class="empty-msg">Sin stock disponible</div></div>';
+  const visible = _searchQuery
+    ? stockData.filter(p => p.nombre.toLowerCase().includes(_searchQuery))
+    : stockData;
+  if (!visible.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:span 2"><div class="empty-icon">📦</div><div class="empty-msg">${_searchQuery ? 'Sin resultados' : 'Sin stock disponible'}</div></div>`;
     return;
   }
-  grid.innerHTML = stockData.map(p => {
+  grid.innerHTML = visible.map(p => {
     const inCart = cart[p.lote_id];
     const qty = inCart ? inCart.qty : 0;
     return `<div class="prod-card ${qty > 0 ? 'has-qty' : ''}" onclick="addOne(${p.lote_id})" data-lid="${p.lote_id}">
@@ -484,10 +566,28 @@ function changeQty(lote_id, delta) {
   renderProdGrid();
 }
 
+function getDescuento() {
+  const pct = parseFloat(document.getElementById('desc-pct')?.value || 0);
+  return Math.min(100, Math.max(0, pct || 0));
+}
+
+function updateDescuento() {
+  const items = Object.values(cart);
+  const subtotal = items.reduce((s, i) => s + i.qty * i.precio, 0);
+  const pct = getDescuento();
+  const monto = subtotal * pct / 100;
+  const totalFinal = subtotal - monto;
+  document.getElementById('cart-total-amount').textContent = '$' + fmtNum(totalFinal);
+  const montoEl = document.getElementById('desc-monto');
+  if (montoEl) montoEl.textContent = pct > 0 ? `-$${fmtNum(monto)}` : '';
+}
+
 function updateCartUI() {
   const items = Object.values(cart);
   const count = items.reduce((s, i) => s + i.qty, 0);
-  const total = items.reduce((s, i) => s + i.qty * i.precio, 0);
+  const subtotal = items.reduce((s, i) => s + i.qty * i.precio, 0);
+  const pct = getDescuento();
+  const total = subtotal * (1 - pct / 100);
   const strip = document.getElementById('cart-strip');
   if (count > 0) {
     strip.classList.add('show');
@@ -496,6 +596,7 @@ function updateCartUI() {
   } else {
     strip.classList.remove('show');
   }
+  updateDescuento();
 }
 
 function clearCart() {
@@ -549,13 +650,17 @@ async function confirmarVenta() {
   btn.disabled = true;
   btn.textContent = 'Procesando...';
   try {
+    const pct = getDescuento();
     const payload = {
       items: items.map(i => ({ lote_id: i.lote_id, cantidad: i.qty, precio_unitario: i.precio })),
       forma_pago: formaPago,
+      descuento_pct: pct,
+      notas: pct > 0 ? `Descuento ${pct}%` : undefined,
     };
     const res = await api('POST', '/pos/api/venta', payload);
     if (!res) return;
     cart = {};
+    document.getElementById('desc-pct').value = 0;
     updateCartUI();
     renderProdGrid();
     closeCart();
@@ -598,6 +703,51 @@ async function loadStockScreen() {
   }
 }
 
+// ── Historial ────────────────────────────────────────
+async function loadHistorial() {
+  const list = document.getElementById('hist-list');
+  list.innerHTML = '<div class="empty"><div class="spinner-sm"></div></div>';
+  try {
+    const data = await api('GET', '/pos/api/historial') || [];
+    const totalDia = data.reduce((s, v) => s + v.total, 0);
+    document.getElementById('hist-total-dia').textContent = '$' + fmtNum(totalDia);
+    document.getElementById('hist-cant-dia').textContent = data.length;
+    if (!data.length) {
+      list.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-msg">Sin ventas hoy todavía</div></div>';
+      return;
+    }
+    list.innerHTML = data.map((v, idx) => `
+      <div class="hist-item" onclick="toggleHistDet(${idx})">
+        <div class="hist-row">
+          <div>
+            <div class="hist-factura">${v.numero_factura}</div>
+            <div class="hist-hora">${v.hora} · ${v.items} producto${v.items !== 1 ? 's' : ''}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="hist-total">$${fmtNum(v.total)}</div>
+            <div class="hist-pago">${v.forma_pago}</div>
+          </div>
+        </div>
+        <div class="hist-detail" id="hd-${idx}">
+          ${v.detalles.map(d => `
+            <div class="hist-det-row">
+              <span class="hist-det-name">${d.nombre} ×${d.cantidad}</span>
+              <span class="hist-det-sub">$${fmtNum(d.subtotal)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-msg">Error cargando historial</div></div>';
+  }
+}
+
+function toggleHistDet(idx) {
+  const el = document.getElementById('hd-' + idx);
+  if (el) el.classList.toggle('open');
+}
+
 // ── Success ──────────────────────────────────────────
 function showSuccess(total, factura) {
   document.getElementById('suc-total').textContent = 'Total: $' + fmtNum(total);
@@ -632,6 +782,10 @@ function fmtFecha(iso) {
 initUI();
 loadDashboard();
 loadVenta();  // pre-cargar stock
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/pos/sw.js', { scope: '/pos/' });
+}
 </script>
 </body>
 </html>

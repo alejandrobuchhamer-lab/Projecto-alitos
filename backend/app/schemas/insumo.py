@@ -1,14 +1,14 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, Field
 
 
 class InsumoBase(BaseModel):
-    nombre: str
-    descripcion: str | None = None
-    unidad_medida: str
-    categoria: str = "otro"
-    stock_minimo: float = 0.0
-    proveedor_default: str | None = None
+    nombre: str = Field(..., min_length=1, max_length=200)
+    descripcion: str | None = Field(None, max_length=500)
+    unidad_medida: str = Field(..., min_length=1, max_length=20)
+    categoria: str = Field("otro", max_length=50)
+    stock_minimo: float = Field(0.0, ge=0)
+    proveedor_default: str | None = Field(None, max_length=200)
 
 
 class InsumoCreate(InsumoBase):
@@ -16,12 +16,12 @@ class InsumoCreate(InsumoBase):
 
 
 class InsumoUpdate(BaseModel):
-    nombre: str | None = None
-    descripcion: str | None = None
-    unidad_medida: str | None = None
-    categoria: str | None = None
-    stock_minimo: float | None = None
-    proveedor_default: str | None = None
+    nombre: str | None = Field(None, min_length=1, max_length=200)
+    descripcion: str | None = Field(None, max_length=500)
+    unidad_medida: str | None = Field(None, max_length=20)
+    categoria: str | None = Field(None, max_length=50)
+    stock_minimo: float | None = Field(None, ge=0)
+    proveedor_default: str | None = Field(None, max_length=200)
     activo: bool | None = None
 
 
@@ -38,20 +38,19 @@ class InsumoOut(InsumoBase):
 # ── Lote ─────────────────────────────────────────────────────────────────────
 
 class LoteInsumoBase(BaseModel):
-    insumo_id: int
-    numero_lote: str
-    cantidad_inicial: float
-    costo_unitario: float
-    moneda: str = "ARS"
-    proveedor: str | None = None
+    insumo_id: int = Field(..., gt=0)
+    numero_lote: str = Field(..., min_length=1, max_length=100)
+    cantidad_inicial: float = Field(..., gt=0, le=1_000_000)
+    costo_unitario: float = Field(..., ge=0, le=100_000_000)
+    moneda: str = Field("ARS", max_length=10)
+    proveedor: str | None = Field(None, max_length=200)
     fecha_vencimiento: datetime | None = None
-    notas: str | None = None
-    # Presentación / bulto
-    tipo_presentacion: str = "unidad"
-    cantidad_bultos: float | None = None
-    unidades_por_bulto: float | None = None
-    precio_por_bulto: float | None = None
-    costo_extra_unitario: float = 0.0
+    notas: str | None = Field(None, max_length=500)
+    tipo_presentacion: str = Field("unidad", max_length=30)
+    cantidad_bultos: float | None = Field(None, gt=0)
+    unidades_por_bulto: float | None = Field(None, gt=0)
+    precio_por_bulto: float | None = Field(None, ge=0)
+    costo_extra_unitario: float = Field(0.0, ge=0)
 
 
 class LoteInsumoCreate(LoteInsumoBase):
@@ -59,12 +58,12 @@ class LoteInsumoCreate(LoteInsumoBase):
 
 
 class LoteInsumoUpdate(BaseModel):
-    cantidad_actual: float | None = None
-    costo_unitario: float | None = None
-    proveedor: str | None = None
+    cantidad_actual: float | None = Field(None, ge=0)
+    costo_unitario: float | None = Field(None, ge=0)
+    proveedor: str | None = Field(None, max_length=200)
     fecha_vencimiento: datetime | None = None
-    notas: str | None = None
-    tipo_presentacion: str | None = None
+    notas: str | None = Field(None, max_length=500)
+    tipo_presentacion: str | None = Field(None, max_length=30)
     activo: bool | None = None
 
 
@@ -85,24 +84,24 @@ class LoteInsumoOut(LoteInsumoBase):
 # ── Ingreso masivo ────────────────────────────────────────────────────────────
 
 class ItemIngresoCreate(BaseModel):
-    insumo_id: int
-    tipo_presentacion: str = "unidad"
-    cantidad_bultos: float = 1.0
-    unidades_por_bulto: float = 1.0
-    precio_por_bulto: float
-    proveedor: str | None = None
+    insumo_id: int = Field(..., gt=0)
+    tipo_presentacion: str = Field("unidad", max_length=30)
+    cantidad_bultos: float = Field(1.0, gt=0, le=100_000)
+    unidades_por_bulto: float = Field(1.0, gt=0, le=100_000)
+    precio_por_bulto: float = Field(..., ge=0, le=100_000_000)
+    proveedor: str | None = Field(None, max_length=200)
     fecha_vencimiento: datetime | None = None
-    numero_lote: str | None = None
-    notas: str | None = None
+    numero_lote: str | None = Field(None, max_length=100)
+    notas: str | None = Field(None, max_length=500)
 
 
 class IngresoMasivoCreate(BaseModel):
-    proveedor_global: str | None = None
+    proveedor_global: str | None = Field(None, max_length=200)
     fecha: datetime | None = None
-    notas: str | None = None
-    costo_extra: float = 0.0
-    tipo_costo_extra: str = "flete"
-    items: list[ItemIngresoCreate]
+    notas: str | None = Field(None, max_length=500)
+    costo_extra: float = Field(0.0, ge=0)
+    tipo_costo_extra: str = Field("flete", max_length=50)
+    items: list[ItemIngresoCreate] = Field(..., min_length=1, max_length=200)
 
 
 class IngresoMasivoResult(BaseModel):

@@ -1,6 +1,6 @@
 from datetime import date
 from fastapi import APIRouter, Request, Depends, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -22,6 +22,47 @@ def pos_login(request: Request):
 @router.get("/app", response_class=HTMLResponse)
 def pos_app(request: Request):
     return templates.TemplateResponse("pos/app.html", {"request": request})
+
+
+_SW = """
+const CACHE = 'alitos-pos-v1';
+const PRECACHE = ['/pos/', '/pos/app', '/static/pos-manifest.json', '/static/img/logo1.png'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  // API calls: network first, no cache
+  if (url.pathname.startsWith('/pos/api/') || url.pathname.startsWith('/api/')) {
+    e.respondWith(fetch(e.request).catch(() => new Response('{}', {headers:{'Content-Type':'application/json'}})));
+    return;
+  }
+  // Static + pages: cache first, then network
+  e.respondWith(
+    caches.match(e.request).then(r => r || fetch(e.request).then(res => {
+      const clone = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, clone));
+      return res;
+    }))
+  );
+});
+"""
+
+
+@router.get("/sw.js")
+def pos_sw():
+    return Response(content=_SW, media_type="application/javascript")
 
 
 @router.get("/api/stock")
@@ -103,6 +144,46 @@ class POSVentaCreate(BaseModel):
     items: list[POSItem]
     forma_pago: str = "efectivo"
     notas: str | None = None
+    descuento_pct: float = 0.0
+
+
+@router.get("/api/historial")
+def pos_historial(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
+    """Ventas del día actual para el historial del POS."""
+    hoy = date.today()
+    ventas = (
+        db.query(Venta)
+        .filter(
+            func.date(Venta.fecha_venta) == hoy,
+            Venta.estado.in_(["confirmada", "cobrada"]),
+        )
+        .order_by(Venta.fecha_venta.desc())
+        .limit(50)
+        .all()
+    )
+    result = []
+    for v in ventas:
+        detalles = []
+        for d in v.detalles:
+            nombre = "—"
+            if d.lote_producto and d.lote_producto.producto:
+                nombre = d.lote_producto.producto.nombre
+            detalles.append({
+                "nombre": nombre,
+                "cantidad": int(d.cantidad),
+                "precio_unitario": d.precio_unitario,
+                "subtotal": round(d.cantidad * d.precio_unitario, 2),
+            })
+        result.append({
+            "id": v.id,
+            "numero_factura": v.numero_factura,
+            "hora": v.fecha_venta.strftime("%H:%M"),
+            "total": round(v.total_neto, 2),
+            "forma_pago": v.forma_pago,
+            "items": len(detalles),
+            "detalles": detalles,
+        })
+    return result
 
 
 @router.post("/api/venta", status_code=201)
@@ -118,8 +199,9 @@ def pos_crear_venta(
             {"lote_producto_id": i.lote_id, "cantidad": float(i.cantidad), "precio_unitario": i.precio_unitario}
             for i in data.items
         ]
+        descuento = max(0.0, min(100.0, data.descuento_pct or 0.0))
         notas = data.notas or f"POS — {user.get('username', '')}"
-        venta = crear_venta(db, None, detalles, None, 0.0, notas, data.forma_pago, True)
+        venta = crear_venta(db, None, detalles, None, descuento, notas, data.forma_pago, True)
         db.commit()
         db.refresh(venta)
         return {"id": venta.id, "numero_factura": venta.numero_factura, "total": round(venta.total_neto, 2)}

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 
 class ProduccionCreate(BaseModel):
-    receta_version_id: int
+    receta_version_id: int | None = None
     operario: str | None = None
     notas: str | None = None
     tipo_produccion: str = "general"  # general | tapas | armado | masa
@@ -18,7 +18,7 @@ class ProduccionCreate(BaseModel):
 
 class ProduccionOut(BaseModel):
     id: int
-    receta_version_id: int
+    receta_version_id: int | None
     numero_lote_produccion: str
     fecha_inicio: datetime
     fecha_fin: datetime | None

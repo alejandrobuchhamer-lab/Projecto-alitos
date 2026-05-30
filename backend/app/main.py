@@ -13,18 +13,19 @@ from app.routers import mobile_auth as mobile_auth_router
 from app.routers import pos as pos_router
 from app.services.auth_service import verify_session_token
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-# Paths that don't need auth (starts-with check)
 _PUBLIC = ("/auth/", "/static/", "/health", "/favicon", "/pos/")
-# API paths are open for the mobile app
 _API_MARKER = "/api"
+
+# Acciones que se auditan automáticamente
+_AUDIT_METHODS = {"DELETE", "POST", "PATCH", "PUT"}
+_AUDIT_PATHS = ("/ventas/", "/produccion/", "/insumos/", "/clientes/", "/admin/")
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        # Attach user to request.state for all routes
         token = request.cookies.get("session")
         request.state.user = None
         if token:
@@ -47,12 +48,53 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Agrega headers de seguridad HTTP a todas las respuestas."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        # En producción Railway, HSTS se maneja a nivel proxy
+        return response
+
+
+class AuditMiddleware(BaseHTTPMiddleware):
+    """Registra automáticamente operaciones críticas."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        try:
+            if (request.method in _AUDIT_METHODS
+                    and any(request.url.path.startswith(p) for p in _AUDIT_PATHS)
+                    and response.status_code < 400):
+                from app.security import audit_log
+                user = getattr(request.state, "user", None)
+                forwarded = request.headers.get("X-Forwarded-For", "")
+                ip = forwarded.split(",")[0].strip() if forwarded else (
+                    request.client.host if request.client else "unknown"
+                )
+                audit_log(
+                    action=f"{request.method} {request.url.path}",
+                    user_id=user.id if user else None,
+                    username=user.username if user else None,
+                    resource=request.url.path.split("/")[1],
+                    ip=ip,
+                )
+        except Exception:
+            pass
+        return response
+
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="Sistema Operativo Empresarial — ALITOS Alfajores Premium",
 )
 
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(AuditMiddleware)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,

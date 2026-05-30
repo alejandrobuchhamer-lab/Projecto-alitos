@@ -8,6 +8,7 @@ from app.models.produccion import Produccion, ProduccionInsumo, ProduccionTacho
 from app.models.registro_tapas import RegistroTapas
 from app.models.receta import RecetaVersion
 from app.models.insumo import LoteInsumo, Insumo
+from app.models.producto import LoteProductoTerminado, ProductoTerminado
 from app.schemas.produccion import ProduccionCreate, ProduccionOut, ProduccionFinalizar, ProduccionTapaUpdate
 from app.services.produccion_service import iniciar_produccion, finalizar_produccion, finalizar_armado
 
@@ -17,8 +18,16 @@ from app.templates import templates
 
 @router.get("/", response_class=HTMLResponse)
 def lista_produccion_html(request: Request, db: Session = Depends(get_db)):
-    from app.models.producto import LoteProductoTerminado
-    producciones = db.query(Produccion).order_by(Produccion.fecha_inicio.desc()).limit(100).all()
+    from sqlalchemy.orm import joinedload
+    producciones = (
+        db.query(Produccion)
+        .options(
+            joinedload(Produccion.receta_version).joinedload(RecetaVersion.producto),
+        )
+        .order_by(Produccion.fecha_inicio.desc())
+        .limit(100)
+        .all()
+    )
     recetas = db.query(RecetaVersion).filter(RecetaVersion.activo == True).all()
     lotes_masa = db.query(LoteProductoTerminado).filter(
         LoteProductoTerminado.tipo == "masa",
@@ -28,6 +37,33 @@ def lista_produccion_html(request: Request, db: Session = Depends(get_db)):
     prod_masa = [p for p in producciones if p.tipo_produccion == "masa"]
     prod_tapas = [p for p in producciones if p.tipo_produccion == "tapas"]
     prod_armado = [p for p in producciones if p.tipo_produccion in ("armado", "general")]
+
+    # Pre-fetch todos los lotes origen de una sola query
+    lote_ids = {p.lote_origen_id for p in producciones if p.lote_origen_id}
+    if lote_ids:
+        lotes_map = {
+            l.id: l for l in db.query(LoteProductoTerminado)
+            .options(joinedload(LoteProductoTerminado.produccion))
+            .filter(LoteProductoTerminado.id.in_(lote_ids))
+            .all()
+        }
+        lote_ids2 = {l.produccion.lote_origen_id for l in lotes_map.values() if l.produccion and l.produccion.lote_origen_id}
+        if lote_ids2:
+            lotes_map.update({l.id: l for l in db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id.in_(lote_ids2)).all()})
+    else:
+        lotes_map = {}
+
+    tapas_extras = {}
+    for p in prod_tapas:
+        tapas_extras[p.id] = {"lote_masa": lotes_map.get(p.lote_origen_id) if p.lote_origen_id else None}
+
+    armado_extras = {}
+    for p in prod_armado:
+        lote_tapas = lotes_map.get(p.lote_origen_id) if p.lote_origen_id else None
+        lote_masa = None
+        if lote_tapas and lote_tapas.produccion and lote_tapas.produccion.lote_origen_id:
+            lote_masa = lotes_map.get(lote_tapas.produccion.lote_origen_id)
+        armado_extras[p.id] = {"lote_tapas": lote_tapas, "lote_masa": lote_masa}
     return templates.TemplateResponse("produccion/lista.html", {
         "request": request,
         "producciones": producciones,
@@ -36,6 +72,8 @@ def lista_produccion_html(request: Request, db: Session = Depends(get_db)):
         "prod_masa": prod_masa,
         "prod_tapas": prod_tapas,
         "prod_armado": prod_armado,
+        "tapas_extras": tapas_extras,
+        "armado_extras": armado_extras,
     })
 
 
@@ -156,9 +194,27 @@ def origen_masa(produccion_id: int, db: Session = Depends(get_db)):
 
 @router.post("/api/iniciar", response_model=ProduccionOut, status_code=201)
 def iniciar(data: ProduccionCreate, db: Session = Depends(get_db)):
+    receta_id = data.receta_version_id
+    # Para armado sin receta: buscar automáticamente por el producto del lote
+    if receta_id is None and data.tipo_produccion == "armado" and data.lote_origen_id:
+        from app.models.producto import LoteProductoTerminado
+        lote = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id == data.lote_origen_id).first()
+        if lote and lote.producto_id:
+            receta = db.query(RecetaVersion).filter(
+                RecetaVersion.producto_id == lote.producto_id,
+                RecetaVersion.activo == True,
+            ).order_by(RecetaVersion.version.desc()).first()
+            if receta:
+                receta_id = receta.id
+        if receta_id is None:
+            receta_fallback = db.query(RecetaVersion).filter(RecetaVersion.activo == True).first()
+            if receta_fallback:
+                receta_id = receta_fallback.id
+        if receta_id is None:
+            raise HTTPException(400, "No hay recetas en el sistema. Creá una en la sección Recetas primero.")
     try:
         produccion = iniciar_produccion(
-            db, data.receta_version_id, data.operario, data.notas, data.tipo_produccion,
+            db, receta_id, data.operario, data.notas, data.tipo_produccion,
             data.peso_masa_total_g, data.peso_tapa_objetivo_g,
             data.peso_tapa_min_g, data.peso_tapa_max_g,
             data.lote_origen_id, data.cantidad_recetas,
@@ -271,7 +327,6 @@ def armado_context(produccion_id: int, db: Session = Depends(get_db)):
 
     for ing in receta.ingredientes:
         if ing.tipo_ingrediente == "producto_terminado":
-            from app.models.producto import LoteProductoTerminado, ProductoTerminado
             pt = db.query(ProductoTerminado).filter(ProductoTerminado.id == ing.producto_terminado_id).first()
             lotes = (
                 db.query(LoteProductoTerminado)
@@ -341,7 +396,6 @@ def armado_context(produccion_id: int, db: Session = Depends(get_db)):
             nombre = ins.nombre if ins else f"Insumo #{t.insumo_id}"
             totales_insumo_g[t.insumo_id] = totales_insumo_g.get(t.insumo_id, 0) + (t.gramos_usados or 0)
         elif t.tipo == "tapas" and t.lote_producto_id:
-            from app.models.producto import LoteProductoTerminado
             lpt = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id == t.lote_producto_id).first()
             nombre = lpt.producto.nombre if lpt else "Tapas"
             total_tapas[t.lote_producto_id] = total_tapas.get(t.lote_producto_id, 0) + (t.cantidad_tapas or 0)
@@ -359,6 +413,45 @@ def armado_context(produccion_id: int, db: Session = Depends(get_db)):
             "registrado_at": t.registrado_at.isoformat() if t.registrado_at else None,
         })
 
+    # Datos de la producción de tapas origen (pesos cruda/cocida) + masa origen de las tapas
+    tapas_prod_info = None
+    if prod.lote_origen_id:
+        lote_tapas = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id == prod.lote_origen_id).first()
+        if lote_tapas and lote_tapas.produccion:
+            tp = lote_tapas.produccion
+            masa_info = None
+            if tp.lote_origen_id:
+                lote_masa = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id == tp.lote_origen_id).first()
+                if lote_masa and lote_masa.produccion:
+                    mp = lote_masa.produccion
+                    masa_info = {
+                        "numero_lote": lote_masa.numero_lote,
+                        "peso_masa_total_g": mp.peso_masa_total_g,
+                        "masa_real_g": mp.masa_real_g,
+                        "peso_tapa_objetivo_g": mp.peso_tapa_objetivo_g,
+                        "produccion_id": mp.id,
+                        "costo_total_insumos": mp.costo_total_insumos,
+                    }
+            # Costo por tapa: total masa / tapas buenas (incluye merma por cocción)
+            costo_unitario_tapa = None
+            if tp.costo_total_insumos and tp.tapas_reales and tp.tapas_reales > 0:
+                costo_unitario_tapa = round(tp.costo_total_insumos / tp.tapas_reales, 4)
+            elif masa_info and masa_info["costo_total_insumos"] and tp.tapas_reales and tp.tapas_reales > 0:
+                costo_unitario_tapa = round(masa_info["costo_total_insumos"] / tp.tapas_reales, 4)
+            tapas_prod_info = {
+                "numero_lote": lote_tapas.numero_lote,
+                "numero_lote_produccion": tp.numero_lote_produccion,
+                "peso_cruda_prom_g": tp.peso_tapa_cruda_promedio_g,
+                "peso_cocida_prom_g": tp.peso_tapa_cocida_promedio_g,
+                "tapas_reales": tp.tapas_reales,
+                "tapas_rotas": tp.tapas_rotas,
+                "tapas_crudas_contadas": tp.tapas_crudas_contadas,
+                "produccion_id": tp.id,
+                "costo_total_insumos": tp.costo_total_insumos,
+                "costo_unitario_tapa": costo_unitario_tapa,
+                "masa": masa_info,
+            }
+
     return {
         "produccion": {
             "id": prod.id,
@@ -367,12 +460,36 @@ def armado_context(produccion_id: int, db: Session = Depends(get_db)):
             "receta": receta.nombre,
             "producto": receta.producto.nombre,
             "dias_vida_util": receta.producto.dias_vida_util,
+            "tapas_teoricas": prod.tapas_teoricas,
+            "tapas_rotas": prod.tapas_rotas,
+            "cantidad_producida": prod.cantidad_producida,
+            "etapa_armado": prod.etapa_armado,
+            "rendimiento_esperado": receta.rendimiento_esperado,
+            "tapas_por_alfajor": receta.tapas_por_alfajor,
+            "peso_relleno_objetivo_g": receta.peso_relleno_objetivo_g,
+            "peso_bano_objetivo_g": receta.peso_bano_objetivo_g,
+            "peso_alfajor_objetivo_g": receta.peso_alfajor_objetivo_g,
         },
         "ingredientes": ingredientes_info,
         "tachos": tachos_data,
         "totales_insumo_g": totales_insumo_g,
         "total_tapas": total_tapas,
+        "tapas_prod_info": tapas_prod_info,
     }
+
+
+class TapasRotasBody(BaseModel):
+    tapas_rotas: int
+
+
+@router.patch("/api/{produccion_id}/tapas-rotas")
+def set_tapas_rotas(produccion_id: int, data: TapasRotasBody, db: Session = Depends(get_db)):
+    prod = db.query(Produccion).filter(Produccion.id == produccion_id).first()
+    if not prod:
+        raise HTTPException(404, "Producción no encontrada")
+    prod.tapas_rotas = data.tapas_rotas
+    db.commit()
+    return {"ok": True, "tapas_rotas": prod.tapas_rotas}
 
 
 class PesajeCrudaBody(BaseModel):
@@ -530,16 +647,22 @@ def guardar_pesaje_armado(produccion_id: int, data: PesajeArmadoBody, db: Sessio
 
 
 class EnvasadoFinalizarBody(BaseModel):
-    unidades: int                             # total alfajores envasados
+    unidades: int
     notas: str | None = None
-    dias_vencimiento: int | None = None       # días desde hoy para fecha_vencimiento del lote
+    dias_vencimiento: int | None = None
     # Envoltorio
     insumo_envoltorio_id: int | None = None
-    # Etiquetas: "simple" | "doble" | "mixto"
+    # Etiquetas
     tipo_etiqueta: str = "simple"
     insumo_etiqueta_id: int | None = None
-    unidades_etiqueta_simple: int = 0         # con frente solo (mixto)
-    unidades_etiqueta_doble: int = 0          # con ambas caras (mixto)
+    unidades_etiqueta_simple: int = 0
+    unidades_etiqueta_doble: int = 0
+    # Dulce de leche
+    insumo_dulce_id: int | None = None
+    dulce_gramos: float | None = None
+    # Chocolate / baño
+    insumo_chocolate_id: int | None = None
+    chocolate_gramos: float | None = None
 
 
 @router.post("/api/{produccion_id}/envasar-y-finalizar", response_model=ProduccionOut)
@@ -553,34 +676,67 @@ def envasar_y_finalizar(produccion_id: int, data: EnvasadoFinalizarBody, db: Ses
     if data.unidades <= 0:
         raise HTTPException(400, "La cantidad de unidades debe ser mayor a 0")
 
-    # Calcular total etiquetas
+    # ── Auto-crear tacho de tapas si no existe ──────────────────────────
+    tapas_tachos = db.query(ProduccionTacho).filter(
+        ProduccionTacho.produccion_id == produccion_id,
+        ProduccionTacho.tipo == "tapas",
+    ).count()
+    if tapas_tachos == 0 and prod.lote_origen_id:
+        tapas_por_alf = (prod.receta_version.tapas_por_alfajor or 2) if prod.receta_version else 2
+        tacho_tapas = ProduccionTacho(
+            produccion_id=produccion_id,
+            tipo="tapas",
+            lote_producto_id=prod.lote_origen_id,
+            cantidad_tapas=float(data.unidades * tapas_por_alf),
+        )
+        db.add(tacho_tapas)
+        db.flush()
+
+    # ── Crear tachos de dulce y chocolate desde inputs inline ───────────
+    if data.insumo_dulce_id and data.dulce_gramos and data.dulce_gramos > 0:
+        db.add(ProduccionTacho(
+            produccion_id=produccion_id,
+            tipo="insumo",
+            insumo_id=data.insumo_dulce_id,
+            gramos_usados=data.dulce_gramos,
+        ))
+    if data.insumo_chocolate_id and data.chocolate_gramos and data.chocolate_gramos > 0:
+        db.add(ProduccionTacho(
+            produccion_id=produccion_id,
+            tipo="insumo",
+            insumo_id=data.insumo_chocolate_id,
+            gramos_usados=data.chocolate_gramos,
+        ))
+    db.flush()
+
+    # ── Calcular total etiquetas ────────────────────────────────────────
     if data.tipo_etiqueta == "simple":
         total_etiquetas = data.unidades
     elif data.tipo_etiqueta == "doble":
         total_etiquetas = data.unidades * 2
-    else:  # mixto
+    else:
         total_etiquetas = data.unidades_etiqueta_simple + (data.unidades_etiqueta_doble * 2)
 
-    # Descontar envoltorios
+    # ── Descontar envoltorio (si hay stock) ────────────────────────────
     if data.insumo_envoltorio_id:
         try:
             consumir_stock_fefo(db, data.insumo_envoltorio_id, data.unidades)
         except Exception:
-            raise HTTPException(400, f"Stock insuficiente de envoltorios ({data.unidades} necesarios)")
+            pass  # stock ficticio — continúa sin deducir
 
-    # Descontar etiquetas
+    # ── Descontar etiquetas (si hay stock) ─────────────────────────────
     if data.insumo_etiqueta_id and total_etiquetas > 0:
         try:
             consumir_stock_fefo(db, data.insumo_etiqueta_id, total_etiquetas)
         except Exception:
-            raise HTTPException(400, f"Stock insuficiente de etiquetas ({total_etiquetas} necesarias)")
+            pass  # stock ficticio
 
-    # Guardar datos de envasado
+    # ── Guardar datos de envasado ───────────────────────────────────────
     prod.unidades_envasadas = data.unidades
     prod.etapa_armado = "envasado"
     db.flush()
 
-    # Finalizar producción → crea lote de alfajores en stock
+    # ── Finalizar → crea lote de alfajores en stock ─────────────────────
     try:
         finalizar_armado(db, produccion_id, data.unidades, data.notas, data.dias_vencimiento)
         db.commit()
@@ -589,6 +745,10 @@ def envasar_y_finalizar(produccion_id: int, data: EnvasadoFinalizarBody, db: Ses
     except ValueError as e:
         db.rollback()
         raise HTTPException(400, str(e))
+    except Exception as e:
+        db.rollback()
+        import traceback
+        raise HTTPException(500, f"Error interno: {type(e).__name__}: {e}\n{traceback.format_exc()}")
 
 
 @router.post("/api/{produccion_id}/finalizar-armado", response_model=ProduccionOut)

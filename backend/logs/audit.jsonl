@@ -1,0 +1,12 @@
+{"ts": "2026-05-30T18:45:43.455869", "action": "logout", "user_id": 1, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:45:47.298822", "action": "login_ok", "user_id": 1, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:49:19.622524", "action": "logout", "user_id": 1, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:49:24.130033", "action": "login_ok", "user_id": 1, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:49:30.537571", "action": "logout", "user_id": 1, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:49:35.877387", "action": "login_fail", "user_id": null, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:49:41.026535", "action": "login_csrf_fail", "user_id": null, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:49:50.607514", "action": "login_csrf_fail", "user_id": null, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:49:56.107317", "action": "login_csrf_fail", "user_id": null, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:50:11.125428", "action": "login_csrf_fail", "user_id": null, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:50:16.441096", "action": "login_csrf_fail", "user_id": null, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-05-30T18:50:33.979071", "action": "login_ok", "user_id": 1, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
