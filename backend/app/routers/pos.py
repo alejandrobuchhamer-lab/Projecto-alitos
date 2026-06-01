@@ -12,6 +12,7 @@ from app.models.cliente import Cliente
 from app.models.usuario import Usuario
 from app.models.insumo import Insumo
 from app.models.gasto import Gasto
+from app.models.asignacion_stock import AsignacionStock
 from app.routers.mobile_auth import get_mobile_user
 from app.services.venta_service import crear_venta, generar_numero_pedido
 
@@ -71,7 +72,21 @@ def pos_sw():
 
 @router.get("/api/stock")
 def pos_stock(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
-    """Productos con stock libre disponible para venta (FEFO)."""
+    """Productos disponibles. Vendedor con asignación ve solo su cupo; admin ve todo."""
+    rol = user.get("rol", "")
+    vendedor_id = user.get("id")
+    hoy = date.today()
+
+    # Asignaciones activas del vendedor hoy
+    asignaciones = {}
+    if rol not in ("admin",):
+        asigs = (
+            db.query(AsignacionStock)
+            .filter(AsignacionStock.vendedor_id == vendedor_id, AsignacionStock.fecha == hoy, AsignacionStock.activo == True)
+            .all()
+        )
+        asignaciones = {a.producto_id: a for a in asigs}
+
     productos = db.query(ProductoTerminado).filter(ProductoTerminado.activo == True).order_by(ProductoTerminado.nombre).all()
     result = []
     for p in productos:
@@ -86,20 +101,125 @@ def pos_stock(db: Session = Depends(get_db), user: dict = Depends(get_mobile_use
             .order_by(LoteProductoTerminado.fecha_vencimiento.asc().nullslast())
             .all()
         )
-        stock_libre = sum(max(0, l.cantidad_actual - l.cantidad_reservada) for l in lotes)
-        if stock_libre <= 0:
+        stock_libre_real = sum(max(0, l.cantidad_actual - l.cantidad_reservada) for l in lotes)
+        if stock_libre_real <= 0:
+            continue
+        if not lotes:
             continue
         fefo = lotes[0]
-        result.append({
+
+        # Si vendedor con asignación → limitar al cupo disponible
+        if rol not in ("admin",) and asignaciones:
+            asig = asignaciones.get(p.id)
+            if not asig:
+                continue  # no tiene cupo para este producto
+            stock_mostrar = min(int(asig.disponible), int(stock_libre_real))
+        else:
+            stock_mostrar = int(stock_libre_real)
+
+        if stock_mostrar <= 0:
+            continue
+
+        row = {
             "producto_id": p.id,
             "nombre": p.nombre,
             "precio": p.precio_venta_base,
-            "stock": int(stock_libre),
+            "stock": stock_mostrar,
+            "stock_real": int(stock_libre_real),
             "lote_id": fefo.id,
             "numero_lote": fefo.numero_lote,
             "fecha_vencimiento": fefo.fecha_vencimiento.isoformat() if fefo.fecha_vencimiento else None,
+        }
+        if rol not in ("admin",) and asignaciones and p.id in asignaciones:
+            a = asignaciones[p.id]
+            row["asignado"] = int(a.cantidad)
+            row["vendido"] = int(a.cantidad_vendida)
+        result.append(row)
+    return result
+
+
+# ── ASIGNACIONES DE STOCK ─────────────────────────────────────────────────
+
+@router.get("/api/asignaciones")
+def pos_asignaciones(
+    fecha: str | None = None,
+    db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
+):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede ver asignaciones")
+    hoy = date.today()
+    fecha_filtro = date.fromisoformat(fecha) if fecha else hoy
+    asigs = (
+        db.query(AsignacionStock)
+        .filter(AsignacionStock.fecha == fecha_filtro, AsignacionStock.activo == True)
+        .all()
+    )
+    result = []
+    for a in asigs:
+        vendedor = db.query(Usuario).filter(Usuario.id == a.vendedor_id).first()
+        producto = db.query(ProductoTerminado).filter(ProductoTerminado.id == a.producto_id).first()
+        result.append({
+            "id": a.id,
+            "vendedor_id": a.vendedor_id,
+            "vendedor": vendedor.nombre if vendedor else "—",
+            "producto_id": a.producto_id,
+            "producto": producto.nombre if producto else "—",
+            "cantidad": a.cantidad,
+            "cantidad_vendida": a.cantidad_vendida,
+            "disponible": a.disponible,
+            "fecha": a.fecha.isoformat(),
+            "notas": a.notas or "",
         })
     return result
+
+
+class POSAsignacionCreate(BaseModel):
+    vendedor_id: int = Field(..., gt=0)
+    producto_id: int = Field(..., gt=0)
+    cantidad: float = Field(..., gt=0)
+    fecha: str | None = None
+    notas: str | None = None
+
+
+@router.post("/api/asignacion", status_code=201)
+def pos_crear_asignacion(
+    data: POSAsignacionCreate,
+    db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
+):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede crear asignaciones")
+    fecha = date.fromisoformat(data.fecha) if data.fecha else date.today()
+    # Desactivar asignación previa del mismo vendedor+producto+fecha
+    db.query(AsignacionStock).filter(
+        AsignacionStock.vendedor_id == data.vendedor_id,
+        AsignacionStock.producto_id == data.producto_id,
+        AsignacionStock.fecha == fecha,
+    ).update({"activo": False})
+    asig = AsignacionStock(
+        vendedor_id=data.vendedor_id,
+        producto_id=data.producto_id,
+        cantidad=data.cantidad,
+        fecha=fecha,
+        notas=data.notas,
+    )
+    db.add(asig)
+    db.commit()
+    db.refresh(asig)
+    return {"id": asig.id, "cantidad": asig.cantidad, "disponible": asig.disponible}
+
+
+@router.delete("/api/asignacion/{asig_id}", status_code=204)
+def pos_borrar_asignacion(
+    asig_id: int,
+    db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
+):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede eliminar asignaciones")
+    asig = db.query(AsignacionStock).filter(AsignacionStock.id == asig_id).first()
+    if not asig:
+        raise HTTPException(404, "Asignación no encontrada")
+    asig.activo = False
+    db.commit()
 
 
 # ── DASHBOARD ─────────────────────────────────────────────────────────────────

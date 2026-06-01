@@ -35,6 +35,7 @@ def init_db():
     )
     from app.models.venta import PedidoReserva  # noqa: F401
     from app.models.produccion import ProduccionTacho  # noqa: F401
+    from app.models import asignacion_stock  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _run_migrations()
     _seed_admin()

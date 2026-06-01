@@ -499,7 +499,7 @@ async function doLoginGuardado() {
 async function doLoginBiometric() {
   const ok = await verificarBiometria();
   if (ok) { await doLoginGuardado(); }
-  else { showToast('Huella no reconocida', 'error'); }
+  else { toast('Huella no reconocida', 'error'); }
 }
 
 // ── BIOMETRÍA (WebAuthn — funciona en APK y Chrome HTTPS) ──────────────────
@@ -525,7 +525,7 @@ async function intentarRegistrarBiometria() {
     }});
     const rawId = btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
     localStorage.setItem('pos_biometric_id', rawId);
-    showToast('Huella configurada', 'success');
+    toast('Huella configurada', 'success');
   } catch { /* usuario canceló o no soportado */ }
 }
 
@@ -856,13 +856,13 @@ function addToCart(loteId) {
   const precio = getPrecioTipo(prod.precio);
   const ex = carrito.find(i => i.lote_id === loteId);
   if (ex) {
-    if (ex.qty >= prod.stock) { showToast('Sin stock suficiente', 'error'); return; }
+    if (ex.qty >= prod.stock) { toast('Sin stock suficiente', 'error'); return; }
     ex.qty++;
   } else {
     carrito.push({ lote_id: loteId, nombre: prod.nombre, qty: 1, precio, precioBase: prod.precio, max: prod.stock });
   }
   pintarCarrito();
-  showToast(prod.nombre + ' +1', 'info', 1000);
+  toast(prod.nombre + ' +1', 'info', 1000);
 }
 
 function cambiarQty(loteId, delta) {
@@ -942,7 +942,7 @@ async function confirmarVenta() {
     cargarProductos();
     _mostrarReceiptOk(data.id, data.numero_factura, total, payload.forma_pago, desc, itemsSnap, envases);
     cargarVentasHoy();
-  } catch (e) { showToast(e.message || 'Error al registrar', 'error'); }
+  } catch (e) { toast(e.message || 'Error al registrar', 'error'); }
   finally { btn.disabled = false; btn.textContent = 'Cobrar'; }
 }
 
@@ -1045,22 +1045,138 @@ function toggleTicket(id) {
 }
 
 // ── STOCK ──────────────────────────────────────────────────────────────────
+let _stockSubtab = 'stock';
+
 async function renderStock(el) {
   el.innerHTML = `<div class="empty"><div class="spin"></div></div>`;
+  const isAdmin = USER?.rol === 'admin';
   try {
-    const data = await (await apiFetch('/pos/api/stock')).json();
-    if (!data.length) { el.innerHTML = emptyState('Sin stock disponible'); return; }
-    el.innerHTML = `<button class="btn-outline" style="margin-bottom:10px" onclick="renderStock(document.getElementById('tab-stock'))">Actualizar</button>` +
-      data.map(p => `
-        <div class="list-card">
+    const [stockRes, asigRes] = await Promise.all([
+      apiFetch('/pos/api/stock'),
+      isAdmin ? apiFetch('/pos/api/asignaciones') : Promise.resolve({ ok: false }),
+    ]);
+    const stockData  = stockRes.ok  ? await stockRes.json()  : [];
+    const asigData   = asigRes.ok   ? await asigRes.json()   : [];
+    el.innerHTML = `
+      ${isAdmin ? `
+      <div class="fin-subtabs" style="margin-bottom:12px">
+        <button class="fin-subtab${_stockSubtab==='stock'?' active':''}"     onclick="_stockTab('stock',this)">Stock</button>
+        <button class="fin-subtab${_stockSubtab==='asignar'?' active':''}"   onclick="_stockTab('asignar',this)">Asignar</button>
+      </div>` : ''}
+      <div id="stock-body"></div>
+    `;
+    _renderStockBody(el, stockData, asigData, isAdmin);
+  } catch { el.innerHTML = emptyState('Error cargando stock'); }
+}
+
+function _stockTab(tab, btn) {
+  _stockSubtab = tab;
+  document.querySelectorAll('.fin-subtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const el = document.getElementById('tab-stock');
+  if (el) renderStock(el);
+}
+
+function _renderStockBody(el, stockData, asigData, isAdmin) {
+  const body = el.querySelector('#stock-body') || el;
+  const total = stockData.reduce((s, p) => s + p.stock, 0);
+
+  if (_stockSubtab === 'stock' || !isAdmin) {
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Total disponible</div>
+          <div style="font-size:22px;font-weight:800;color:var(--text)">${total} <span style="font-size:13px;color:var(--muted)">alfajores</span></div>
+        </div>
+        <button class="btn-outline" style="width:auto;padding:5px 12px;font-size:11px" onclick="renderStock(document.getElementById('tab-stock'))">↻</button>
+      </div>
+      ${stockData.map(p => `
+        <div class="list-card" style="margin-bottom:8px">
           <div class="list-card-top">
             <span class="list-num">${p.nombre}</span>
-            <span class="list-amt">${p.stock} u</span>
+            <span class="list-amt" style="font-size:16px">${p.stock} u</span>
           </div>
-          <div class="list-meta">Lote ${p.numero_lote || p.lote_id}${p.fecha_vencimiento ? ` · Vence: ${fmtFecha(p.fecha_vencimiento)}` : ''} · $${fmt(p.precio)}</div>
-        </div>
-      `).join('');
-  } catch { el.innerHTML = emptyState('Error cargando stock'); }
+          <div style="display:flex;justify-content:space-between;margin-top:4px">
+            <span class="list-meta">$${fmt(p.precio)} · Lote ${p.numero_lote||p.lote_id}</span>
+            ${p.fecha_vencimiento ? `<span class="list-meta">Vence: ${fmtFecha(p.fecha_vencimiento)}</span>` : ''}
+          </div>
+          ${p.asignado != null ? `
+            <div style="margin-top:6px;background:var(--elevated);border-radius:6px;padding:6px 10px">
+              <div style="font-size:11px;color:var(--muted)">Tu cupo hoy: <strong>${p.asignado} asig. · ${p.vendido||0} vendidos · ${p.stock} disponibles</strong></div>
+              <div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden">
+                <div style="height:100%;background:var(--success);width:${Math.min(100,((p.vendido||0)/p.asignado)*100)}%;transition:width .3s"></div>
+              </div>
+            </div>` : ''}
+        </div>`).join('')}
+    `;
+    return;
+  }
+
+  // ASIGNAR tab (admin only)
+  body.innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Asignar stock a vendedor</div>
+      <div style="font-size:11px;color:var(--muted)">El vendedor solo puede vender lo que le asignés.</div>
+    </div>
+    <div id="asig-form-area">
+      <div class="form-group">
+        <label class="field-label">Vendedor</label>
+        <select class="sel" id="asig-vendedor" style="width:100%;margin-top:4px"><option value="">Cargando...</option></select>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Producto</label>
+        <select class="sel" id="asig-producto" style="width:100%;margin-top:4px">
+          ${stockData.map(p=>`<option value="${p.producto_id}">${p.nombre} (stock: ${p.stock_real||p.stock})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Cantidad a asignar</label>
+        <input class="inp" type="number" id="asig-cantidad" placeholder="ej. 20" min="1" style="width:100%;margin-top:4px">
+      </div>
+      <button class="btn-dark" style="width:100%;padding:12px" onclick="crearAsignacion()">Asignar stock</button>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.4px;margin-bottom:8px">Asignaciones de hoy</div>
+      ${asigData.length === 0 ? `<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Sin asignaciones hoy</div>` :
+        asigData.map(a => `
+          <div class="list-card" style="margin-bottom:6px">
+            <div class="list-card-top">
+              <span class="list-num">${a.vendedor}</span>
+              <button class="btn-icon danger" onclick="borrarAsignacion(${a.id})" style="flex-shrink:0">
+                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+              </button>
+            </div>
+            <div class="list-meta">${a.producto} · ${a.cantidad} asig · ${a.cantidad_vendida} vendidos · <strong>${a.disponible} disponibles</strong></div>
+          </div>`).join('')}
+    </div>
+  `;
+  // Cargar vendedores
+  apiFetch('/pos/api/usuarios').then(r => r.json()).then(users => {
+    const sel = document.getElementById('asig-vendedor');
+    if (sel) sel.innerHTML = `<option value="">Seleccionar vendedor...</option>` +
+      users.filter(u=>u.activo && u.rol !== 'admin').map(u=>`<option value="${u.id}">${u.nombre} (${u.rol})</option>`).join('');
+  });
+}
+
+async function crearAsignacion() {
+  const vendedor_id = parseInt(document.getElementById('asig-vendedor')?.value);
+  const producto_id = parseInt(document.getElementById('asig-producto')?.value);
+  const cantidad = parseFloat(document.getElementById('asig-cantidad')?.value);
+  if (!vendedor_id || !producto_id || !cantidad) { toast('Completá todos los campos', 'error'); return; }
+  try {
+    const r = await apiFetch('/pos/api/asignacion', { method: 'POST', body: JSON.stringify({ vendedor_id, producto_id, cantidad }) });
+    if (!r.ok) throw new Error((await r.json()).detail || 'Error');
+    toast(`✓ ${cantidad} unidades asignadas`, 'success');
+    renderStock(document.getElementById('tab-stock'));
+  } catch (e) { toast(e.message || 'Error', 'error'); }
+}
+
+async function borrarAsignacion(id) {
+  try {
+    await apiFetch(`/pos/api/asignacion/${id}`, { method: 'DELETE' });
+    toast('Asignación eliminada', 'success');
+    renderStock(document.getElementById('tab-stock'));
+  } catch { toast('Error', 'error'); }
 }
 
 // ── ENTREGAS (REPARTIDOR) ──────────────────────────────────────────────────
@@ -1422,16 +1538,16 @@ async function guardarCompra() {
   const fuente = document.getElementById('sc-fuente').value;
   const proveedor = document.getElementById('sc-proveedor').value.trim();
   const notasBase = document.getElementById('sc-notas').value.trim();
-  if (!insumo_id || !cantidad || !precio_total) { showToast('Completá insumo, cantidad y precio', 'error'); return; }
+  if (!insumo_id || !cantidad || !precio_total) { toast('Completá insumo, cantidad y precio', 'error'); return; }
   const notasCompleta = [fuente ? `Fuente: ${fuente}` : '', notasBase].filter(Boolean).join(' — ');
   try {
     const r = await apiFetch('/pos/api/compra', { method: 'POST', body: JSON.stringify({ insumo_id, cantidad, precio_total, proveedor, notas: notasCompleta || null }) });
     if (!r.ok) throw new Error();
-    showToast('Compra registrada', 'success');
+    toast('Compra registrada', 'success');
     cerrarSheetCompra();
     const tabEl = document.getElementById('tab-finanzas');
     if (tabEl) renderFinanzas(tabEl);
-  } catch { showToast('Error al guardar', 'error'); }
+  } catch { toast('Error al guardar', 'error'); }
 }
 
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -1532,74 +1648,119 @@ async function toggleUsuario(id, btn) {
   btn.classList.toggle('on');
   try {
     const r = await apiFetch(`/pos/api/usuario/${id}/activo`, { method: 'PATCH', body: JSON.stringify({ activo }) });
-    if (!r.ok) { btn.classList.toggle('on'); showToast('Error al cambiar estado', 'error'); }
-  } catch { btn.classList.toggle('on'); showToast('Error de conexión', 'error'); }
+    if (!r.ok) { btn.classList.toggle('on'); toast('Error al cambiar estado', 'error'); }
+  } catch { btn.classList.toggle('on'); toast('Error de conexión', 'error'); }
 }
 
 async function guardarPrecio(id) {
   const val = parseFloat(document.getElementById(`precio-${id}`).value);
-  if (!val || val < 0) { showToast('Precio inválido', 'error'); return; }
+  if (!val || val < 0) { toast('Precio inválido', 'error'); return; }
   try {
     const r = await apiFetch(`/pos/api/producto/${id}/precio`, { method: 'PATCH', body: JSON.stringify({ precio: val }) });
-    if (r.ok) { showToast('Precio actualizado', 'success'); }
-    else { showToast('Error al guardar precio', 'error'); }
-  } catch { showToast('Error de conexión', 'error'); }
+    if (r.ok) { toast('Precio actualizado', 'success'); }
+    else { toast('Error al guardar precio', 'error'); }
+  } catch { toast('Error de conexión', 'error'); }
 }
 
 // ── EDITAR / ANULAR VENTA ──────────────────────────────────────────────────
+function _removeSheet(id) {
+  document.getElementById(id)?.remove();
+}
+
 function abrirEditarVenta(id, formaPago, descuento) {
-  const existing = document.getElementById('sheet-editar-venta');
-  if (existing) existing.remove();
+  _removeSheet('sheet-editar-venta');
+  const PAGOS = [
+    ['efectivo','💵 Efectivo'], ['transferencia','📱 Transferencia'],
+    ['qr','📷 QR / MP'], ['debito','💳 Débito'],
+    ['credito','💳 Crédito'], ['cuenta_corriente','📋 Cta. corriente'],
+  ];
   const sheet = document.createElement('div');
   sheet.className = 'sheet-bg open';
   sheet.id = 'sheet-editar-venta';
   sheet.innerHTML = `
     <div class="sheet-box">
-      <div class="sheet-title">Corregir venta #${id}</div>
-      <div class="form-group">
+      <div class="sheet-title">Corregir venta</div>
+      <div class="form-group" style="margin-bottom:12px">
         <label class="field-label">Forma de pago</label>
-        <select class="sel" id="edit-pago" style="width:100%">
-          <option value="efectivo" ${formaPago==='efectivo'?'selected':''}>💵 Efectivo</option>
-          <option value="transferencia" ${formaPago==='transferencia'?'selected':''}>📱 Transferencia</option>
-          <option value="qr" ${formaPago==='qr'?'selected':''}>📷 QR / Mercado Pago</option>
-          <option value="debito" ${formaPago==='debito'?'selected':''}>💳 Débito</option>
-          <option value="credito" ${formaPago==='credito'?'selected':''}>💳 Crédito</option>
-          <option value="cuenta_corriente" ${formaPago==='cuenta_corriente'?'selected':''}>📋 Cta. corriente</option>
+        <select class="sel" id="edit-pago" style="width:100%;margin-top:4px">
+          ${PAGOS.map(([v,l])=>`<option value="${v}"${formaPago===v?' selected':''}>${l}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom:16px">
         <label class="field-label">Descuento ($)</label>
-        <input class="inp" type="number" id="edit-desc" value="${descuento||0}" min="0" style="width:100%">
+        <input class="inp" type="number" id="edit-desc" value="${descuento||0}" min="0" style="width:100%;margin-top:4px">
       </div>
-      <button class="btn-dark" style="width:100%;margin-top:4px" onclick="guardarEdicionVenta(${id})">Guardar cambios</button>
-      <button class="btn-outline" onclick="document.getElementById('sheet-editar-venta').remove()">Cancelar</button>
+      <button class="btn-dark" style="width:100%;padding:13px;font-size:14px" onclick="guardarEdicionVenta(${id})">✓ Guardar cambios</button>
+      <button class="btn-outline" style="margin-top:8px" onclick="_removeSheet('sheet-editar-venta')">Cancelar</button>
     </div>`;
   document.body.appendChild(sheet);
+  // Close on backdrop tap
+  sheet.addEventListener('click', e => { if (e.target === sheet) _removeSheet('sheet-editar-venta'); });
 }
 
 async function guardarEdicionVenta(id) {
+  const btn = document.querySelector('#sheet-editar-venta .btn-dark');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
   const forma_pago = document.getElementById('edit-pago').value;
   const descuento = parseFloat(document.getElementById('edit-desc').value) || 0;
   try {
     const r = await apiFetch(`/pos/api/venta/${id}`, { method: 'PATCH', body: JSON.stringify({ forma_pago, descuento }) });
-    if (!r.ok) throw new Error((await r.json()).detail || 'Error');
-    showToast('Venta actualizada', 'success');
-    document.getElementById('sheet-editar-venta')?.remove();
+    if (!r.ok) throw new Error((await r.json()).detail || 'Error al editar');
+    toast('✓ Venta actualizada', 'success');
+    _removeSheet('sheet-editar-venta');
     cargarVentasHoy();
-  } catch (e) { showToast(e.message || 'Error al guardar', 'error'); }
+  } catch (e) {
+    toast(e.message || 'Error al guardar', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Guardar cambios'; }
+  }
 }
 
-async function anularVenta(id, numFac) {
-  if (!confirm(`¿Anular la venta ${numFac}?\nEl stock NO se restaura automáticamente.`)) return;
+function abrirAnularVenta(id, numFac) {
+  _removeSheet('sheet-anular-venta');
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-bg open';
+  sheet.id = 'sheet-anular-venta';
+  sheet.innerHTML = `
+    <div class="sheet-box" style="text-align:center">
+      <div style="width:52px;height:52px;background:rgba(184,50,40,.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--danger)" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      </div>
+      <div style="font-size:17px;font-weight:800;margin-bottom:6px">¿Anular venta?</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">${numFac}</div>
+      <div style="font-size:11px;color:var(--danger);margin-bottom:20px;padding:8px 12px;background:rgba(184,50,40,.08);border-radius:8px">
+        El stock <strong>no se restaura</strong> automáticamente.
+      </div>
+      <button id="btn-confirm-anular" style="width:100%;padding:13px;background:var(--danger);color:#fff;font-weight:800;font-size:14px;border:none;border-radius:10px;cursor:pointer;font-family:inherit" onclick="confirmarAnular(${id})">
+        Sí, anular venta
+      </button>
+      <button class="btn-outline" style="margin-top:8px" onclick="_removeSheet('sheet-anular-venta')">Cancelar</button>
+    </div>`;
+  document.body.appendChild(sheet);
+  sheet.addEventListener('click', e => { if (e.target === sheet) _removeSheet('sheet-anular-venta'); });
+}
+
+async function confirmarAnular(id) {
+  const btn = document.getElementById('btn-confirm-anular');
+  if (btn) { btn.disabled = true; btn.textContent = 'Anulando...'; }
   try {
     const r = await apiFetch(`/pos/api/venta/${id}/anular`, { method: 'PATCH' });
-    if (!r.ok) throw new Error((await r.json()).detail || 'Error');
-    showToast('Venta anulada', 'success');
+    if (!r.ok) throw new Error((await r.json()).detail || 'Error al anular');
+    toast('Venta anulada', 'success');
+    _removeSheet('sheet-anular-venta');
     const ok = document.getElementById('sale-ok-area');
     if (ok) ok.style.display = 'none';
-    cargarVentasHoy();
-  } catch (e) { showToast(e.message || 'Error al anular', 'error'); }
+    await cargarVentasHoy();
+    // Scroll al top de la lista de ventas
+    const listaEl = document.getElementById('ventas-hoy-list');
+    if (listaEl) listaEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    toast(e.message || 'Error al anular', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Sí, anular venta'; }
+  }
 }
+
+// Alias para botones que llaman anularVenta(id, num)
+function anularVenta(id, numFac) { abrirAnularVenta(id, numFac); }
 
 // ── CUENTAS CORRIENTES ──────────────────────────────────────────────────────
 async function renderCuentas(el) {
