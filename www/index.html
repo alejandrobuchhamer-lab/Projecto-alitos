@@ -224,26 +224,24 @@
     .pago-cuenta_corriente,.pago-fiado { background: rgba(154,104,0,.1); color: var(--warning); border-color: rgba(154,104,0,.25); }
 
     /* ── TICKET VENTAS (diseño final) ────────────────────── */
-    .tk { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; overflow: hidden; }
-    .tk-body { padding: 12px 14px 8px; }
+    .tk { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+    .tk-body { padding: 10px 14px 8px; }
     .tk-prod-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-    .tk-prod-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-    .tk-qty  { font-size: 20px; font-weight: 900; color: var(--accent); flex-shrink: 0; min-width: 24px; }
-    .tk-name { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tk-prod-left { min-width: 0; }
+    .tk-prod-line { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tk-qty-inline { color: var(--accent); }
     .tk-datetime { text-align: right; flex-shrink: 0; }
-    .tk-date { font-size: 11px; color: var(--muted); font-weight: 500; line-height: 1.4; }
-    .tk-time { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.4; }
-    .tk-lote { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--elevated); }
-    .tk-extra { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px solid var(--elevated); margin-top: 4px; }
-    .tk-extra .tk-qty  { font-size: 14px; color: var(--muted); }
-    .tk-extra .tk-name { font-size: 12px; color: var(--muted); font-weight: 600; }
-    .tk-foot { border-top: 1px solid var(--border); background: var(--elevated); padding: 9px 14px; display: flex; align-items: center; gap: 8px; }
+    .tk-date { font-size: 11px; color: var(--muted); font-weight: 500; }
+    .tk-time { font-size: 12px; font-weight: 700; color: var(--text); }
+    .tk-lote { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .tk-extra { font-size: 11px; color: var(--muted); padding: 3px 0; border-top: 1px solid var(--elevated); margin-top: 3px; display: flex; justify-content: space-between; }
+    .tk-foot { border-top: 1px solid var(--border); background: var(--elevated); padding: 8px 14px; display: flex; align-items: center; gap: 7px; }
     .tk-fac  { font-size: 11px; font-weight: 700; color: var(--text); font-family: 'Courier New', monospace; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tk-total { font-size: 16px; font-weight: 900; color: var(--gold); flex-shrink: 0; }
-    .tk-desc  { font-size: 10px; color: var(--danger); font-weight: 700; padding: 2px 6px; border-radius: 20px; background: rgba(184,50,40,.08); flex-shrink: 0; }
+    .tk-total { font-size: 13px; font-weight: 800; color: var(--gold); flex-shrink: 0; }
+    .tk-desc  { font-size: 10px; color: var(--danger); font-weight: 700; padding: 1px 5px; border-radius: 20px; background: rgba(184,50,40,.08); flex-shrink: 0; }
     .tk-actions { display: flex; gap: 5px; flex-shrink: 0; }
-    .tk-btn { width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--border); background: var(--card); display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    .tk-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .tk-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .tk-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
     .tk-btn.edit  { color: var(--text); }
     .tk-btn.trash { color: var(--danger); border-color: rgba(184,50,40,.25); background: rgba(184,50,40,.04); }
     .tk-btn:active { opacity: .6; }
@@ -795,31 +793,29 @@ function getPrecioTipo(precioBase) {
   return precioBase * TIPO_MULTIPLIER[_tipoCliente];
 }
 
-function _renderTk(v) {
-  const [first, ...rest] = v.detalles || [];
+function _renderTk(v, showActions = true) {
+  const detalles = v.detalles || [];
+  const [first, ...rest] = detalles;
   const loteStr = first?.numero_lote
-    ? `L - ${first.numero_lote}${first.fecha_vencimiento ? '  VTO ' + fmtFecha(first.fecha_vencimiento) : ''}`
+    ? `L-${first.numero_lote}${first.fecha_vencimiento ? '  VTO ' + fmtFecha(first.fecha_vencimiento) : ''}`
     : '';
   return `
     <div class="tk">
       <div class="tk-body">
         <div class="tk-prod-row">
           <div class="tk-prod-left">
-            <span class="tk-qty">${first?.cantidad ?? ''}</span>
-            <span class="tk-name">${first?.nombre ?? '—'}</span>
+            <div class="tk-prod-line"><span class="tk-qty-inline">${first?.cantidad ?? 1} </span>${first?.nombre ?? '—'}</div>
+            ${loteStr ? `<div class="tk-lote">${loteStr}</div>` : ''}
           </div>
           <div class="tk-datetime">
             ${v.fecha ? `<div class="tk-date">${v.fecha}</div>` : ''}
             <div class="tk-time">${v.hora}</div>
           </div>
         </div>
-        ${loteStr ? `<div class="tk-lote">${loteStr}</div>` : ''}
         ${rest.map(d => `
           <div class="tk-extra">
-            <span class="tk-qty">${d.cantidad}</span>
-            <span class="tk-name">${d.nombre}</span>
-            ${d.numero_lote ? `<span style="font-size:10px;color:var(--dim);margin-left:4px">L-${d.numero_lote}</span>` : ''}
-            <span style="margin-left:auto;font-size:11px;color:var(--muted)">$${fmt(d.subtotal)}</span>
+            <span><span class="tk-qty-inline">${d.cantidad} </span>${d.nombre}${d.numero_lote ? `  <span style="color:var(--dim)">L-${d.numero_lote}</span>` : ''}</span>
+            <span>$${fmt(d.subtotal)}</span>
           </div>`).join('')}
       </div>
       <div class="tk-foot">
@@ -827,14 +823,15 @@ function _renderTk(v) {
         <span class="tk-total">$${fmt(v.total)}</span>
         ${v.descuento > 0 ? `<span class="tk-desc">-$${fmt(v.descuento)}</span>` : ''}
         <span class="pago-badge pago-${v.forma_pago}">${PAGO_LABEL[v.forma_pago]||v.forma_pago}</span>
+        ${showActions ? `
         <div class="tk-actions">
-          <button class="tk-btn edit" onclick="abrirEditarVenta(${v.id},'${v.forma_pago}',${v.descuento})" title="Editar">
+          <button class="tk-btn edit" onclick="abrirEditarVenta(${v.id},'${v.forma_pago}',${v.descuento})">
             <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
-          <button class="tk-btn trash" onclick="anularVenta(${v.id},'${v.numero_factura}')" title="Anular">
+          <button class="tk-btn trash" onclick="anularVenta(${v.id},'${v.numero_factura}')">
             <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
           </button>
-        </div>
+        </div>` : ''}
       </div>
     </div>`;
 }
@@ -996,32 +993,28 @@ function _mostrarReceiptOk(id, numFac, total, formaPago, desc, items, envases) {
   const el = document.getElementById('sale-ok-area');
   if (!el) return;
   el.style.display = 'block';
+  // Construir un objeto venta sintético para _renderTk (sin actions, sin lote)
+  const vtk = {
+    id, numero_factura: numFac, fecha: '', hora: 'Ahora',
+    total, descuento: desc, forma_pago: formaPago,
+    detalles: items.map(i => ({ nombre: i.nombre, cantidad: i.qty, subtotal: i.qty * i.precio, numero_lote: null }))
+  };
   el.innerHTML = `
-    <div class="sale-ok">
-      <div class="sale-ok-icon">
-        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:10px 14px;background:rgba(26,107,48,.08);border:1px solid rgba(26,107,48,.2);border-radius:10px">
+      <div style="width:32px;height:32px;background:var(--success);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="#fff" fill="none" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
-      <div class="sale-ok-title">¡Venta registrada!</div>
-      <div class="sale-ok-sub">${numFac}</div>
-    </div>
-    <div class="ticket">
-      <div class="ticket-head">
-        <div><div class="ticket-num">${numFac}</div><div class="ticket-hora">Ahora</div></div>
-        <div style="text-align:right">
-          <div class="ticket-total">$${fmt(total)}</div>
-          <span class="pago-badge pago-${formaPago}">${PAGO_LABEL[formaPago]||formaPago}</span>
-        </div>
-      </div>
-      <div class="ticket-detail open">
-        ${items.map(i=>`<div class="ticket-item-row"><span class="ticket-item-name">${i.nombre}</span><span class="ticket-item-qty">×${i.qty}</span><span class="ticket-item-subtotal">$${fmt(i.qty*i.precio)}</span></div>`).join('')}
-        ${desc>0?`<div class="ticket-descuento"><span>Descuento</span><span>-$${fmt(desc)}</span></div>`:''}
-        ${envases?`<div style="font-size:11px;color:var(--muted);padding-top:4px">📦 ${envases}</div>`:''}
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--success)">¡Venta registrada!</div>
+        <div style="font-size:11px;color:var(--muted)">${numFac}</div>
       </div>
     </div>
+    ${_renderTk(vtk, false)}
+    ${envases ? `<div style="font-size:11px;color:var(--muted);padding:6px 14px;background:var(--elevated);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">📦 ${envases}</div>` : ''}
     <div class="sale-ok-actions">
       <button class="btn-corregir" onclick="abrirEditarVenta(${id},'${formaPago}',${desc})">
         <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        Corregir venta
+        Corregir
       </button>
       <button class="btn-anular" onclick="anularVenta(${id},'${numFac}')">
         <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
