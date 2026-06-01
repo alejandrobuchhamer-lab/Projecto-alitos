@@ -128,7 +128,10 @@ app.include_router(pos_router.router)
 
 @app.on_event("startup")
 def on_startup():
-    init_db()
+    # Run init_db in background thread so /health responds immediately
+    # (avoids DB lock conflicts during Railway blue-green deployments)
+    import threading
+    threading.Thread(target=init_db, daemon=True).start()
 
 
 @app.get("/health")
