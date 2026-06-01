@@ -979,62 +979,114 @@ body.light .page-tab:hover:not(.active) {
 
 /* ====== RESPONSIVE ====== */
 @media (max-width: 768px) {
-  /* Sidebar overlay */
+
+  /* ── Sidebar: deslizable desde la izquierda ── */
   .sidebar {
     transform: translateX(-100%);
-    position: fixed; z-index: 500;
+    position: fixed !important; z-index: 500;
+    height: 100vh !important;
     box-shadow: 4px 0 24px rgba(0,0,0,0.6);
     transition: transform 0.25s ease;
   }
   .sidebar.mobile-open { transform: translateX(0); }
-  .sidebar-overlay {
-    display: block !important;
-  }
   .main-wrapper { margin-left: 0 !important; }
 
-  /* Topbar hamburger */
+  /* ── Topbar ── */
   .topbar-hamburger { display: flex !important; }
-  .topbar { padding: 0 12px; }
+  .topbar { padding: 0 10px; gap: 6px; }
+  .topbar-title { font-size: 0.85rem; }
 
-  /* Contenido */
-  .page-content { padding: 10px; }
-  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .page-header .btn { width: 100%; justify-content: center; }
+  /* ── Contenido ── */
+  .page-content { padding: 10px 8px; }
 
-  /* Grids */
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .form-row { grid-template-columns: 1fr; }
+  /* ── Page header: botón debajo del título ── */
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px;
+  }
+  .page-header > *:last-child { width: 100%; }
+  .page-header .btn { width: 100% !important; justify-content: center; }
 
-  /* Tablas: scroll horizontal */
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table { min-width: 480px; }
+  /* ── Grids genéricos: colapsar a 2 o 1 columna ── */
+  .kpi-grid,
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns:repeat(4"],
+  [style*="grid-template-columns:repeat(3"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .form-row,
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
 
-  /* Modales: full screen en mobile */
+  /* ── Tablas: scroll horizontal automático ── */
+  .table-responsive, table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  table thead, table tbody, table tr, table th, table td {
+    white-space: normal;
+  }
+  /* Wrapper automático para todas las tablas */
+  .page-content table {
+    width: 100%;
+    min-width: 500px;
+  }
+
+  /* ── Modales: salen desde abajo ── */
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal-overlay .modal,
   .modal {
     width: 100% !important;
     max-width: 100% !important;
-    max-height: 100vh !important;
-    height: 100vh;
-    border-radius: 0 !important;
+    max-height: 90vh !important;
+    border-radius: 16px 16px 0 0 !important;
     margin: 0 !important;
   }
-  .modal-overlay { align-items: flex-end; padding: 0; }
-  .modal-overlay .modal {
-    height: auto;
-    max-height: 92vh !important;
-    border-radius: 16px 16px 0 0 !important;
+  .modal-body {
+    max-height: 60vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  .modal-body { max-height: 65vh; overflow-y: auto; }
 
-  /* Cards de stats: 2 columnas */
-  .stats-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
-  .stats-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+  /* ── Finanzas tabs: scroll horizontal ── */
+  .fin-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px;
+  }
+  .fin-tab { white-space: nowrap; flex-shrink: 0; }
+  .fin-cards-6, .fin-cards-4 { grid-template-columns: repeat(2,1fr) !important; }
+  .fin-cards-3 { grid-template-columns: repeat(2,1fr) !important; }
+  .fin-cols { grid-template-columns: 1fr !important; }
 
-  /* Topbar: ocultar label de sección */
-  .topbar-section-label { display: none; }
+  /* ── Producción: grids ── */
+  .prod-grid-2 { grid-template-columns: 1fr !important; }
 
-  /* Texto y botones */
-  .btn-label-hide { display: none; }
+  /* ── Ocultar columnas secundarias en tablas ── */
+  .col-hide-mobile { display: none !important; }
+
+  /* ── Botones de acción en tablas: íconos solamente ── */
+  .btn-sm .btn-label-hide { display: none; }
+
+  /* ── Cards de datos apiladas ── */
+  .stats-grid { grid-template-columns: 1fr 1fr !important; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+  .fin-cards-6, .fin-cards-4, .fin-cards-3 { grid-template-columns: 1fr 1fr !important; }
+  .page-content { padding: 8px 6px; }
+  .topbar { padding: 0 8px; }
 }
 
 @media (max-width: 480px) {
