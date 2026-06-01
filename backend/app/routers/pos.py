@@ -533,6 +533,90 @@ def pos_crear_compra(
     return {"id": lote.id, "numero_lote": lote.numero_lote, "cantidad": lote.cantidad_inicial}
 
 
+# ── FINANZAS HOY ─────────────────────────────────────────────────────────
+
+@router.get("/api/finanzas/hoy")
+def pos_finanzas_hoy(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede ver finanzas")
+    hoy = date.today()
+    ventas = (
+        db.query(Venta)
+        .filter(func.date(Venta.fecha_venta) == hoy, Venta.estado.in_(["confirmada", "cobrada"]))
+        .order_by(Venta.fecha_venta.desc())
+        .all()
+    )
+    efectivo      = sum(v.total_neto for v in ventas if v.forma_pago == "efectivo")
+    transferencia = sum(v.total_neto for v in ventas if v.forma_pago in ("transferencia", "debito", "credito"))
+    fiado         = sum(v.total_neto for v in ventas if v.forma_pago in ("cuenta_corriente", "fiado"))
+    cobrado_total = efectivo + transferencia
+
+    gastos_hoy = sum(g.monto for g in db.query(Gasto).filter(func.date(Gasto.fecha) == hoy).all())
+
+    ventas_list = []
+    for v in ventas:
+        ventas_list.append({
+            "id": v.id,
+            "numero_factura": v.numero_factura,
+            "hora": v.fecha_venta.strftime("%H:%M"),
+            "total": round(v.total_neto, 2),
+            "forma_pago": v.forma_pago,
+        })
+
+    return {
+        "cobrado_total": round(cobrado_total, 2),
+        "efectivo": round(efectivo, 2),
+        "transferencia": round(transferencia, 2),
+        "fiado": round(fiado, 2),
+        "gastos_hoy": round(gastos_hoy, 2),
+        "saldo_neto": round(cobrado_total - gastos_hoy, 2),
+        "cant_ventas": len(ventas),
+        "ventas": ventas_list,
+    }
+
+
+# ── CUENTAS CORRIENTES ────────────────────────────────────────────────────
+
+@router.get("/api/cuentas")
+def pos_cuentas(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
+    if user.get("rol") not in ("admin",):
+        raise HTTPException(403, "Solo el admin puede ver cuentas corrientes")
+    ventas_cc = (
+        db.query(Venta)
+        .filter(Venta.forma_pago.in_(["cuenta_corriente", "fiado"]), Venta.estado.in_(["confirmada", "cobrada"]))
+        .filter(Venta.cliente_id.isnot(None))
+        .order_by(Venta.fecha_venta.desc())
+        .all()
+    )
+    from collections import defaultdict
+    clientes = defaultdict(lambda: {"saldo": 0.0, "ventas": [], "ultima_venta": ""})
+    for v in ventas_cc:
+        cid = v.cliente_id
+        clientes[cid]["saldo"] += v.total_neto
+        clientes[cid]["ultima_venta"] = v.fecha_venta.strftime("%d/%m/%y")
+        clientes[cid]["ventas"].append({
+            "id": v.id,
+            "numero_factura": v.numero_factura,
+            "hora": v.fecha_venta.strftime("%d/%m/%y %H:%M"),
+            "total": round(v.total_neto, 2),
+        })
+    result = []
+    for cid, data in clientes.items():
+        cliente = db.query(Cliente).filter(Cliente.id == cid).first()
+        if not cliente:
+            continue
+        result.append({
+            "cliente_id": cid,
+            "cliente": cliente.nombre_completo if hasattr(cliente, 'nombre_completo') else cliente.nombre,
+            "saldo": round(data["saldo"], 2),
+            "cant_ventas": len(data["ventas"]),
+            "ultima_venta": data["ultima_venta"],
+            "ventas": data["ventas"][:10],
+        })
+    result.sort(key=lambda x: x["saldo"], reverse=True)
+    return result
+
+
 # ── FINANZAS RESUMEN ──────────────────────────────────────────────────────
 
 @router.get("/api/finanzas/resumen")

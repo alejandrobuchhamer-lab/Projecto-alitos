@@ -84,33 +84,57 @@
     .btn-primary:active { background: #1a1208; }
     .login-err { color: var(--danger); font-size: 12px; text-align: center; margin-top: 12px; display: none; }
 
+    /* ── DARK MODE ────────────────────────────────────────── */
+    html.dark {
+      --bg: #0a0a0a; --card: #141414; --elevated: #1c1c1c; --border: #2a2a2a;
+      --border-hi: #525252; --text: #f0f0f0; --muted: #a3a3a3; --dim: #6b6b6b;
+      --success: #22c55e; --warning: #f59e0b; --danger: #ef4444;
+      --gold: #c47820; --accent: #c47820;
+    }
+    html.dark .login-screen-inner { background: #0d0a06; }
+    html.dark .login-box { background: #141414; border-color: #2a2a2a; box-shadow: 0 4px 24px rgba(0,0,0,.5); }
+    html.dark .field-input { background: #1c1c1c; border-color: #2a2a2a; color: #f0f0f0; }
+    html.dark .field-input:focus { border-color: #c47820; box-shadow: 0 0 0 3px rgba(196,120,32,.1); }
+    html.dark .btn-primary { background: #c47820; }
+    html.dark .btn-primary:active { background: #a06010; }
+    html.dark .topbar { background: #0a0a0a; border-bottom: 1px solid #2a2a2a; }
+    html.dark .sheet-box { background: #141414; }
+
     /* ── APP SHELL ────────────────────────────────────────── */
     #app-screen { display: none; flex-direction: column; min-height: 100vh; }
     .topbar {
       background: var(--accent); border-bottom: none;
-      padding: 0 16px; height: 52px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 14px; height: 50px; display: flex; align-items: center; justify-content: space-between;
       position: sticky; top: 0; z-index: 20;
     }
     .topbar-left { display: flex; align-items: center; gap: 10px; }
-    .topbar-logo { height: 28px; width: auto; filter: brightness(0) invert(1); }
-    .role-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 2px 8px; border-radius: 20px; background: rgba(255,255,255,.15); color: rgba(255,255,255,.8); }
-    .topbar-user { font-size: 12px; color: rgba(255,255,255,.7); }
-    .btn-logout { background: rgba(255,255,255,.15); border: none; color: #fff; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; }
-    .btn-logout:active { background: rgba(255,255,255,.25); }
+    .topbar-logo { height: 26px; width: auto; filter: brightness(0) invert(1); }
+    .role-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 2px 8px; border-radius: 20px; background: rgba(255,255,255,.2); color: #fff; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .topbar-user { font-size: 12px; color: rgba(255,255,255,.8); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-dark-toggle { background: rgba(255,255,255,.15); border: none; color: #fff; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .btn-dark-toggle svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+    .btn-logout { background: rgba(255,255,255,.15); border: none; color: #fff; padding: 5px 11px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .btn-logout:active { background: rgba(255,255,255,.3); }
 
-    /* ── TABS ─────────────────────────────────────────────── */
-    .tabs { display: flex; background: var(--card); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+    /* ── TABS (bottom nav) ────────────────────────────────── */
+    .tabs {
+      display: flex; background: var(--card); border-top: 1px solid var(--border);
+      overflow-x: auto; scrollbar-width: none;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
     .tabs::-webkit-scrollbar { display: none; }
     .tab-btn {
-      flex: 1; min-width: 64px; padding: 11px 6px 10px; background: none; border: none; border-bottom: 2px solid transparent;
-      color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap;
-      display: flex; flex-direction: column; align-items: center; gap: 4px; font-family: inherit;
+      flex: 1; min-width: 56px; padding: 8px 4px 6px; background: none; border: none; border-top: 2px solid transparent;
+      color: var(--muted); font-size: 10px; font-weight: 600; cursor: pointer; white-space: nowrap;
+      display: flex; flex-direction: column; align-items: center; gap: 3px; font-family: inherit;
     }
-    .tab-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .tab-btn.active { color: var(--accent); border-top-color: var(--accent); }
 
     /* ── CONTENT ──────────────────────────────────────────── */
-    .tab-content { display: none; padding: 14px; flex: 1; }
+    .tab-content { display: none; padding: 14px 14px 80px; flex: 1; }
     .tab-content.active { display: block; }
 
     /* ── KPI GRID ─────────────────────────────────────────── */
@@ -176,8 +200,32 @@
     .btn-dark { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
     .btn-danger { background: var(--danger); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
 
-    /* ── HISTORIAL / PEDIDOS CARDS ────────────────────────── */
-    .list-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+    /* ── TICKET / HISTORIAL ───────────────────────────────── */
+    .ticket { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(42,30,14,.06); }
+    .ticket-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; }
+    .ticket-num { font-weight: 800; font-size: 13px; color: var(--text); letter-spacing: .2px; }
+    .ticket-total { font-weight: 800; font-size: 16px; color: var(--gold); }
+    .ticket-meta { padding: 0 14px 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ticket-hora { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .pago-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: capitalize; letter-spacing: .2px; }
+    .pago-efectivo { background: rgba(26,107,48,.12); color: var(--success); }
+    .pago-transferencia { background: rgba(26,80,144,.12); color: var(--info); }
+    .pago-cuenta_corriente { background: rgba(154,104,0,.12); color: var(--warning); }
+    .ticket-items-btn { width: 100%; padding: 8px 14px; background: none; border: none; border-top: 1px dashed var(--border); color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 6px; letter-spacing: .3px; text-transform: uppercase; }
+    .ticket-items-btn:active { background: var(--elevated); }
+    .ticket-items-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; transition: transform .2s; }
+    .ticket-items-btn.open svg { transform: rotate(180deg); }
+    .ticket-detail { display: none; background: var(--elevated); padding: 10px 14px; }
+    .ticket-detail.open { display: block; }
+    .ticket-item-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+    .ticket-item-row:last-child { border-bottom: none; }
+    .ticket-item-name { font-weight: 600; color: var(--text); }
+    .ticket-item-qty { color: var(--muted); }
+    .ticket-item-subtotal { font-weight: 700; color: var(--text); }
+    .ticket-descuento { display: flex; justify-content: space-between; font-size: 11px; color: var(--danger); padding-top: 6px; border-top: 1px solid var(--border); margin-top: 4px; font-weight: 600; }
+
+    /* ── HISTORIAL / PEDIDOS CARDS (legacy) ───────────────── */
+    .list-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 8px; }
     .list-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
     .list-num { font-weight: 700; font-size: 13px; }
     .list-amt { font-weight: 700; color: var(--gold); font-size: 14px; }
@@ -325,8 +373,11 @@
       <img class="topbar-logo" src="https://projecto-alitos-production.up.railway.app/static/img/logo1.png" alt="Alito's" onerror="this.style.display='none'">
       <span class="role-badge" id="role-badge"></span>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
+    <div class="topbar-right">
       <span class="topbar-user" id="topbar-user"></span>
+      <button class="btn-dark-toggle" onclick="toggleDarkMode()" title="Cambiar modo">
+        <svg id="icon-dark" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
       <button class="btn-logout" onclick="doLogout()">Salir</button>
     </div>
   </div>
@@ -507,7 +558,11 @@ async function initLoginScreen() {
     document.getElementById('saved-role-label').textContent = ROL_LABELS_L[saved.rol] || saved.rol || '';
     const bioDisp = await biometricDisponible();
     const hasCred = !!localStorage.getItem('pos_biometric_id');
-    if (bioDisp && hasCred) document.getElementById('btn-biometric').style.display = 'flex';
+    if (bioDisp && hasCred) {
+      document.getElementById('btn-biometric').style.display = 'flex';
+      // Auto-prompt biometric after brief delay so the user sees the screen
+      setTimeout(() => doLoginBiometric(), 600);
+    }
   } else {
     document.getElementById('login-form').style.display = 'block';
     document.getElementById('login-saved').style.display = 'none';
@@ -519,9 +574,10 @@ const ROL_LABELS = { admin: 'Admin', vendedor: 'Vendedor', repartidor: 'Repartid
 const ICONS_EXTRA = {
   finance: `<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
   settings:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  accounts:`<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`,
 };
 const ROL_TABS = {
-  admin:           [['dashboard','Dashboard',ICONS.dashboard], ['venta','Venta',ICONS.cart], ['historial','Historial',ICONS.history], ['stock','Stock',ICONS.package], ['finanzas','Finanzas',ICONS_EXTRA.finance], ['config','Config',ICONS_EXTRA.settings]],
+  admin:           [['dashboard','Inicio',ICONS.dashboard], ['venta','Venta',ICONS.cart], ['historial','Historial',ICONS.history], ['stock','Stock',ICONS.package], ['finanzas','Finanzas',ICONS_EXTRA.finance], ['cuentas','Cuentas',ICONS_EXTRA.accounts], ['config','Config',ICONS_EXTRA.settings]],
   vendedor:        [['venta','Venta',ICONS.cart], ['historial','Historial',ICONS.history]],
   repartidor:      [['entregas','Entregas',ICONS.truck], ['historial','Historial',ICONS.history]],
   tomador:         [['pedidos-new','Nuevo Pedido',ICONS.clipboard], ['pedidos','Pedidos',ICONS.clipboard]],
@@ -566,7 +622,23 @@ function loadTab(name) {
   if (name === 'pedidos-new') renderPedidosNew(el);
   if (name === 'pedidos')     renderPedidosList(el);
   if (name === 'finanzas')    renderFinanzas(el);
+  if (name === 'cuentas')     renderCuentas(el);
   if (name === 'config')      renderConfig(el);
+}
+
+// ── DARK MODE ──────────────────────────────────────────────────────────────
+function toggleDarkMode() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('pos_dark', isDark ? '1' : '0');
+  const icon = document.getElementById('icon-dark');
+  if (icon) icon.innerHTML = isDark
+    ? `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`
+    : `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>`;
+}
+if (localStorage.getItem('pos_dark') === '1') {
+  document.documentElement.classList.add('dark');
+  const icon = document.getElementById('icon-dark');
+  if (icon) icon.innerHTML = `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────────────
@@ -613,7 +685,23 @@ function renderVenta(el) {
         </select>
         <div class="descuento-wrap">
           <span class="descuento-prefix">$</span>
-          <input class="inp descuento-inp" type="number" id="inp-desc" placeholder="Descuento" min="0" value="0">
+          <input class="inp descuento-inp" type="number" id="inp-desc" placeholder="Descuento" min="0" value="0" oninput="pintarCarrito()">
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn-outline" style="width:100%;padding:7px;font-size:11px;display:flex;align-items:center;justify-content:center;gap:6px" onclick="toggleEnvases()">
+          <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          Envases / embalaje (opcional)
+        </button>
+        <div id="envases-panel" style="display:none;margin-top:8px;background:var(--elevated);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Indicar envases usados</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <div><label style="font-size:11px;color:var(--muted)">Bolsa chica</label><input class="inp" type="number" id="env-bolsa-chica" placeholder="0" min="0" style="margin-top:3px"></div>
+            <div><label style="font-size:11px;color:var(--muted)">Bolsa mediana</label><input class="inp" type="number" id="env-bolsa-med" placeholder="0" min="0" style="margin-top:3px"></div>
+            <div><label style="font-size:11px;color:var(--muted)">Bolsa camiseta</label><input class="inp" type="number" id="env-bolsa-cam" placeholder="0" min="0" style="margin-top:3px"></div>
+            <div><label style="font-size:11px;color:var(--muted)">Caja chica</label><input class="inp" type="number" id="env-caja-chica" placeholder="0" min="0" style="margin-top:3px"></div>
+            <div><label style="font-size:11px;color:var(--muted)">Caja grande</label><input class="inp" type="number" id="env-caja-grande" placeholder="0" min="0" style="margin-top:3px"></div>
+          </div>
         </div>
       </div>
       <button class="btn-cobrar" id="btn-cobrar" onclick="confirmarVenta()">Cobrar</button>
@@ -706,15 +794,33 @@ function pintarCarrito() {
 
 function vaciarCarrito() { carrito = []; pintarCarrito(); document.getElementById('carrito-area').style.display = 'none'; }
 
+function toggleEnvases() {
+  const p = document.getElementById('envases-panel');
+  if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function _getEnvases() {
+  const envases = [
+    ['Bolsa chica', 'env-bolsa-chica'], ['Bolsa mediana', 'env-bolsa-med'],
+    ['Bolsa camiseta', 'env-bolsa-cam'], ['Caja chica', 'env-caja-chica'],
+    ['Caja grande', 'env-caja-grande'],
+  ];
+  return envases.filter(([, id]) => parseInt(document.getElementById(id)?.value || 0) > 0)
+    .map(([label, id]) => `${label}: ${document.getElementById(id).value}`).join(', ');
+}
+
 async function confirmarVenta() {
   if (!carrito.length) return;
   const btn = document.getElementById('btn-cobrar');
   btn.disabled = true; btn.textContent = 'Procesando...';
   const desc = parseFloat(document.getElementById('inp-desc')?.value || 0) || 0;
+  const envases = _getEnvases();
+  const notas = `POS — ${USER?.username || ''}${envases ? ' | Envases: ' + envases : ''}`;
   const payload = {
     items: carrito.map(i => ({ lote_id: i.lote_id, cantidad: i.qty, precio_unitario: i.precio })),
     forma_pago: document.getElementById('sel-pago').value,
     descuento: desc,
+    notas,
   };
   try {
     const r = await apiFetch('/pos/api/venta', { method: 'POST', body: JSON.stringify(payload) });
@@ -723,37 +829,60 @@ async function confirmarVenta() {
     const total = Math.max(0, carrito.reduce((s,i) => s + i.qty * i.precio, 0) - desc);
     carrito = [];
     pintarCarrito();
-    abrirModal('¡Venta registrada!', `${data.numero_factura} · $${fmt(total)} · ${payload.forma_pago}`);
+    abrirModal('¡Venta registrada!', `${data.numero_factura} · $${fmt(total)} · ${payload.forma_pago}${envases ? '\n📦 ' + envases : ''}`);
     cargarProductos();
-  } catch (e) { toast(e.message || 'Error al registrar', 'error'); }
+  } catch (e) { showToast(e.message || 'Error al registrar', 'error'); }
   finally { btn.disabled = false; btn.textContent = 'Cobrar'; }
 }
 
 // ── HISTORIAL ──────────────────────────────────────────────────────────────
+const PAGO_LABEL = { efectivo:'Efectivo', transferencia:'Transferencia', cuenta_corriente:'Cta. Corriente', debito:'Débito', credito:'Crédito' };
+
 async function renderHistorial(el) {
   el.innerHTML = `<div class="empty"><div class="spin"></div></div>`;
   try {
     const ventas = await (await apiFetch('/pos/api/historial')).json();
     if (!ventas.length) { el.innerHTML = emptyState('Sin ventas hoy'); return; }
-    el.innerHTML = `<button class="btn-outline" style="margin-bottom:10px" onclick="renderHistorial(document.getElementById('tab-historial')||document.getElementById('tab-historial'))">Actualizar</button>` +
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${ventas.length} venta${ventas.length!==1?'s':''} hoy</div>
+        <button class="btn-outline" style="width:auto;padding:5px 12px;font-size:11px" onclick="renderHistorial(document.getElementById('tab-historial'))">↻ Actualizar</button>
+      </div>` +
       ventas.map(v => `
-        <div class="list-card">
-          <div class="list-card-top">
-            <span class="list-num">${v.numero_factura}</span>
-            <span class="list-amt">$${fmt(v.total)}</span>
+        <div class="ticket">
+          <div class="ticket-head">
+            <div>
+              <div class="ticket-num">${v.numero_factura}</div>
+              <div class="ticket-hora">${v.hora}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="ticket-total">$${fmt(v.total)}</div>
+              <span class="pago-badge pago-${v.forma_pago}">${PAGO_LABEL[v.forma_pago]||v.forma_pago}</span>
+            </div>
           </div>
-          <div class="list-meta">${v.hora} · ${v.forma_pago}${v.descuento > 0 ? ` · desc. $${fmt(v.descuento)}` : ''} · ${v.items} item${v.items !== 1 ? 's' : ''}</div>
-          <div class="list-detail" id="det-${v.id}">
-            ${v.detalles.map(d => `<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span>${d.nombre} ×${d.cantidad}</span><span>$${fmt(d.subtotal)}</span></div>`).join('')}
+          ${v.descuento > 0 ? `<div style="padding:0 14px 8px;font-size:11px;color:var(--danger);font-weight:600">Descuento aplicado: -$${fmt(v.descuento)}</div>` : ''}
+          <button class="ticket-items-btn" id="btn-det-${v.id}" onclick="toggleTicket('${v.id}')">
+            <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            Ver ${v.items} producto${v.items!==1?'s':''}
+          </button>
+          <div class="ticket-detail" id="det-${v.id}">
+            ${v.detalles.map(d => `
+              <div class="ticket-item-row">
+                <span class="ticket-item-name">${d.nombre}</span>
+                <span class="ticket-item-qty">×${d.cantidad}</span>
+                <span class="ticket-item-subtotal">$${fmt(d.subtotal)}</span>
+              </div>`).join('')}
+            ${v.descuento > 0 ? `<div class="ticket-descuento"><span>Descuento</span><span>-$${fmt(v.descuento)}</span></div>` : ''}
           </div>
-          <button class="btn-outline" style="margin-top:6px;padding:6px" onclick="toggleDetalle('${v.id}')">Ver detalle</button>
-        </div>
-      `).join('');
+        </div>`).join('');
   } catch { el.innerHTML = emptyState('Error cargando historial'); }
 }
 
-function toggleDetalle(id) {
-  document.getElementById(`det-${id}`)?.classList.toggle('open');
+function toggleTicket(id) {
+  const det = document.getElementById(`det-${id}`);
+  const btn = document.getElementById(`btn-det-${id}`);
+  det?.classList.toggle('open');
+  btn?.classList.toggle('open');
 }
 
 // ── STOCK ──────────────────────────────────────────────────────────────────
@@ -962,64 +1091,98 @@ function fmtFecha(s) { return new Date(s).toLocaleDateString('es-AR', {day:'2-di
 function emptyState(msg) { return `<div class="empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${msg}</div>`; }
 
 // ── FINANZAS ────────────────────────────────────────────────────────────────
-let _finSubtab = 'resumen';
+let _finSubtab = 'hoy';
+let _finData = {};
+
 async function renderFinanzas(el) {
   el.innerHTML = `<div class="empty"><div class="spin"></div></div>`;
   try {
-    const [rRes, cRes] = await Promise.all([
+    const [hoyRes, mesRes, cRes] = await Promise.all([
+      apiFetch('/pos/api/finanzas/hoy'),
       apiFetch('/pos/api/finanzas/resumen'),
       apiFetch('/pos/api/compras?limit=30'),
     ]);
-    const r = rRes.ok ? await rRes.json() : {};
-    const compras = cRes.ok ? await cRes.json() : [];
-    _finData = { r, compras };
+    _finData = {
+      hoy:    hoyRes.ok  ? await hoyRes.json()  : {},
+      mes:    mesRes.ok  ? await mesRes.json()   : {},
+      compras: cRes.ok   ? await cRes.json()     : [],
+    };
     _renderFinContent(el);
   } catch { el.innerHTML = emptyState('Error al cargar finanzas'); }
 }
-let _finData = {};
+
 function _renderFinContent(el) {
-  const { r = {}, compras = [] } = _finData;
-  const ganancia = (r.ingresos || 0) - (r.costos || 0) - (r.gastos || 0);
-  const ganClass = ganancia >= 0 ? 'pos' : 'neg';
+  const { hoy = {}, mes = {} } = _finData;
   el.innerHTML = `
-    <div class="fin-grid">
-      <div class="fin-card"><div class="fin-label">Ingresos del mes</div><div class="fin-val pos">$${fmt(r.ingresos||0)}</div></div>
-      <div class="fin-card"><div class="fin-label">Costos insumos</div><div class="fin-val neg">$${fmt(r.costos||0)}</div></div>
-      <div class="fin-card"><div class="fin-label">Gastos</div><div class="fin-val neg">$${fmt(r.gastos||0)}</div></div>
-      <div class="fin-card ganancia"><div class="fin-label">Ganancia real</div><div class="fin-val ${ganClass}">$${fmt(ganancia)}</div></div>
-    </div>
     <div class="fin-subtabs">
-      <button class="fin-subtab${_finSubtab==='resumen'?' active':''}" onclick="_finTab('resumen',this)">Resumen</button>
+      <button class="fin-subtab${_finSubtab==='hoy'?' active':''}"     onclick="_finTab('hoy',this)">Hoy</button>
+      <button class="fin-subtab${_finSubtab==='mes'?' active':''}"     onclick="_finTab('mes',this)">Este mes</button>
       <button class="fin-subtab${_finSubtab==='compras'?' active':''}" onclick="_finTab('compras',this)">Compras</button>
     </div>
     <div id="fin-body"></div>
     ${_sheetCompraHTML()}
   `;
-  _renderFinBody(compras);
+  _renderFinBody();
 }
+
 function _finTab(name, btn) {
   _finSubtab = name;
   document.querySelectorAll('.fin-subtab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  _renderFinBody(_finData.compras || []);
+  _renderFinBody();
 }
-function _renderFinBody(compras) {
+
+function _renderFinBody() {
   const el = document.getElementById('fin-body');
   if (!el) return;
-  if (_finSubtab === 'resumen') {
-    const r = _finData.r || {};
+  const { hoy = {}, mes = {}, compras = [] } = _finData;
+
+  if (_finSubtab === 'hoy') {
+    const neto = (hoy.cobrado_total||0) - (hoy.gastos_hoy||0);
     el.innerHTML = `
-      <div class="list-card">
-        <div class="list-card-top"><span class="list-num">Ventas del mes</span><span class="list-amt">${r.cant_ventas||0}</span></div>
-        <div class="list-meta">Ticket promedio: $${fmt((r.ingresos||0)/(r.cant_ventas||1))}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+        <div class="fin-card" style="grid-column:1/-1">
+          <div class="fin-label">Cobrado hoy</div>
+          <div class="fin-val pos" style="font-size:26px">$${fmt(hoy.cobrado_total||0)}</div>
+        </div>
+        <div class="fin-card"><div class="fin-label">Efectivo</div><div class="fin-val" style="font-size:16px">$${fmt(hoy.efectivo||0)}</div></div>
+        <div class="fin-card"><div class="fin-label">Digital</div><div class="fin-val" style="font-size:16px;color:var(--info)">$${fmt(hoy.transferencia||0)}</div></div>
+        <div class="fin-card"><div class="fin-label">Fiado</div><div class="fin-val" style="font-size:16px;color:var(--warning)">$${fmt(hoy.fiado||0)}</div></div>
+        <div class="fin-card"><div class="fin-label">Gastos</div><div class="fin-val neg" style="font-size:16px">$${fmt(hoy.gastos_hoy||0)}</div></div>
+        <div class="fin-card ganancia"><div class="fin-label">Saldo neto</div><div class="fin-val ${neto>=0?'pos':'neg'}" style="font-size:16px">$${fmt(neto)}</div></div>
       </div>
-      <div class="list-card">
-        <div class="list-card-top"><span class="list-num">Compras de insumos</span><span class="list-amt">${r.cant_compras||0}</span></div>
-        <div class="list-meta">Total: $${fmt(r.costos||0)}</div>
-      </div>`;
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Ventas de hoy (${(hoy.ventas||[]).length})</div>
+      ${(hoy.ventas||[]).length === 0 ? emptyState('Sin ventas hoy') :
+        (hoy.ventas||[]).map(v => `
+          <div class="ticket">
+            <div class="ticket-head">
+              <div><div class="ticket-num">${v.numero_factura}</div><div class="ticket-hora">${v.hora}</div></div>
+              <div style="text-align:right">
+                <div class="ticket-total">$${fmt(v.total)}</div>
+                <span class="pago-badge pago-${v.forma_pago}">${PAGO_LABEL[v.forma_pago]||v.forma_pago}</span>
+              </div>
+            </div>
+          </div>`).join('')}
+    `;
     return;
   }
-  // compras
+
+  if (_finSubtab === 'mes') {
+    const gan = (mes.ingresos||0) - (mes.costos||0) - (mes.gastos||0);
+    el.innerHTML = `
+      <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-bottom:10px;letter-spacing:.3px">${mes.mes||'Este mes'}</div>
+      <div class="fin-grid">
+        <div class="fin-card"><div class="fin-label">Ingresos</div><div class="fin-val pos">$${fmt(mes.ingresos||0)}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${mes.cant_ventas||0} ventas</div></div>
+        <div class="fin-card"><div class="fin-label">Costos insumos</div><div class="fin-val neg">$${fmt(mes.costos||0)}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${mes.cant_compras||0} compras</div></div>
+        <div class="fin-card"><div class="fin-label">Gastos</div><div class="fin-val neg">$${fmt(mes.gastos||0)}</div></div>
+        <div class="fin-card ganancia"><div class="fin-label">Ganancia real</div><div class="fin-val ${gan>=0?'pos':'neg'}">$${fmt(gan)}</div></div>
+      </div>
+      ${mes.cant_ventas > 0 ? `<div class="list-card" style="margin-top:4px"><div class="list-meta" style="font-size:12px">Ticket promedio: <strong>$${fmt((mes.ingresos||0)/(mes.cant_ventas||1))}</strong></div></div>` : ''}
+    `;
+    return;
+  }
+
+  // Compras
   el.innerHTML = `
     <button class="btn-nueva-compra" onclick="abrirSheetCompra()">
       <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1027,12 +1190,13 @@ function _renderFinBody(compras) {
     </button>
     ${compras.length === 0 ? emptyState('Sin compras registradas') :
       compras.map(c => `
-        <div class="compra-card">
-          <div class="list-card-top">
-            <span class="list-num">${c.insumo_nombre}</span>
-            <span class="list-amt">$${fmt(c.total)}</span>
+        <div class="ticket">
+          <div class="ticket-head">
+            <div><div class="ticket-num">${c.insumo_nombre}</div><div class="ticket-hora">${c.fecha} · ${c.cantidad} ${c.unidad}</div></div>
+            <div style="text-align:right"><div class="ticket-total">$${fmt(c.total)}</div>${c.fuente ? `<div style="font-size:10px;color:var(--muted)">${c.fuente}</div>` : ''}</div>
           </div>
-          <div class="list-meta">${c.cantidad} ${c.unidad} · ${c.proveedor||'Sin proveedor'} · ${c.fecha}</div>
+          ${c.proveedor ? `<div style="padding:0 14px 10px;font-size:11px;color:var(--muted)">Proveedor: ${c.proveedor}</div>` : ''}
+          ${c.notas ? `<div style="padding:0 14px 10px;font-size:11px;color:var(--dim)">${c.notas}</div>` : ''}
         </div>`).join('')}
   `;
 }
@@ -1054,6 +1218,17 @@ function _sheetCompraHTML() {
           <label class="field-label">Precio total ($)</label>
           <input class="inp" type="number" id="sc-precio" placeholder="0" min="0">
         </div>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Pagado con</label>
+        <select class="sel" id="sc-fuente" style="width:100%">
+          <option value="">Seleccionar...</option>
+          <option value="Caja del negocio">💼 Caja del negocio (efectivo)</option>
+          <option value="Dinero personal">🏠 Dinero personal (de mi casa)</option>
+          <option value="Transferencia digital">📱 Transferencia digital</option>
+          <option value="Tarjeta">💳 Tarjeta</option>
+          <option value="Otro">Otro</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="field-label">Proveedor (opcional)</label>
@@ -1085,11 +1260,13 @@ async function guardarCompra() {
   const insumo_id = parseInt(document.getElementById('sc-insumo').value);
   const cantidad = parseFloat(document.getElementById('sc-cantidad').value);
   const precio_total = parseFloat(document.getElementById('sc-precio').value);
+  const fuente = document.getElementById('sc-fuente').value;
   const proveedor = document.getElementById('sc-proveedor').value.trim();
-  const notas = document.getElementById('sc-notas').value.trim();
+  const notasBase = document.getElementById('sc-notas').value.trim();
   if (!insumo_id || !cantidad || !precio_total) { showToast('Completá insumo, cantidad y precio', 'error'); return; }
+  const notasCompleta = [fuente ? `Fuente: ${fuente}` : '', notasBase].filter(Boolean).join(' — ');
   try {
-    const r = await apiFetch('/pos/api/compra', { method: 'POST', body: JSON.stringify({ insumo_id, cantidad, precio_total, proveedor, notas }) });
+    const r = await apiFetch('/pos/api/compra', { method: 'POST', body: JSON.stringify({ insumo_id, cantidad, precio_total, proveedor, notas: notasCompleta || null }) });
     if (!r.ok) throw new Error();
     showToast('Compra registrada', 'success');
     cerrarSheetCompra();
@@ -1208,6 +1385,60 @@ async function guardarPrecio(id) {
     if (r.ok) { showToast('Precio actualizado', 'success'); }
     else { showToast('Error al guardar precio', 'error'); }
   } catch { showToast('Error de conexión', 'error'); }
+}
+
+// ── CUENTAS CORRIENTES ──────────────────────────────────────────────────────
+async function renderCuentas(el) {
+  el.innerHTML = `<div class="empty"><div class="spin"></div></div>`;
+  try {
+    const res = await apiFetch('/pos/api/cuentas');
+    if (!res.ok) throw new Error();
+    const cuentas = await res.json();
+    const totalDeuda = cuentas.reduce((s, c) => s + c.saldo, 0);
+    if (!cuentas.length) {
+      el.innerHTML = `
+        <div class="fin-card" style="margin-bottom:12px;text-align:center">
+          <div class="fin-label">Total en cuenta corriente</div>
+          <div class="fin-val pos" style="font-size:26px">$0</div>
+        </div>
+        ${emptyState('Sin deudas pendientes')}`;
+      return;
+    }
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">Total en cta. corriente</div>
+          <div style="font-size:24px;font-weight:800;color:var(--warning)">$${fmt(totalDeuda)}</div>
+        </div>
+        <button class="btn-outline" style="width:auto;padding:5px 12px;font-size:11px" onclick="renderCuentas(document.getElementById('tab-cuentas'))">↻</button>
+      </div>
+      ${cuentas.map(c => `
+        <div class="ticket">
+          <div class="ticket-head">
+            <div>
+              <div class="ticket-num">${c.cliente}</div>
+              <div class="ticket-hora">${c.cant_ventas} venta${c.cant_ventas!==1?'s':''} sin cobrar · última: ${c.ultima_venta}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="ticket-total" style="color:var(--warning)">$${fmt(c.saldo)}</div>
+              <span class="pago-badge pago-cuenta_corriente">Debe</span>
+            </div>
+          </div>
+          <button class="ticket-items-btn" id="btn-cc-${c.cliente_id}" onclick="toggleTicket('cc-${c.cliente_id}')">
+            <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            Ver detalle de ventas
+          </button>
+          <div class="ticket-detail" id="det-cc-${c.cliente_id}">
+            ${(c.ventas||[]).map(v => `
+              <div class="ticket-item-row">
+                <span class="ticket-item-name">${v.numero_factura}</span>
+                <span class="ticket-item-qty">${v.hora}</span>
+                <span class="ticket-item-subtotal">$${fmt(v.total)}</span>
+              </div>`).join('')}
+          </div>
+        </div>`).join('')}
+    `;
+  } catch { el.innerHTML = emptyState('Error al cargar cuentas'); }
 }
 
 // ── AUTO LOGIN ─────────────────────────────────────────────────────────────
