@@ -35,7 +35,7 @@ class VentaDetalleCreate(BaseModel):
 
 
 class VentaCreate(BaseModel):
-    cliente_id: int = Field(..., gt=0)
+    cliente_id: int = Field(..., ge=0)  # 0 = consumidor final
     pedido_id: int | None = Field(None, gt=0)
     notas: str | None = Field(None, max_length=500)
     descuento: float = Field(0.0, ge=0.0, le=10_000_000)
@@ -46,7 +46,7 @@ class VentaCreate(BaseModel):
     @field_validator("forma_pago")
     @classmethod
     def validar_forma_pago(cls, v: str) -> str:
-        permitidas = {"efectivo", "transferencia", "debito", "credito", "qr", "fiado", "otro"}
+        permitidas = {"efectivo", "transferencia", "debito", "credito", "qr", "fiado", "otro", "cuenta_corriente", "mercado_pago"}
         if v.lower() not in permitidas:
             raise ValueError(f"Forma de pago inválida. Opciones: {', '.join(permitidas)}")
         return v.lower()
