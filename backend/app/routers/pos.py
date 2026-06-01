@@ -18,6 +18,11 @@ from app.services.venta_service import crear_venta, generar_numero_pedido
 router = APIRouter(prefix="/pos", tags=["pos"])
 
 
+@router.get("/api/version")
+def pos_version():
+    return {"version": "2026-06-01-v2", "anular": True, "asignacion": True}
+
+
 @router.get("/", response_class=HTMLResponse)
 def pos_login(request: Request):
     return templates.TemplateResponse("pos/login.html", {"request": request})
