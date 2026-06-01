@@ -31,7 +31,7 @@ def get_db():
 
 def init_db():
     from app.models import (  # noqa: F401
-        insumo, receta, produccion, producto, cliente, venta, costo, sensorial, alerta, configuracion, usuario, conversacion_ia, gasto, ajuste_stock, registro_tapas  # noqa: F401
+        insumo, receta, produccion, producto, cliente, venta, costo, sensorial, alerta, configuracion, usuario, conversacion_ia, gasto, ajuste_stock, registro_tapas, capital  # noqa: F401
     )
     from app.models.venta import PedidoReserva  # noqa: F401
     from app.models.produccion import ProduccionTacho  # noqa: F401

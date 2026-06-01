@@ -10,6 +10,7 @@ from app.models.venta import Venta
 from app.models.cliente import Cliente
 from app.models.insumo import LoteInsumo
 from app.models.producto import LoteProductoTerminado
+from app.models.capital import InyeccionCapital
 from app.templates import templates
 
 router = APIRouter(prefix="/finanzas", tags=["finanzas"])
@@ -384,4 +385,110 @@ def capital_invertido(db: Session = Depends(get_db)):
         "detalle_masa":     detalle_masa,
         "detalle_tapas":    detalle_tapas,
         "detalle_alfajor":  detalle_alfajor,
+    }
+
+
+# ── Capital propio ────────────────────────────────────────────────────────────
+
+class CapitalCreate(BaseModel):
+    monto: float
+    origen: str = "sueldo"
+    fecha: str | None = None
+    notas: str | None = None
+
+
+@router.get("/api/capital")
+def listar_capital(db: Session = Depends(get_db)):
+    items = db.query(InyeccionCapital).order_by(InyeccionCapital.fecha.desc()).all()
+    total = sum(i.monto for i in items)
+    return {
+        "total_inyectado": round(total, 2),
+        "items": [
+            {
+                "id": i.id,
+                "fecha": i.fecha.strftime("%d/%m/%Y"),
+                "monto": i.monto,
+                "origen": i.origen,
+                "notas": i.notas,
+            }
+            for i in items
+        ],
+    }
+
+
+@router.post("/api/capital", status_code=201)
+def agregar_capital(data: CapitalCreate, db: Session = Depends(get_db)):
+    if data.monto <= 0:
+        raise HTTPException(400, "El monto debe ser positivo")
+    fecha = (
+        datetime.combine(date.fromisoformat(data.fecha), dt_time.min)
+        if data.fecha else datetime.utcnow()
+    )
+    item = InyeccionCapital(monto=data.monto, origen=data.origen, fecha=fecha, notas=data.notas)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return {"id": item.id, "monto": item.monto, "origen": item.origen}
+
+
+@router.delete("/api/capital/{item_id}")
+def eliminar_capital(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(InyeccionCapital).filter(InyeccionCapital.id == item_id).first()
+    if not item:
+        raise HTTPException(404, "Registro no encontrado")
+    db.delete(item)
+    db.commit()
+    return {"ok": True}
+
+
+# ── Salud del negocio (mes actual) ───────────────────────────────────────────
+
+@router.get("/api/salud")
+def salud_negocio(db: Session = Depends(get_db)):
+    hoy = date.today()
+    inicio_mes = datetime.combine(hoy.replace(day=1), dt_time.min)
+    fin_mes = datetime.combine(hoy, dt_time.max)
+
+    ventas = db.query(Venta).filter(
+        Venta.fecha_venta >= inicio_mes, Venta.fecha_venta <= fin_mes,
+        Venta.estado != "cancelada"
+    ).all()
+    gastos = db.query(Gasto).filter(
+        Gasto.fecha >= inicio_mes, Gasto.fecha <= fin_mes
+    ).all()
+
+    ingresos = sum(v.total_neto for v in ventas if v.forma_pago != "cuenta_corriente")
+    costo_produccion = sum(v.costo_total for v in ventas)
+    total_gastos = sum(g.monto for g in gastos)
+    ganancia_bruta = ingresos - costo_produccion
+    ganancia_neta = ganancia_bruta - total_gastos
+    margen_pct = round(ganancia_neta / ingresos * 100, 1) if ingresos > 0 else 0.0
+
+    # Stock valorizado
+    lotes_insumo = db.query(LoteInsumo).filter(LoteInsumo.activo == True, LoteInsumo.cantidad_actual > 0).all()
+    lotes_pt = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.activo == True, LoteProductoTerminado.cantidad_actual > 0).all()
+    stock_insumos = sum(l.cantidad_actual * l.costo_unitario for l in lotes_insumo)
+    stock_productos = sum(l.cantidad_actual * (l.costo_unitario_calculado or 0) for l in lotes_pt)
+    stock_total = stock_insumos + stock_productos
+
+    # Capital propio
+    inyecciones = db.query(InyeccionCapital).all()
+    total_inyectado = sum(i.monto for i in inyecciones)
+    capital_recuperado = max(0, ingresos - costo_produccion - total_gastos)  # ganancia acumulada estimada
+    roi_pct = round(ganancia_neta / total_inyectado * 100, 1) if total_inyectado > 0 else None
+
+    return {
+        "mes": hoy.strftime("%B %Y"),
+        "ingresos": round(ingresos, 2),
+        "costo_produccion": round(costo_produccion, 2),
+        "gastos_fijos": round(total_gastos, 2),
+        "ganancia_bruta": round(ganancia_bruta, 2),
+        "ganancia_neta": round(ganancia_neta, 2),
+        "margen_pct": margen_pct,
+        "stock_total": round(stock_total, 2),
+        "stock_insumos": round(stock_insumos, 2),
+        "stock_productos": round(stock_productos, 2),
+        "total_inyectado": round(total_inyectado, 2),
+        "roi_pct": roi_pct,
+        "cantidad_ventas": len(ventas),
     }
