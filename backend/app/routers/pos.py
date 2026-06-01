@@ -270,17 +270,26 @@ def pos_historial(db: Session = Depends(get_db), user: dict = Depends(get_mobile
         detalles = []
         for d in v.detalles:
             nombre = "—"
-            if d.lote_producto and d.lote_producto.producto:
-                nombre = d.lote_producto.producto.nombre
+            numero_lote = None
+            fec_vto = None
+            if d.lote_producto:
+                numero_lote = d.lote_producto.numero_lote
+                if d.lote_producto.fecha_vencimiento:
+                    fec_vto = d.lote_producto.fecha_vencimiento.isoformat()
+                if d.lote_producto.producto:
+                    nombre = d.lote_producto.producto.nombre
             detalles.append({
                 "nombre": nombre,
                 "cantidad": int(d.cantidad),
                 "precio_unitario": d.precio_unitario,
                 "subtotal": round(d.cantidad * d.precio_unitario, 2),
+                "numero_lote": numero_lote,
+                "fecha_vencimiento": fec_vto,
             })
         result.append({
             "id": v.id,
             "numero_factura": v.numero_factura,
+            "fecha": v.fecha_venta.strftime("%d/%m/%Y"),
             "hora": v.fecha_venta.strftime("%H:%M"),
             "total": round(v.total_neto, 2),
             "descuento": round(v.descuento, 2),

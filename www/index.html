@@ -217,28 +217,56 @@
     .btn-anular { flex: 1; padding: 10px; background: rgba(184,50,40,.08); border: 1px solid rgba(184,50,40,.25); color: var(--danger); border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 5px; }
     .btn-nueva-venta { width: 100%; padding: 13px; background: var(--accent); color: #fff; font-weight: 800; font-size: 15px; border: none; border-radius: 10px; cursor: pointer; margin-top: 10px; font-family: inherit; }
 
-    /* ── TICKET / HISTORIAL ───────────────────────────────── */
-    .ticket { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(42,30,14,.06); }
+    /* ── TICKET DISEÑO ────────────────────────────────────── */
+    .pago-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; border: 1.5px solid; }
+    .pago-efectivo    { background: rgba(26,107,48,.1);  color: var(--success); border-color: rgba(26,107,48,.25); }
+    .pago-transferencia,.pago-qr,.pago-debito,.pago-credito { background: rgba(26,80,144,.1); color: var(--info); border-color: rgba(26,80,144,.25); }
+    .pago-cuenta_corriente,.pago-fiado { background: rgba(154,104,0,.1); color: var(--warning); border-color: rgba(154,104,0,.25); }
+
+    /* Ticket principal (ventas de hoy) */
+    .tk { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(42,30,14,.07); }
+    .tk-body { padding: 12px 14px 10px; }
+    .tk-prod-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; }
+    .tk-prod-left { display: flex; align-items: baseline; gap: 8px; }
+    .tk-qty { font-size: 22px; font-weight: 900; color: var(--accent); line-height: 1; }
+    .tk-name { font-size: 15px; font-weight: 700; color: var(--text); }
+    .tk-datetime { text-align: right; }
+    .tk-date { font-size: 11px; color: var(--muted); font-weight: 500; }
+    .tk-time { font-size: 17px; font-weight: 800; color: var(--text); }
+    .tk-lote { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 2px; }
+    /* más items */
+    .tk-extra { font-size: 11px; color: var(--muted); padding: 3px 0; border-top: 1px solid var(--elevated); margin-top: 4px; display: flex; align-items: baseline; gap: 6px; }
+    .tk-extra .tk-qty { font-size: 14px; }
+    .tk-extra .tk-name { font-size: 12px; }
+    /* footer del ticket */
+    .tk-foot { border-top: 1px solid var(--border); background: var(--elevated); padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
+    .tk-fac { font-size: 12px; font-weight: 800; color: var(--text); font-family: 'Courier New', monospace; flex: 1; }
+    .tk-total { font-size: 18px; font-weight: 900; color: var(--gold); margin-right: 4px; }
+    .tk-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .tk-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .tk-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .tk-btn.edit  { color: var(--text); }
+    .tk-btn.trash { color: var(--danger); border-color: rgba(184,50,40,.3); background: rgba(184,50,40,.05); }
+    .tk-btn:active { opacity: .7; }
+    /* descuento badge */
+    .tk-desc { font-size: 10px; color: var(--danger); font-weight: 700; padding: 2px 7px; border-radius: 20px; background: rgba(184,50,40,.08); }
+
+    /* Tickets expandibles (finanzas/historial detallado) */
+    .ticket { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
     .ticket-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; }
-    .ticket-num { font-weight: 800; font-size: 13px; color: var(--text); letter-spacing: .2px; }
+    .ticket-num { font-weight: 800; font-size: 13px; }
     .ticket-total { font-weight: 800; font-size: 16px; color: var(--gold); }
-    .ticket-meta { padding: 0 14px 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .ticket-hora { font-size: 12px; color: var(--muted); font-weight: 500; }
-    .pago-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: capitalize; letter-spacing: .2px; }
-    .pago-efectivo { background: rgba(26,107,48,.12); color: var(--success); }
-    .pago-transferencia { background: rgba(26,80,144,.12); color: var(--info); }
-    .pago-cuenta_corriente { background: rgba(154,104,0,.12); color: var(--warning); }
-    .ticket-items-btn { width: 100%; padding: 8px 14px; background: none; border: none; border-top: 1px dashed var(--border); color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 6px; letter-spacing: .3px; text-transform: uppercase; }
-    .ticket-items-btn:active { background: var(--elevated); }
+    .ticket-hora { font-size: 12px; color: var(--muted); }
+    .ticket-items-btn { width: 100%; padding: 8px 14px; background: none; border: none; border-top: 1px dashed var(--border); color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 6px; text-transform: uppercase; letter-spacing: .3px; }
     .ticket-items-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; transition: transform .2s; }
     .ticket-items-btn.open svg { transform: rotate(180deg); }
     .ticket-detail { display: none; background: var(--elevated); padding: 10px 14px; }
     .ticket-detail.open { display: block; }
     .ticket-item-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }
     .ticket-item-row:last-child { border-bottom: none; }
-    .ticket-item-name { font-weight: 600; color: var(--text); }
+    .ticket-item-name { font-weight: 600; }
     .ticket-item-qty { color: var(--muted); }
-    .ticket-item-subtotal { font-weight: 700; color: var(--text); }
+    .ticket-item-subtotal { font-weight: 700; }
     .ticket-descuento { display: flex; justify-content: space-between; font-size: 11px; color: var(--danger); padding-top: 6px; border-top: 1px solid var(--border); margin-top: 4px; font-weight: 600; }
 
     /* ── HISTORIAL / PEDIDOS CARDS (legacy) ───────────────── */
@@ -770,6 +798,47 @@ function getPrecioTipo(precioBase) {
   return precioBase * TIPO_MULTIPLIER[_tipoCliente];
 }
 
+function _renderTk(v) {
+  const [first, ...rest] = v.detalles || [];
+  const loteStr = first?.numero_lote ? `L - ${first.numero_lote}${first.fecha_vencimiento ? ' VTO ' + fmtFecha(first.fecha_vencimiento) : ''}` : '';
+  return `
+    <div class="tk">
+      <div class="tk-body">
+        <div class="tk-prod-row">
+          <div class="tk-prod-left">
+            <span class="tk-qty">${first?.cantidad ?? ''}</span>
+            <span class="tk-name">${first?.nombre ?? '—'}</span>
+          </div>
+          <div class="tk-datetime">
+            <div class="tk-date">${v.fecha||''} -</div>
+            <div class="tk-time">${v.hora} ·</div>
+          </div>
+        </div>
+        ${loteStr ? `<div class="tk-lote">${loteStr}</div>` : ''}
+        ${rest.map(d => `
+          <div class="tk-extra">
+            <span class="tk-qty">${d.cantidad}</span>
+            <span class="tk-name">${d.nombre}</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--muted)">$${fmt(d.subtotal)}</span>
+          </div>`).join('')}
+      </div>
+      <div class="tk-foot">
+        <span class="tk-fac">${v.numero_factura}</span>
+        <span class="tk-total">$${fmt(v.total)}</span>
+        ${v.descuento > 0 ? `<span class="tk-desc">-$${fmt(v.descuento)}</span>` : ''}
+        <span class="pago-badge pago-${v.forma_pago}">${PAGO_LABEL[v.forma_pago]||v.forma_pago}</span>
+        <div class="tk-actions">
+          <button class="tk-btn edit" onclick="abrirEditarVenta(${v.id},'${v.forma_pago}',${v.descuento})" title="Editar">
+            <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="tk-btn trash" onclick="anularVenta(${v.id},'${v.numero_factura}')" title="Anular">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
 async function cargarVentasHoy() {
   const el = document.getElementById('ventas-hoy-list');
   if (!el) return;
@@ -777,34 +846,11 @@ async function cargarVentasHoy() {
     const r = await apiFetch('/pos/api/historial');
     if (!r.ok) throw new Error();
     const ventas = await r.json();
-    if (!ventas.length) { el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Sin ventas hoy</div>`; return; }
-    el.innerHTML = ventas.map(v => `
-      <div class="ticket" style="margin-bottom:8px">
-        <div class="ticket-head">
-          <div>
-            <div class="ticket-num">${v.numero_factura}</div>
-            <div class="ticket-hora">${v.hora} · ${v.items} prod.</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="text-align:right">
-              <div class="ticket-total">$${fmt(v.total)}</div>
-              <span class="pago-badge pago-${v.forma_pago}">${PAGO_LABEL[v.forma_pago]||v.forma_pago}</span>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:4px">
-              <button class="btn-icon" onclick="abrirEditarVenta(${v.id},'${v.forma_pago}',${v.descuento})" title="Editar">
-                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-              <button class="btn-icon danger" onclick="anularVenta(${v.id},'${v.numero_factura}')" title="Anular">
-                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="ticket-detail open" style="display:${v.detalles.length?'block':'none'}">
-          ${v.detalles.map(d=>`<div class="ticket-item-row"><span class="ticket-item-name">${d.nombre}</span><span class="ticket-item-qty">×${d.cantidad}</span><span class="ticket-item-subtotal">$${fmt(d.subtotal)}</span></div>`).join('')}
-          ${v.descuento>0?`<div class="ticket-descuento"><span>Descuento</span><span>-$${fmt(v.descuento)}</span></div>`:''}
-        </div>
-      </div>`).join('');
+    if (!ventas.length) {
+      el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin ventas hoy</div>`;
+      return;
+    }
+    el.innerHTML = ventas.map(_renderTk).join('');
   } catch { el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Error al cargar</div>`; }
 }
 
