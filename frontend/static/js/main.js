@@ -88,7 +88,10 @@ async function apiPost(url, data) {
   });
   if (!r.ok) {
     const err = await r.json().catch(() => ({ detail: 'Error desconocido' }));
-    throw new Error(err.detail || JSON.stringify(err));
+    const detail = Array.isArray(err.detail)
+      ? err.detail.map(d => d.msg || JSON.stringify(d)).join(', ')
+      : (err.detail || JSON.stringify(err));
+    throw new Error(detail);
   }
   return r.json();
 }
@@ -107,7 +110,10 @@ async function apiCall(method, url, data) {
   });
   if (!r.ok) {
     const err = await r.json().catch(() => ({ detail: 'Error desconocido' }));
-    throw new Error(err.detail || JSON.stringify(err));
+    const detail = Array.isArray(err.detail)
+      ? err.detail.map(d => d.msg || JSON.stringify(d)).join(', ')
+      : (err.detail || JSON.stringify(err));
+    throw new Error(detail);
   }
   return r.json();
 }
