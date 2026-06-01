@@ -12,7 +12,6 @@ from app.models.cliente import Cliente
 from app.models.usuario import Usuario
 from app.models.insumo import Insumo
 from app.models.gasto import Gasto
-from app.models.asignacion_stock import AsignacionStock
 from app.routers.mobile_auth import get_mobile_user
 from app.services.venta_service import crear_venta, generar_numero_pedido
 
@@ -73,6 +72,7 @@ def pos_sw():
 @router.get("/api/stock")
 def pos_stock(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
     """Productos disponibles. Vendedor con asignación ve solo su cupo; admin ve todo."""
+    from app.models.asignacion_stock import AsignacionStock
     rol = user.get("rol", "")
     vendedor_id = user.get("id")
     hoy = date.today()
@@ -141,12 +141,13 @@ def pos_stock(db: Session = Depends(get_db), user: dict = Depends(get_mobile_use
 # ── ASIGNACIONES DE STOCK ─────────────────────────────────────────────────
 
 @router.get("/api/asignaciones")
-def pos_asignaciones(
+def pos_asignaciones(  # noqa
     fecha: str | None = None,
     db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
 ):
     if user.get("rol") != "admin":
         raise HTTPException(403, "Solo el admin puede ver asignaciones")
+    from app.models.asignacion_stock import AsignacionStock
     hoy = date.today()
     fecha_filtro = date.fromisoformat(fecha) if fecha else hoy
     asigs = (
@@ -188,6 +189,7 @@ def pos_crear_asignacion(
 ):
     if user.get("rol") != "admin":
         raise HTTPException(403, "Solo el admin puede crear asignaciones")
+    from app.models.asignacion_stock import AsignacionStock
     fecha = date.fromisoformat(data.fecha) if data.fecha else date.today()
     # Desactivar asignación previa del mismo vendedor+producto+fecha
     db.query(AsignacionStock).filter(
@@ -215,6 +217,7 @@ def pos_borrar_asignacion(
 ):
     if user.get("rol") != "admin":
         raise HTTPException(403, "Solo el admin puede eliminar asignaciones")
+    from app.models.asignacion_stock import AsignacionStock
     asig = db.query(AsignacionStock).filter(AsignacionStock.id == asig_id).first()
     if not asig:
         raise HTTPException(404, "Asignación no encontrada")
