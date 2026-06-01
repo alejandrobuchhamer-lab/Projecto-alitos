@@ -9,6 +9,9 @@ from app.database import get_db
 from app.models.producto import ProductoTerminado, LoteProductoTerminado
 from app.models.venta import Venta, Pedido, PedidoDetalle, PedidoReserva, EstadoPedido
 from app.models.cliente import Cliente
+from app.models.usuario import Usuario
+from app.models.insumo import Insumo
+from app.models.gasto import Gasto
 from app.routers.mobile_auth import get_mobile_user
 from app.services.venta_service import crear_venta, generar_numero_pedido
 
@@ -392,3 +395,182 @@ def pos_actualizar_estado(
     pedido.estado = data.estado
     db.commit()
     return {"id": pedido.id, "estado": pedido.estado}
+
+
+# ── USUARIOS (CONFIG) ─────────────────────────────────────────────────────
+
+@router.get("/api/usuarios")
+def pos_usuarios(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede ver empleados")
+    usuarios = db.query(Usuario).order_by(Usuario.nombre).all()
+    return [{"id": u.id, "username": u.username, "nombre": u.nombre, "rol": u.rol, "activo": u.activo} for u in usuarios]
+
+
+class POSActivoUpdate(BaseModel):
+    activo: bool
+
+
+@router.patch("/api/usuario/{usuario_id}/activo")
+def pos_toggle_usuario(
+    usuario_id: int, data: POSActivoUpdate,
+    db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
+):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede modificar empleados")
+    u = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not u:
+        raise HTTPException(404, "Usuario no encontrado")
+    u.activo = data.activo
+    db.commit()
+    return {"id": u.id, "activo": u.activo}
+
+
+# ── PRECIO PRODUCTO (CONFIG) ──────────────────────────────────────────────
+
+class POSPrecioUpdate(BaseModel):
+    precio: float = Field(..., ge=0)
+
+
+@router.patch("/api/producto/{producto_id}/precio")
+def pos_actualizar_precio(
+    producto_id: int, data: POSPrecioUpdate,
+    db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
+):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede modificar precios")
+    p = db.query(ProductoTerminado).filter(ProductoTerminado.id == producto_id).first()
+    if not p:
+        raise HTTPException(404, "Producto no encontrado")
+    p.precio_venta_base = data.precio
+    db.commit()
+    return {"id": p.id, "precio": p.precio_venta_base}
+
+
+# ── INSUMOS (para dropdown compras) ──────────────────────────────────────
+
+@router.get("/api/insumos")
+def pos_insumos(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede ver insumos")
+    insumos = db.query(Insumo).filter(Insumo.activo == True).order_by(Insumo.nombre).all()
+    return [{"id": i.id, "nombre": i.nombre, "unidad": i.unidad_medida} for i in insumos]
+
+
+# ── COMPRAS DE INSUMOS ────────────────────────────────────────────────────
+
+@router.get("/api/compras")
+def pos_compras(
+    limit: int = 30,
+    db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
+):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede ver compras")
+    from app.models.insumo import LoteInsumo
+    lotes = (
+        db.query(LoteInsumo)
+        .filter(LoteInsumo.activo == True)
+        .order_by(LoteInsumo.fecha_ingreso.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": l.id,
+            "insumo_nombre": l.insumo.nombre if l.insumo else "—",
+            "cantidad": l.cantidad_inicial,
+            "unidad": l.insumo.unidad_medida if l.insumo else "",
+            "total": round(l.cantidad_inicial * l.costo_unitario, 2),
+            "proveedor": l.proveedor or "",
+            "fecha": l.fecha_ingreso.strftime("%d/%m/%y"),
+            "notas": l.notas or "",
+        }
+        for l in lotes
+    ]
+
+
+class POSCompraCreate(BaseModel):
+    insumo_id: int = Field(..., gt=0)
+    cantidad: float = Field(..., gt=0)
+    precio_total: float = Field(..., ge=0)
+    proveedor: str | None = Field(None, max_length=200)
+    notas: str | None = Field(None, max_length=500)
+
+
+@router.post("/api/compra", status_code=201)
+def pos_crear_compra(
+    data: POSCompraCreate,
+    db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
+):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede registrar compras")
+    from app.models.insumo import LoteInsumo, OrdenCompra
+    insumo = db.query(Insumo).filter(Insumo.id == data.insumo_id, Insumo.activo == True).first()
+    if not insumo:
+        raise HTTPException(404, "Insumo no encontrado")
+    costo_unitario = round(data.precio_total / data.cantidad, 6) if data.cantidad > 0 else 0
+    orden = OrdenCompra(
+        proveedor=data.proveedor or "",
+        total_sin_extra=data.precio_total,
+        total_con_extra=data.precio_total,
+    )
+    db.add(orden)
+    db.flush()
+    numero_lote = f"MOB-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    lote = LoteInsumo(
+        insumo_id=data.insumo_id,
+        orden_compra_id=orden.id,
+        numero_lote=numero_lote,
+        cantidad_inicial=data.cantidad,
+        cantidad_actual=data.cantidad,
+        costo_unitario=costo_unitario,
+        proveedor=data.proveedor,
+        notas=data.notas or f"Carga vía app móvil — {user.get('username', '')}",
+    )
+    db.add(lote)
+    db.commit()
+    db.refresh(lote)
+    return {"id": lote.id, "numero_lote": lote.numero_lote, "cantidad": lote.cantidad_inicial}
+
+
+# ── FINANZAS RESUMEN ──────────────────────────────────────────────────────
+
+@router.get("/api/finanzas/resumen")
+def pos_finanzas_resumen(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
+    if user.get("rol") != "admin":
+        raise HTTPException(403, "Solo el admin puede ver finanzas")
+    from app.models.insumo import LoteInsumo
+    hoy = date.today()
+    inicio_mes = hoy.replace(day=1)
+
+    ventas_mes = (
+        db.query(Venta)
+        .filter(func.date(Venta.fecha_venta) >= inicio_mes, Venta.estado.in_(["confirmada", "cobrada"]))
+        .all()
+    )
+    ingresos = sum(v.total_neto for v in ventas_mes)
+
+    lotes_mes = (
+        db.query(LoteInsumo)
+        .filter(func.date(LoteInsumo.fecha_ingreso) >= inicio_mes, LoteInsumo.activo == True)
+        .all()
+    )
+    costos = sum(l.cantidad_inicial * l.costo_unitario for l in lotes_mes)
+    cant_compras = len(lotes_mes)
+
+    gastos_mes = (
+        db.query(Gasto)
+        .filter(func.date(Gasto.fecha) >= inicio_mes)
+        .all()
+    )
+    gastos = sum(g.monto for g in gastos_mes)
+
+    return {
+        "ingresos": round(ingresos, 2),
+        "costos": round(costos, 2),
+        "gastos": round(gastos, 2),
+        "ganancia": round(ingresos - costos - gastos, 2),
+        "cant_ventas": len(ventas_mes),
+        "cant_compras": cant_compras,
+        "mes": inicio_mes.strftime("%B %Y"),
+    }
