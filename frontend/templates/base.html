@@ -348,11 +348,28 @@
 
 </nav>
 
+<!-- Overlay mobile sidebar -->
+<div id="sidebar-overlay" onclick="closeMobileSidebar()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:499;backdrop-filter:blur(2px)"></div>
+<style>
+  #sidebar-overlay.visible { display:block !important; }
+  .sidebar-overlay { display:none; }
+</style>
+
 <!-- ====== MAIN ====== -->
 <div class="main-wrapper sidebar-collapsed" id="main-wrapper">
 
   <!-- ===== TOPBAR ===== -->
   <header class="topbar">
+
+    <!-- Hamburguesa mobile -->
+    <button class="topbar-hamburger" id="hamburger-btn" onclick="toggleMobileSidebar()"
+      style="display:none;background:none;border:1px solid var(--color-border);border-radius:6px;
+             padding:6px 8px;cursor:pointer;color:var(--color-text-muted);margin-right:10px;flex-shrink:0">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
 
     <div class="topbar-title">
       {% block page_title %}ALITOS{% endblock %}
@@ -540,6 +557,18 @@
     if (t.light) document.body.classList.add('light');
     updateThemeIcons();
   })();
+
+  // ===== MOBILE SIDEBAR =====
+  function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    sidebar.classList.toggle('mobile-open');
+    overlay.classList.toggle('visible');
+  }
+  function closeMobileSidebar() {
+    document.getElementById('sidebar').classList.remove('mobile-open');
+    document.getElementById('sidebar-overlay').classList.remove('visible');
+  }
 
   // ===== USER MENU =====
   function toggleUserMenu() {

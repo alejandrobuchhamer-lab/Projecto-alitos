@@ -979,12 +979,69 @@ body.light .page-tab:hover:not(.active) {
 
 /* ====== RESPONSIVE ====== */
 @media (max-width: 768px) {
-  .sidebar { transform: translateX(-100%); }
+  /* Sidebar overlay */
+  .sidebar {
+    transform: translateX(-100%);
+    position: fixed; z-index: 500;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.6);
+    transition: transform 0.25s ease;
+  }
   .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-overlay {
+    display: block !important;
+  }
   .main-wrapper { margin-left: 0 !important; }
+
+  /* Topbar hamburger */
+  .topbar-hamburger { display: flex !important; }
+  .topbar { padding: 0 12px; }
+
+  /* Contenido */
+  .page-content { padding: 10px; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-header .btn { width: 100%; justify-content: center; }
+
+  /* Grids */
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .form-row { grid-template-columns: 1fr; }
-  .page-content { padding: 12px; }
+
+  /* Tablas: scroll horizontal */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 480px; }
+
+  /* Modales: full screen en mobile */
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100vh !important;
+    height: 100vh;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-overlay .modal {
+    height: auto;
+    max-height: 92vh !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
+  .modal-body { max-height: 65vh; overflow-y: auto; }
+
+  /* Cards de stats: 2 columnas */
+  .stats-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+  .stats-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Topbar: ocultar label de sección */
+  .topbar-section-label { display: none; }
+
+  /* Texto y botones */
+  .btn-label-hide { display: none; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .page-content { padding: 8px; }
+  .fin-cards-6, .fin-cards-4 { grid-template-columns: 1fr 1fr !important; }
+  .fin-cards-3 { grid-template-columns: 1fr !important; }
 }
 
 /* ====== UTILITY ====== */
