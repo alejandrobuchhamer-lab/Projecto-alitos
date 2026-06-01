@@ -76,22 +76,7 @@ def pos_sw():
 
 @router.get("/api/stock")
 def pos_stock(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
-    """Productos disponibles. Vendedor con asignación ve solo su cupo; admin ve todo."""
-    from app.models.asignacion_stock import AsignacionStock
-    rol = user.get("rol", "")
-    vendedor_id = user.get("id")
-    hoy = date.today()
-
-    # Asignaciones activas del vendedor hoy
-    asignaciones = {}
-    if rol not in ("admin",):
-        asigs = (
-            db.query(AsignacionStock)
-            .filter(AsignacionStock.vendedor_id == vendedor_id, AsignacionStock.fecha == hoy, AsignacionStock.activo == True)
-            .all()
-        )
-        asignaciones = {a.producto_id: a for a in asigs}
-
+    """Productos con stock libre disponible para venta (FEFO)."""
     productos = db.query(ProductoTerminado).filter(ProductoTerminado.activo == True).order_by(ProductoTerminado.nombre).all()
     result = []
     for p in productos:
@@ -107,38 +92,20 @@ def pos_stock(db: Session = Depends(get_db), user: dict = Depends(get_mobile_use
             .all()
         )
         stock_libre_real = sum(max(0, l.cantidad_actual - l.cantidad_reservada) for l in lotes)
-        if stock_libre_real <= 0:
-            continue
-        if not lotes:
+        if stock_libre_real <= 0 or not lotes:
             continue
         fefo = lotes[0]
-
-        # Si vendedor con asignación → limitar al cupo disponible
-        if rol not in ("admin",) and asignaciones:
-            asig = asignaciones.get(p.id)
-            if not asig:
-                continue  # no tiene cupo para este producto
-            stock_mostrar = min(int(asig.disponible), int(stock_libre_real))
-        else:
-            stock_mostrar = int(stock_libre_real)
-
-        if stock_mostrar <= 0:
-            continue
-
+        stock_mostrar = int(stock_libre_real)
         row = {
             "producto_id": p.id,
             "nombre": p.nombre,
             "precio": p.precio_venta_base,
             "stock": stock_mostrar,
-            "stock_real": int(stock_libre_real),
+            "stock_real": stock_mostrar,
             "lote_id": fefo.id,
             "numero_lote": fefo.numero_lote,
             "fecha_vencimiento": fefo.fecha_vencimiento.isoformat() if fefo.fecha_vencimiento else None,
         }
-        if rol not in ("admin",) and asignaciones and p.id in asignaciones:
-            a = asignaciones[p.id]
-            row["asignado"] = int(a.cantidad)
-            row["vendido"] = int(a.cantidad_vendida)
         result.append(row)
     return result
 

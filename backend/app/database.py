@@ -97,7 +97,6 @@ def _run_migrations():
         "ALTER TABLE registros_tapas ADD COLUMN masa_desperdiciada_g FLOAT",
         "ALTER TABLE registros_tapas ADD COLUMN notas TEXT",
         "ALTER TABLE registros_tapas ADD COLUMN created_at DATETIME",
-        "CREATE TABLE IF NOT EXISTS asignaciones_stock (id SERIAL PRIMARY KEY, vendedor_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad FLOAT NOT NULL, cantidad_vendida FLOAT DEFAULT 0, fecha DATE NOT NULL, activo BOOLEAN DEFAULT true, notas VARCHAR(300), created_at TIMESTAMP DEFAULT now())",
     ]
     with engine.connect() as conn:
         for sql in migrations:
