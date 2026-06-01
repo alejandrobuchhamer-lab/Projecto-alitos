@@ -38,7 +38,7 @@ class VentaCreate(BaseModel):
     cliente_id: int = Field(..., gt=0)
     pedido_id: int | None = Field(None, gt=0)
     notas: str | None = Field(None, max_length=500)
-    descuento: float = Field(0.0, ge=0.0, le=100.0)
+    descuento: float = Field(0.0, ge=0.0, le=10_000_000)
     forma_pago: str = Field("efectivo", max_length=50)
     consumidor_final: bool = False
     detalles: list[VentaDetalleCreate] = Field(default_factory=list, max_length=100)
