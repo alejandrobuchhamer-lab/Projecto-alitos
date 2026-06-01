@@ -193,12 +193,29 @@
     .descuento-inp { padding-left: 22px !important; }
 
     /* ── BOTONES ──────────────────────────────────────────── */
-    .btn-cobrar { width: 100%; padding: 14px; background: var(--accent); color: #fff; font-weight: 800; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; font-family: inherit; }
+    .btn-cobrar { width: 100%; padding: 14px; background: var(--accent); color: #fff; font-weight: 800; font-size: 16px; border: none; border-radius: 10px; cursor: pointer; margin-top: 10px; font-family: inherit; transition: background .15s; }
+    .btn-cobrar:active { background: #1a1208; }
     .btn-cobrar:disabled { background: var(--border); color: var(--dim); cursor: not-allowed; }
     .btn-outline { width: 100%; padding: 10px; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; cursor: pointer; margin-top: 6px; font-size: 12px; font-family: inherit; }
     .btn-outline:active { background: var(--elevated); color: var(--text); }
     .btn-dark { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
     .btn-danger { background: var(--danger); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-icon { background: none; border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .btn-icon:active { background: var(--elevated); }
+    .btn-icon svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .btn-icon.danger { border-color: rgba(184,50,40,.3); color: var(--danger); }
+    .btn-icon.danger:active { background: rgba(184,50,40,.1); }
+
+    /* ── POST-VENTA RECEIPT ───────────────────────────────── */
+    .sale-ok { text-align: center; padding: 16px 0 8px; }
+    .sale-ok-icon { width: 52px; height: 52px; background: linear-gradient(135deg, var(--success), #0e5024); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
+    .sale-ok-icon svg { width: 26px; height: 26px; stroke: #fff; fill: none; stroke-width: 2.5; }
+    .sale-ok-title { font-size: 18px; font-weight: 800; margin-bottom: 2px; }
+    .sale-ok-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+    .sale-ok-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-corregir { flex: 1; padding: 10px; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 5px; }
+    .btn-anular { flex: 1; padding: 10px; background: rgba(184,50,40,.08); border: 1px solid rgba(184,50,40,.25); color: var(--danger); border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 5px; }
+    .btn-nueva-venta { width: 100%; padding: 13px; background: var(--accent); color: #fff; font-weight: 800; font-size: 15px; border: none; border-radius: 10px; cursor: pointer; margin-top: 10px; font-family: inherit; }
 
     /* ── TICKET / HISTORIAL ───────────────────────────────── */
     .ticket { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(42,30,14,.06); }
@@ -370,7 +387,8 @@
 <div id="app-screen">
   <div class="topbar">
     <div class="topbar-left">
-      <img class="topbar-logo" src="https://projecto-alitos-production.up.railway.app/static/img/logo1.png" alt="Alito's" onerror="this.style.display='none'">
+      <img class="topbar-logo" id="topbar-logo-img" src="https://projecto-alitos-production.up.railway.app/static/img/logo1.png" alt="Alito's" onerror="this.style.display='none';document.getElementById('topbar-logo-txt').style.display='block'">
+      <span id="topbar-logo-txt" style="display:none;font-weight:900;font-size:15px;color:#fff;letter-spacing:-0.5px">ALITO'S</span>
       <span class="role-badge" id="role-badge"></span>
     </div>
     <div class="topbar-right">
@@ -577,9 +595,9 @@ const ICONS_EXTRA = {
   accounts:`<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`,
 };
 const ROL_TABS = {
-  admin:           [['dashboard','Inicio',ICONS.dashboard], ['venta','Venta',ICONS.cart], ['historial','Historial',ICONS.history], ['stock','Stock',ICONS.package], ['finanzas','Finanzas',ICONS_EXTRA.finance], ['cuentas','Cuentas',ICONS_EXTRA.accounts], ['config','Config',ICONS_EXTRA.settings]],
-  vendedor:        [['venta','Venta',ICONS.cart], ['historial','Historial',ICONS.history]],
-  repartidor:      [['entregas','Entregas',ICONS.truck], ['historial','Historial',ICONS.history]],
+  admin:           [['dashboard','Inicio',ICONS.dashboard], ['venta','Venta',ICONS.cart], ['stock','Stock',ICONS.package], ['finanzas','Finanzas',ICONS_EXTRA.finance], ['cuentas','Cuentas',ICONS_EXTRA.accounts], ['config','Config',ICONS_EXTRA.settings]],
+  vendedor:        [['venta','Venta',ICONS.cart]],
+  repartidor:      [['entregas','Entregas',ICONS.truck]],
   tomador:         [['pedidos-new','Nuevo Pedido',ICONS.clipboard], ['pedidos','Pedidos',ICONS.clipboard]],
   tomador_pedidos: [['pedidos-new','Nuevo Pedido',ICONS.clipboard], ['pedidos','Pedidos',ICONS.clipboard]],
 };
@@ -659,56 +677,135 @@ async function renderDashboard(el) {
 }
 
 // ── VENTA ──────────────────────────────────────────────────────────────────
+let _ultimaVenta = null;
+
 function renderVenta(el) {
   el.innerHTML = `
+    <!-- TIPO CLIENTE -->
+    <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px">
+      <button class="chip active" id="tipo-cf"   onclick="setTipoCliente('cf',this)">Consumidor Final</button>
+      <button class="chip"        id="tipo-neg"  onclick="setTipoCliente('neg',this)">Negocio</button>
+      <button class="chip"        id="tipo-esp"  onclick="setTipoCliente('esp',this)">Especial</button>
+    </div>
+
+    <!-- BUSCADOR PRODUCTOS -->
     <div class="search-wrap">
       <svg class="search-icon" viewBox="0 0 24 24">${ICONS.search}</svg>
       <input class="search-input" type="search" placeholder="Buscar producto..." oninput="filtrarProductos(this.value)" id="prod-search">
     </div>
     <div id="prod-list"></div>
+
+    <!-- CARRITO + COBRO -->
     <div id="carrito-area" style="display:none">
       <div class="carrito-header">Carrito</div>
       <div id="carrito-items"></div>
       <div class="total-bar">
-        <div><div class="total-label">Total</div></div>
+        <div>
+          <div class="total-label">Total a cobrar</div>
+          <div id="total-bruto" style="font-size:11px;color:var(--muted)"></div>
+        </div>
         <div class="total-val" id="total-val">$0</div>
       </div>
-      <div class="form-row">
+      <div class="form-row" style="margin-top:10px">
         <select class="sel" id="sel-pago">
-          <option value="efectivo">Efectivo</option>
-          <option value="transferencia">Transferencia</option>
-          <option value="qr">QR / Mercado Pago</option>
-          <option value="debito">Débito</option>
-          <option value="credito">Crédito</option>
-          <option value="cuenta_corriente">Cta. corriente</option>
-          <option value="fiado">Fiado</option>
+          <option value="efectivo">💵 Efectivo</option>
+          <option value="transferencia">📱 Transferencia</option>
+          <option value="qr">📷 QR / Mercado Pago</option>
+          <option value="debito">💳 Débito</option>
+          <option value="credito">💳 Crédito</option>
+          <option value="cuenta_corriente">📋 Cta. corriente</option>
         </select>
         <div class="descuento-wrap">
           <span class="descuento-prefix">$</span>
           <input class="inp descuento-inp" type="number" id="inp-desc" placeholder="Descuento" min="0" value="0" oninput="pintarCarrito()">
         </div>
       </div>
-      <div style="margin-top:8px">
-        <button class="btn-outline" style="width:100%;padding:7px;font-size:11px;display:flex;align-items:center;justify-content:center;gap:6px" onclick="toggleEnvases()">
-          <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-          Envases / embalaje (opcional)
-        </button>
-        <div id="envases-panel" style="display:none;margin-top:8px;background:var(--elevated);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Indicar envases usados</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-            <div><label style="font-size:11px;color:var(--muted)">Bolsa chica</label><input class="inp" type="number" id="env-bolsa-chica" placeholder="0" min="0" style="margin-top:3px"></div>
-            <div><label style="font-size:11px;color:var(--muted)">Bolsa mediana</label><input class="inp" type="number" id="env-bolsa-med" placeholder="0" min="0" style="margin-top:3px"></div>
-            <div><label style="font-size:11px;color:var(--muted)">Bolsa camiseta</label><input class="inp" type="number" id="env-bolsa-cam" placeholder="0" min="0" style="margin-top:3px"></div>
-            <div><label style="font-size:11px;color:var(--muted)">Caja chica</label><input class="inp" type="number" id="env-caja-chica" placeholder="0" min="0" style="margin-top:3px"></div>
-            <div><label style="font-size:11px;color:var(--muted)">Caja grande</label><input class="inp" type="number" id="env-caja-grande" placeholder="0" min="0" style="margin-top:3px"></div>
-          </div>
+      <!-- ENVASES -->
+      <button class="btn-outline" style="margin-top:8px;padding:7px;font-size:11px;display:flex;align-items:center;justify-content:center;gap:6px" onclick="toggleEnvases()">
+        <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Envases / embalaje
+      </button>
+      <div id="envases-panel" style="display:none;margin-top:6px;background:var(--elevated);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div><label style="font-size:11px;color:var(--muted)">Bolsa chica</label><input class="inp" type="number" id="env-bolsa-chica" placeholder="0" min="0" style="margin-top:3px"></div>
+          <div><label style="font-size:11px;color:var(--muted)">Bolsa mediana</label><input class="inp" type="number" id="env-bolsa-med" placeholder="0" min="0" style="margin-top:3px"></div>
+          <div><label style="font-size:11px;color:var(--muted)">Bolsa camiseta</label><input class="inp" type="number" id="env-bolsa-cam" placeholder="0" min="0" style="margin-top:3px"></div>
+          <div><label style="font-size:11px;color:var(--muted)">Caja chica</label><input class="inp" type="number" id="env-caja-chica" placeholder="0" min="0" style="margin-top:3px"></div>
+          <div><label style="font-size:11px;color:var(--muted)">Caja grande</label><input class="inp" type="number" id="env-caja-grande" placeholder="0" min="0" style="margin-top:3px"></div>
         </div>
       </div>
       <button class="btn-cobrar" id="btn-cobrar" onclick="confirmarVenta()">Cobrar</button>
-      <button class="btn-outline" onclick="vaciarCarrito()">Vaciar carrito</button>
+    </div>
+
+    <!-- POST-VENTA: RECEIPT INLINE -->
+    <div id="sale-ok-area" style="display:none"></div>
+
+    <!-- VENTAS DEL DÍA -->
+    <div style="margin-top:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Ventas de hoy</div>
+        <button class="btn-outline" style="width:auto;padding:4px 10px;font-size:10px" onclick="cargarVentasHoy()">↻</button>
+      </div>
+      <div id="ventas-hoy-list"><div class="empty" style="padding:20px"><div class="spin"></div></div></div>
     </div>
   `;
+  _tipoCliente = 'cf';
   cargarProductos();
+  cargarVentasHoy();
+}
+
+let _tipoCliente = 'cf';
+const TIPO_MULTIPLIER = { cf: 1.0, neg: 0.85, esp: 0.75 };
+const TIPO_LABEL = { cf: 'Consumidor Final', neg: 'Negocio (-15%)', esp: 'Especial (-25%)' };
+
+function setTipoCliente(tipo, btn) {
+  _tipoCliente = tipo;
+  document.querySelectorAll('[id^="tipo-"]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  pintarProductos(productosFiltered);
+  pintarCarrito();
+}
+
+function getPrecioTipo(precioBase) {
+  return precioBase * TIPO_MULTIPLIER[_tipoCliente];
+}
+
+async function cargarVentasHoy() {
+  const el = document.getElementById('ventas-hoy-list');
+  if (!el) return;
+  try {
+    const r = await apiFetch('/pos/api/historial');
+    if (!r.ok) throw new Error();
+    const ventas = await r.json();
+    if (!ventas.length) { el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Sin ventas hoy</div>`; return; }
+    el.innerHTML = ventas.map(v => `
+      <div class="ticket" style="margin-bottom:8px">
+        <div class="ticket-head">
+          <div>
+            <div class="ticket-num">${v.numero_factura}</div>
+            <div class="ticket-hora">${v.hora} · ${v.items} prod.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="text-align:right">
+              <div class="ticket-total">$${fmt(v.total)}</div>
+              <span class="pago-badge pago-${v.forma_pago}">${PAGO_LABEL[v.forma_pago]||v.forma_pago}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <button class="btn-icon" onclick="abrirEditarVenta(${v.id},'${v.forma_pago}',${v.descuento})" title="Editar">
+                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="btn-icon danger" onclick="anularVenta(${v.id},'${v.numero_factura}')" title="Anular">
+                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="ticket-detail open" style="display:${v.detalles.length?'block':'none'}">
+          ${v.detalles.map(d=>`<div class="ticket-item-row"><span class="ticket-item-name">${d.nombre}</span><span class="ticket-item-qty">×${d.cantidad}</span><span class="ticket-item-subtotal">$${fmt(d.subtotal)}</span></div>`).join('')}
+          ${v.descuento>0?`<div class="ticket-descuento"><span>Descuento</span><span>-$${fmt(v.descuento)}</span></div>`:''}
+        </div>
+      </div>`).join('');
+  } catch { el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Error al cargar</div>`; }
 }
 
 async function cargarProductos() {
@@ -732,32 +829,40 @@ function pintarProductos(lista) {
   const el = document.getElementById('prod-list');
   if (!el) return;
   if (!lista.length) { el.innerHTML = emptyState('Sin stock disponible'); return; }
-  el.innerHTML = lista.map(p => `
+  const mult = TIPO_MULTIPLIER[_tipoCliente] || 1;
+  el.innerHTML = lista.map(p => {
+    const precio = p.precio * mult;
+    const descLabel = mult < 1 ? `<span style="font-size:10px;color:var(--success);font-weight:700">${Math.round((1-mult)*100)}% off</span>` : '';
+    return `
     <div class="prod-card" onclick="addToCart(${p.lote_id})">
       <div>
         <div class="prod-name">${p.nombre}</div>
-        <div class="prod-meta">Stock: ${p.stock} u · Lote ${p.numero_lote || p.lote_id}</div>
+        <div class="prod-meta">Stock: ${p.stock} u</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="prod-precio">$${fmt(p.precio)}</div>
+        <div style="text-align:right">
+          <div class="prod-precio">$${fmt(precio)}</div>
+          ${descLabel}
+        </div>
         <button class="btn-add-circle" onclick="event.stopPropagation();addToCart(${p.lote_id})">${ICONS.plus}</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function addToCart(loteId) {
   const prod = productos.find(p => p.lote_id === loteId);
   if (!prod) return;
+  const precio = getPrecioTipo(prod.precio);
   const ex = carrito.find(i => i.lote_id === loteId);
   if (ex) {
-    if (ex.qty >= prod.stock) { toast('Sin stock suficiente', 'error'); return; }
+    if (ex.qty >= prod.stock) { showToast('Sin stock suficiente', 'error'); return; }
     ex.qty++;
   } else {
-    carrito.push({ lote_id: loteId, nombre: prod.nombre, qty: 1, precio: prod.precio, max: prod.stock });
+    carrito.push({ lote_id: loteId, nombre: prod.nombre, qty: 1, precio, precioBase: prod.precio, max: prod.stock });
   }
   pintarCarrito();
-  toast(prod.nombre, 'info', 1200);
+  showToast(prod.nombre + ' +1', 'info', 1000);
 }
 
 function cambiarQty(loteId, delta) {
@@ -772,6 +877,7 @@ function pintarCarrito() {
   const area = document.getElementById('carrito-area');
   const itemsEl = document.getElementById('carrito-items');
   const totalEl = document.getElementById('total-val');
+  const brutoEl = document.getElementById('total-bruto');
   if (!area) return;
   area.style.display = carrito.length ? 'block' : 'none';
   if (!carrito.length) return;
@@ -779,6 +885,7 @@ function pintarCarrito() {
   const bruto = carrito.reduce((s, i) => s + i.qty * i.precio, 0);
   const total = Math.max(0, bruto - desc);
   totalEl.textContent = '$' + fmt(total);
+  if (brutoEl) brutoEl.textContent = desc > 0 ? `Subtotal $${fmt(bruto)} − desc. $${fmt(desc)}` : '';
   itemsEl.innerHTML = carrito.map(i => `
     <div class="cart-item">
       <div class="cart-item-name">${i.nombre}</div>
@@ -815,7 +922,8 @@ async function confirmarVenta() {
   btn.disabled = true; btn.textContent = 'Procesando...';
   const desc = parseFloat(document.getElementById('inp-desc')?.value || 0) || 0;
   const envases = _getEnvases();
-  const notas = `POS — ${USER?.username || ''}${envases ? ' | Envases: ' + envases : ''}`;
+  const tipoLabel = TIPO_LABEL[_tipoCliente] || '';
+  const notas = `POS — ${USER?.username||''} | ${tipoLabel}${envases?' | Envases: '+envases:''}`;
   const payload = {
     items: carrito.map(i => ({ lote_id: i.lote_id, cantidad: i.qty, precio_unitario: i.precio })),
     forma_pago: document.getElementById('sel-pago').value,
@@ -827,12 +935,63 @@ async function confirmarVenta() {
     const data = await r.json();
     if (!r.ok) throw new Error(Array.isArray(data.detail) ? data.detail.map(d => d.msg || JSON.stringify(d)).join(', ') : (data.detail || 'Error'));
     const total = Math.max(0, carrito.reduce((s,i) => s + i.qty * i.precio, 0) - desc);
+    const itemsSnap = [...carrito];
+    _ultimaVenta = { id: data.id, numero_factura: data.numero_factura, total, forma_pago: payload.forma_pago, descuento: desc, items: itemsSnap };
     carrito = [];
     pintarCarrito();
-    abrirModal('¡Venta registrada!', `${data.numero_factura} · $${fmt(total)} · ${payload.forma_pago}${envases ? '\n📦 ' + envases : ''}`);
     cargarProductos();
+    _mostrarReceiptOk(data.id, data.numero_factura, total, payload.forma_pago, desc, itemsSnap, envases);
+    cargarVentasHoy();
   } catch (e) { showToast(e.message || 'Error al registrar', 'error'); }
   finally { btn.disabled = false; btn.textContent = 'Cobrar'; }
+}
+
+function _mostrarReceiptOk(id, numFac, total, formaPago, desc, items, envases) {
+  const el = document.getElementById('sale-ok-area');
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="sale-ok">
+      <div class="sale-ok-icon">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="sale-ok-title">¡Venta registrada!</div>
+      <div class="sale-ok-sub">${numFac}</div>
+    </div>
+    <div class="ticket">
+      <div class="ticket-head">
+        <div><div class="ticket-num">${numFac}</div><div class="ticket-hora">Ahora</div></div>
+        <div style="text-align:right">
+          <div class="ticket-total">$${fmt(total)}</div>
+          <span class="pago-badge pago-${formaPago}">${PAGO_LABEL[formaPago]||formaPago}</span>
+        </div>
+      </div>
+      <div class="ticket-detail open">
+        ${items.map(i=>`<div class="ticket-item-row"><span class="ticket-item-name">${i.nombre}</span><span class="ticket-item-qty">×${i.qty}</span><span class="ticket-item-subtotal">$${fmt(i.qty*i.precio)}</span></div>`).join('')}
+        ${desc>0?`<div class="ticket-descuento"><span>Descuento</span><span>-$${fmt(desc)}</span></div>`:''}
+        ${envases?`<div style="font-size:11px;color:var(--muted);padding-top:4px">📦 ${envases}</div>`:''}
+      </div>
+    </div>
+    <div class="sale-ok-actions">
+      <button class="btn-corregir" onclick="abrirEditarVenta(${id},'${formaPago}',${desc})">
+        <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Corregir venta
+      </button>
+      <button class="btn-anular" onclick="anularVenta(${id},'${numFac}')">
+        <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Anular
+      </button>
+    </div>
+    <button class="btn-nueva-venta" onclick="nuevaVenta()">+ Nueva venta</button>
+  `;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function nuevaVenta() {
+  const el = document.getElementById('sale-ok-area');
+  if (el) el.style.display = 'none';
+  _ultimaVenta = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ── HISTORIAL ──────────────────────────────────────────────────────────────
@@ -1385,6 +1544,61 @@ async function guardarPrecio(id) {
     if (r.ok) { showToast('Precio actualizado', 'success'); }
     else { showToast('Error al guardar precio', 'error'); }
   } catch { showToast('Error de conexión', 'error'); }
+}
+
+// ── EDITAR / ANULAR VENTA ──────────────────────────────────────────────────
+function abrirEditarVenta(id, formaPago, descuento) {
+  const existing = document.getElementById('sheet-editar-venta');
+  if (existing) existing.remove();
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-bg open';
+  sheet.id = 'sheet-editar-venta';
+  sheet.innerHTML = `
+    <div class="sheet-box">
+      <div class="sheet-title">Corregir venta #${id}</div>
+      <div class="form-group">
+        <label class="field-label">Forma de pago</label>
+        <select class="sel" id="edit-pago" style="width:100%">
+          <option value="efectivo" ${formaPago==='efectivo'?'selected':''}>💵 Efectivo</option>
+          <option value="transferencia" ${formaPago==='transferencia'?'selected':''}>📱 Transferencia</option>
+          <option value="qr" ${formaPago==='qr'?'selected':''}>📷 QR / Mercado Pago</option>
+          <option value="debito" ${formaPago==='debito'?'selected':''}>💳 Débito</option>
+          <option value="credito" ${formaPago==='credito'?'selected':''}>💳 Crédito</option>
+          <option value="cuenta_corriente" ${formaPago==='cuenta_corriente'?'selected':''}>📋 Cta. corriente</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Descuento ($)</label>
+        <input class="inp" type="number" id="edit-desc" value="${descuento||0}" min="0" style="width:100%">
+      </div>
+      <button class="btn-dark" style="width:100%;margin-top:4px" onclick="guardarEdicionVenta(${id})">Guardar cambios</button>
+      <button class="btn-outline" onclick="document.getElementById('sheet-editar-venta').remove()">Cancelar</button>
+    </div>`;
+  document.body.appendChild(sheet);
+}
+
+async function guardarEdicionVenta(id) {
+  const forma_pago = document.getElementById('edit-pago').value;
+  const descuento = parseFloat(document.getElementById('edit-desc').value) || 0;
+  try {
+    const r = await apiFetch(`/pos/api/venta/${id}`, { method: 'PATCH', body: JSON.stringify({ forma_pago, descuento }) });
+    if (!r.ok) throw new Error((await r.json()).detail || 'Error');
+    showToast('Venta actualizada', 'success');
+    document.getElementById('sheet-editar-venta')?.remove();
+    cargarVentasHoy();
+  } catch (e) { showToast(e.message || 'Error al guardar', 'error'); }
+}
+
+async function anularVenta(id, numFac) {
+  if (!confirm(`¿Anular la venta ${numFac}?\nEl stock NO se restaura automáticamente.`)) return;
+  try {
+    const r = await apiFetch(`/pos/api/venta/${id}/anular`, { method: 'PATCH' });
+    if (!r.ok) throw new Error((await r.json()).detail || 'Error');
+    showToast('Venta anulada', 'success');
+    const ok = document.getElementById('sale-ok-area');
+    if (ok) ok.style.display = 'none';
+    cargarVentasHoy();
+  } catch (e) { showToast(e.message || 'Error al anular', 'error'); }
 }
 
 // ── CUENTAS CORRIENTES ──────────────────────────────────────────────────────

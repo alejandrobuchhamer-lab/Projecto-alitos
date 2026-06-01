@@ -368,6 +368,46 @@ def pos_crear_pedido(
     }
 
 
+class POSVentaEdit(BaseModel):
+    forma_pago: str | None = None
+    descuento: float | None = Field(None, ge=0)
+
+
+@router.patch("/api/venta/{venta_id}")
+def pos_editar_venta(
+    venta_id: int, data: POSVentaEdit,
+    db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
+):
+    venta = db.query(Venta).filter(Venta.id == venta_id).first()
+    if not venta:
+        raise HTTPException(404, "Venta no encontrada")
+    if venta.estado == "cancelada":
+        raise HTTPException(400, "No se puede editar una venta anulada")
+    if data.forma_pago:
+        venta.forma_pago = data.forma_pago
+    if data.descuento is not None:
+        bruto = venta.total_bruto if hasattr(venta, 'total_bruto') else (venta.total_neto + venta.descuento)
+        venta.descuento = data.descuento
+        venta.total_neto = max(0, bruto - data.descuento)
+    db.commit()
+    return {"id": venta.id, "forma_pago": venta.forma_pago, "total": round(venta.total_neto, 2)}
+
+
+@router.patch("/api/venta/{venta_id}/anular")
+def pos_anular_venta(
+    venta_id: int,
+    db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
+):
+    venta = db.query(Venta).filter(Venta.id == venta_id).first()
+    if not venta:
+        raise HTTPException(404, "Venta no encontrada")
+    if venta.estado == "cancelada":
+        raise HTTPException(400, "Ya está anulada")
+    venta.estado = "cancelada"
+    db.commit()
+    return {"id": venta.id, "estado": "cancelada"}
+
+
 class POSEstadoUpdate(BaseModel):
     estado: str
 
