@@ -1782,7 +1782,7 @@ async function confirmarAnular(id) {
   const btn = document.getElementById('btn-confirm-anular');
   if (btn) { btn.disabled = true; btn.textContent = 'Anulando...'; }
   try {
-    const r = await apiFetch(`/pos/api/venta/${id}/anular`, { method: 'PATCH' });
+    const r = await apiFetch(`/pos/api/anular-venta/${id}`, { method: 'POST' });
     if (!r.ok) throw new Error((await r.json()).detail || 'Error al anular');
     toast('Venta anulada', 'success');
     _removeSheet('sheet-anular-venta');

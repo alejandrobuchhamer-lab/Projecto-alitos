@@ -522,7 +522,7 @@ def pos_editar_venta(
     return {"id": venta.id, "forma_pago": venta.forma_pago, "total": round(venta.total_neto, 2)}
 
 
-@router.patch("/api/venta/{venta_id}/anular")
+@router.post("/api/anular-venta/{venta_id}")
 def pos_anular_venta(
     venta_id: int,
     db: Session = Depends(get_db), user: dict = Depends(get_mobile_user),
