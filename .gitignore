@@ -19,9 +19,15 @@ backend/server.log
 backend/server.err
 *.log
 
-# Node / mobile (cuando lo creemos)
-mobile/node_modules/
-mobile/.expo/
+# Node / Capacitor
+node_modules/
+android/
+.idea/
+*.apk
+*.aab
+
+# Scripts de migracion con credenciales
+migrate_to_pg.py
 
 # OS
 .DS_Store

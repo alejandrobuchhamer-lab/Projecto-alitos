@@ -1,15 +1,16 @@
-from datetime import date
+from datetime import date, datetime
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.templates import templates
 from app.database import get_db
 from app.models.producto import ProductoTerminado, LoteProductoTerminado
-from app.models.venta import Venta
+from app.models.venta import Venta, Pedido, PedidoDetalle, PedidoReserva, EstadoPedido
+from app.models.cliente import Cliente
 from app.routers.mobile_auth import get_mobile_user
-from app.services.venta_service import crear_venta
+from app.services.venta_service import crear_venta, generar_numero_pedido
 
 router = APIRouter(prefix="/pos", tags=["pos"])
 
@@ -43,12 +44,10 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-  // API calls: network first, no cache
   if (url.pathname.startsWith('/pos/api/') || url.pathname.startsWith('/api/')) {
     e.respondWith(fetch(e.request).catch(() => new Response('{}', {headers:{'Content-Type':'application/json'}})));
     return;
   }
-  // Static + pages: cache first, then network
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request).then(res => {
       const clone = res.clone();
@@ -65,9 +64,11 @@ def pos_sw():
     return Response(content=_SW, media_type="application/javascript")
 
 
+# ── STOCK ─────────────────────────────────────────────────────────────────────
+
 @router.get("/api/stock")
 def pos_stock(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
-    """Productos con stock disponible para venta (FEFO)."""
+    """Productos con stock libre disponible para venta (FEFO)."""
     productos = db.query(ProductoTerminado).filter(ProductoTerminado.activo == True).order_by(ProductoTerminado.nombre).all()
     result = []
     for p in productos:
@@ -98,65 +99,45 @@ def pos_stock(db: Session = Depends(get_db), user: dict = Depends(get_mobile_use
     return result
 
 
+# ── DASHBOARD ─────────────────────────────────────────────────────────────────
+
 @router.get("/api/dashboard")
 def pos_dashboard(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
-    """Resumen del día."""
+    """Resumen del día para el admin."""
     hoy = date.today()
     ventas_hoy = (
         db.query(Venta)
-        .filter(
-            func.date(Venta.fecha_venta) == hoy,
-            Venta.estado.in_(["confirmada", "cobrada"]),
-        )
+        .filter(func.date(Venta.fecha_venta) == hoy, Venta.estado.in_(["confirmada", "cobrada"]))
         .all()
     )
     total_hoy = sum(v.total_neto for v in ventas_hoy)
     stock_total = (
         db.query(func.sum(LoteProductoTerminado.cantidad_actual))
-        .filter(
-            LoteProductoTerminado.activo == True,
-            LoteProductoTerminado.tipo == "alfajor",
-        )
-        .scalar()
-        or 0
+        .filter(LoteProductoTerminado.activo == True, LoteProductoTerminado.tipo == "alfajor")
+        .scalar() or 0
     )
-    productos_unicos = (
-        db.query(func.count(ProductoTerminado.id))
-        .filter(ProductoTerminado.activo == True)
-        .scalar()
-        or 0
+    pedidos_pendientes = (
+        db.query(func.count(Pedido.id))
+        .filter(Pedido.estado.in_(["pendiente", "confirmado", "en_preparacion", "listo"]))
+        .scalar() or 0
     )
     return {
         "ventas_hoy": len(ventas_hoy),
         "total_hoy": round(total_hoy, 2),
         "stock_alfajores": int(stock_total),
-        "productos": productos_unicos,
+        "pedidos_pendientes": pedidos_pendientes,
     }
 
 
-class POSItem(BaseModel):
-    lote_id: int
-    cantidad: int
-    precio_unitario: float
-
-
-class POSVentaCreate(BaseModel):
-    items: list[POSItem]
-    forma_pago: str = "efectivo"
-    notas: str | None = None
-    descuento_pct: float = 0.0
-
+# ── HISTORIAL ─────────────────────────────────────────────────────────────────
 
 @router.get("/api/historial")
 def pos_historial(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
-    """Ventas del día actual para el historial del POS."""
+    """Ventas del día para el historial del POS."""
     hoy = date.today()
     ventas = (
         db.query(Venta)
-        .filter(
-            func.date(Venta.fecha_venta) == hoy,
-            Venta.estado.in_(["confirmada", "cobrada"]),
-        )
+        .filter(func.date(Venta.fecha_venta) == hoy, Venta.estado.in_(["confirmada", "cobrada"]))
         .order_by(Venta.fecha_venta.desc())
         .limit(50)
         .all()
@@ -179,11 +160,27 @@ def pos_historial(db: Session = Depends(get_db), user: dict = Depends(get_mobile
             "numero_factura": v.numero_factura,
             "hora": v.fecha_venta.strftime("%H:%M"),
             "total": round(v.total_neto, 2),
+            "descuento": round(v.descuento, 2),
             "forma_pago": v.forma_pago,
             "items": len(detalles),
             "detalles": detalles,
         })
     return result
+
+
+# ── VENTA ─────────────────────────────────────────────────────────────────────
+
+class POSItem(BaseModel):
+    lote_id: int
+    cantidad: int = Field(..., gt=0)
+    precio_unitario: float = Field(..., ge=0)
+
+
+class POSVentaCreate(BaseModel):
+    items: list[POSItem]
+    forma_pago: str = "efectivo"
+    notas: str | None = None
+    descuento: float = Field(0.0, ge=0.0, le=10_000_000)
 
 
 @router.post("/api/venta", status_code=201)
@@ -199,12 +196,199 @@ def pos_crear_venta(
             {"lote_producto_id": i.lote_id, "cantidad": float(i.cantidad), "precio_unitario": i.precio_unitario}
             for i in data.items
         ]
-        descuento = max(0.0, min(100.0, data.descuento_pct or 0.0))
         notas = data.notas or f"POS — {user.get('username', '')}"
-        venta = crear_venta(db, None, detalles, None, descuento, notas, data.forma_pago, True)
+        venta = crear_venta(db, None, detalles, None, data.descuento, notas, data.forma_pago, True)
         db.commit()
         db.refresh(venta)
         return {"id": venta.id, "numero_factura": venta.numero_factura, "total": round(venta.total_neto, 2)}
     except ValueError as e:
         db.rollback()
         raise HTTPException(400, str(e))
+
+
+# ── CLIENTES ──────────────────────────────────────────────────────────────────
+
+@router.get("/api/clientes")
+def pos_clientes(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
+    """Lista de clientes activos para tomador de pedidos."""
+    clientes = (
+        db.query(Cliente)
+        .filter(Cliente.activo == True, Cliente.nombre != "Consumidor Final")
+        .order_by(Cliente.nombre)
+        .all()
+    )
+    return [
+        {"id": c.id, "nombre": c.nombre_completo, "telefono": c.telefono or "", "tipo": c.tipo_cliente}
+        for c in clientes
+    ]
+
+
+# ── PRODUCTOS (para pedidos) ───────────────────────────────────────────────────
+
+@router.get("/api/productos")
+def pos_productos(db: Session = Depends(get_db), user: dict = Depends(get_mobile_user)):
+    """Lista de productos activos con precio base para crear pedidos."""
+    productos = (
+        db.query(ProductoTerminado)
+        .filter(ProductoTerminado.activo == True)
+        .order_by(ProductoTerminado.nombre)
+        .all()
+    )
+    return [
+        {"id": p.id, "nombre": p.nombre, "precio": p.precio_venta_base}
+        for p in productos
+    ]
+
+
+# ── PEDIDOS ───────────────────────────────────────────────────────────────────
+
+@router.get("/api/pedidos")
+def pos_pedidos(
+    estado: str | None = None,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_mobile_user),
+):
+    """Lista de pedidos. Repartidor ve solo los pendientes de entrega."""
+    q = db.query(Pedido)
+    if estado:
+        q = q.filter(Pedido.estado == estado)
+    elif user.get("rol") == "repartidor":
+        q = q.filter(Pedido.estado.in_(["pendiente", "confirmado", "en_preparacion", "listo"]))
+    pedidos = q.order_by(Pedido.fecha_entrega_requerida.asc().nullslast(), Pedido.fecha_pedido.desc()).limit(100).all()
+    result = []
+    for p in pedidos:
+        detalles = [
+            {"nombre": d.producto.nombre, "cantidad": int(d.cantidad), "precio": d.precio_unitario}
+            for d in p.detalles
+        ]
+        result.append({
+            "id": p.id,
+            "numero_pedido": p.numero_pedido,
+            "cliente": p.cliente.nombre_completo,
+            "cliente_tel": p.cliente.telefono or "",
+            "estado": p.estado,
+            "total_estimado": round(p.total_estimado, 2),
+            "notas": p.notas or "",
+            "fecha_entrega": p.fecha_entrega_requerida.strftime("%d/%m/%y %H:%M") if p.fecha_entrega_requerida else None,
+            "detalles": detalles,
+        })
+    return result
+
+
+class POSPedidoItem(BaseModel):
+    producto_id: int = Field(..., gt=0)
+    cantidad: float = Field(..., gt=0)
+    precio_unitario: float = Field(..., ge=0)
+
+
+class POSPedidoCreate(BaseModel):
+    cliente_id: int = Field(..., gt=0)
+    fecha_entrega: str | None = None
+    notas: str | None = Field(None, max_length=500)
+    items: list[POSPedidoItem]
+
+
+@router.post("/api/pedido", status_code=201)
+def pos_crear_pedido(
+    data: POSPedidoCreate,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_mobile_user),
+):
+    cliente = db.query(Cliente).filter(Cliente.id == data.cliente_id, Cliente.activo == True).first()
+    if not cliente:
+        raise HTTPException(404, "Cliente no encontrado")
+    if not data.items:
+        raise HTTPException(400, "El pedido debe tener al menos un producto")
+
+    fecha_entrega = None
+    if data.fecha_entrega:
+        try:
+            fecha_entrega = datetime.fromisoformat(data.fecha_entrega)
+        except ValueError:
+            pass
+
+    pedido = Pedido(
+        cliente_id=data.cliente_id,
+        numero_pedido=generar_numero_pedido(db),
+        fecha_entrega_requerida=fecha_entrega,
+        notas=data.notas or f"Pedido via POS — {user.get('username', '')}",
+        estado=EstadoPedido.pendiente,
+    )
+    db.add(pedido)
+    db.flush()
+
+    total = 0.0
+    for item in data.items:
+        producto = db.query(ProductoTerminado).filter(ProductoTerminado.id == item.producto_id).first()
+        if not producto:
+            db.rollback()
+            raise HTTPException(404, f"Producto {item.producto_id} no encontrado")
+        det = PedidoDetalle(
+            pedido_id=pedido.id,
+            producto_id=item.producto_id,
+            cantidad=item.cantidad,
+            precio_unitario=item.precio_unitario,
+        )
+        db.add(det)
+        total += item.cantidad * item.precio_unitario
+
+        # Reservar stock FEFO
+        lotes = (
+            db.query(LoteProductoTerminado)
+            .filter(
+                LoteProductoTerminado.producto_id == item.producto_id,
+                LoteProductoTerminado.activo == True,
+                LoteProductoTerminado.cantidad_actual > 0,
+            )
+            .all()
+        )
+        lotes_fefo = sorted([l for l in lotes if l.fecha_vencimiento], key=lambda l: l.fecha_vencimiento) + [l for l in lotes if not l.fecha_vencimiento]
+        pendiente = item.cantidad
+        for lote in lotes_fefo:
+            if pendiente <= 0:
+                break
+            libre = lote.cantidad_actual - lote.cantidad_reservada
+            reservar = min(libre, pendiente)
+            if reservar <= 0:
+                continue
+            lote.cantidad_reservada += reservar
+            db.add(PedidoReserva(pedido_id=pedido.id, lote_id=lote.id, cantidad=reservar))
+            pendiente -= reservar
+
+    pedido.total_estimado = total
+    db.commit()
+    db.refresh(pedido)
+    return {
+        "id": pedido.id,
+        "numero_pedido": pedido.numero_pedido,
+        "total_estimado": round(pedido.total_estimado, 2),
+    }
+
+
+class POSEstadoUpdate(BaseModel):
+    estado: str
+
+
+@router.patch("/api/pedido/{pedido_id}/estado")
+def pos_actualizar_estado(
+    pedido_id: int,
+    data: POSEstadoUpdate,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_mobile_user),
+):
+    """Repartidor marca entregado, admin puede cambiar cualquier estado."""
+    pedido = db.query(Pedido).filter(Pedido.id == pedido_id).first()
+    if not pedido:
+        raise HTTPException(404, "Pedido no encontrado")
+
+    estados_validos = {e.value for e in EstadoPedido}
+    if data.estado not in estados_validos:
+        raise HTTPException(400, f"Estado inválido. Opciones: {', '.join(estados_validos)}")
+
+    rol = user.get("rol", "")
+    if rol == "repartidor" and data.estado not in ("entregado", "listo"):
+        raise HTTPException(403, "El repartidor solo puede marcar como entregado o listo")
+
+    pedido.estado = data.estado
+    db.commit()
+    return {"id": pedido.id, "estado": pedido.estado}
