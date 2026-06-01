@@ -532,9 +532,16 @@ def pos_anular_venta(
         raise HTTPException(404, "Venta no encontrada")
     if venta.estado == "cancelada":
         raise HTTPException(400, "Ya está anulada")
+
+    # Restaurar stock en cada lote
+    for detalle in venta.detalles:
+        lote = detalle.lote_producto
+        if lote:
+            lote.cantidad_actual = (lote.cantidad_actual or 0) + detalle.cantidad
+
     venta.estado = "cancelada"
     db.commit()
-    return {"id": venta.id, "estado": "cancelada"}
+    return {"id": venta.id, "estado": "cancelada", "stock_restaurado": len(venta.detalles)}
 
 
 class POSEstadoUpdate(BaseModel):
