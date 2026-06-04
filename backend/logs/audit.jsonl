@@ -10,3 +10,5 @@
 {"ts": "2026-05-30T18:50:11.125428", "action": "login_csrf_fail", "user_id": null, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
 {"ts": "2026-05-30T18:50:16.441096", "action": "login_csrf_fail", "user_id": null, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
 {"ts": "2026-05-30T18:50:33.979071", "action": "login_ok", "user_id": 1, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-06-03T23:14:42.149749", "action": "login_ok", "user_id": 1, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}
+{"ts": "2026-06-03T23:18:29.751407", "action": "login_csrf_fail", "user_id": null, "username": "admin", "resource": "auth", "resource_id": null, "ip": "127.0.0.1", "details": {}}

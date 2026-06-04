@@ -52,7 +52,7 @@ def remaining_lockout(ip: str) -> int:
 # ──────────────────────────────────────────────
 # CSRF Tokens
 # ──────────────────────────────────────────────
-_CSRF_SECRET = os.environ.get("CSRF_SECRET", secrets.token_hex(32))
+_CSRF_SECRET = os.environ.get("CSRF_SECRET") or os.environ.get("SECRET_KEY", "alitos-csrf-secret-2025")
 
 
 def generate_csrf_token(session_id: str = "") -> str:
