@@ -179,12 +179,12 @@ body.light .dash-tab-btn.active {
 .dash-kpi-ico svg { width: 15px; height: 15px; }
 
 .dash-kpi-val {
-  font-size: 1.65rem;
+  font-size: 2.1rem;
   font-weight: 800;
   color: var(--color-text);
   line-height: 1;
   margin-bottom: 8px;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
 }
 
 .dash-kpi-sub {
@@ -192,12 +192,12 @@ body.light .dash-tab-btn.active {
   color: var(--color-text-muted);
 }
 
-/* top accent line */
-.acc-white  { border-top: 2px solid #e5e5e5; }
-.acc-blue   { border-top: 2px solid #3b82f6; }
-.acc-green  { border-top: 2px solid #22c55e; }
-.acc-orange { border-top: 2px solid #f59e0b; }
-.acc-red    { border-top: 2px solid #ef4444; }
+/* top accent line — unificado en brand */
+.acc-white,
+.acc-blue,
+.acc-green,
+.acc-orange,
+.acc-red    { border-top: 2px solid var(--color-brand); }
 
 /* ── main 2-col ── */
 .dash-main {
@@ -292,11 +292,11 @@ body.light .dash-tab-btn.active {
   transition: background 0.15s;
 }
 
-.chart-bar.is-today { background: #e5e5e5; }
-.chart-bar.is-past  { background: #333333; }
+.chart-bar.is-today { background: var(--color-brand); }
+.chart-bar.is-past  { background: rgba(196,120,32,0.28); }
 
-.chart-col:hover .chart-bar        { background: #555555; }
-.chart-col:hover .chart-bar.is-today { background: #ffffff; }
+.chart-col:hover .chart-bar        { background: rgba(196,120,32,0.5); }
+.chart-col:hover .chart-bar.is-today { background: var(--color-brand-light); }
 .chart-col:hover .chart-amt        { color: var(--color-text-muted); }
 
 .chart-day {
@@ -370,8 +370,8 @@ body.light .dash-tab-btn.active {
 }
 
 /* ── progress bars ── */
-.prog-wrap { background: #1f1f1f; border-radius: 3px; height: 4px; overflow: hidden; flex: 1; }
-.prog-fill  { height: 100%; border-radius: 3px; background: #e5e5e5; transition: width 0.4s ease; }
+.prog-wrap { background: var(--color-bg-elevated); border-radius: 3px; height: 5px; overflow: hidden; flex: 1; }
+.prog-fill  { height: 100%; border-radius: 3px; background: var(--color-brand); transition: width 0.4s ease; }
 
 .prod-row {
   margin-bottom: 13px;
@@ -433,7 +433,7 @@ body.light .dash-tab-btn.active {
   text-decoration: none;
   transition: all 0.15s;
 }
-.acc-btn:hover { background: #222; border-color: var(--color-border-glow); color: var(--color-text); }
+.acc-btn:hover { background: var(--color-brand-glow); border-color: var(--color-brand); color: var(--color-text); }
 .acc-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 
 /* ── stat mini ── */
@@ -505,8 +505,8 @@ body.light .dash-tab-btn.active {
   <div class="dash-kpi acc-white">
     <div class="dash-kpi-top">
       <span class="dash-kpi-label">Ventas hoy</span>
-      <div class="dash-kpi-ico" style="background:#1e1e1e">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#e5e5e5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <div class="dash-kpi-ico" style="background:var(--color-brand-glow)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-brand)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="1" x2="12" y2="23"/>
           <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
         </svg>
@@ -522,15 +522,15 @@ body.light .dash-tab-btn.active {
   <div class="dash-kpi acc-blue">
     <div class="dash-kpi-top">
       <span class="dash-kpi-label">Stock listo</span>
-      <div class="dash-kpi-ico" style="background:#0d1a2e">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <div class="dash-kpi-ico" style="background:var(--color-brand-glow)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-brand)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
           <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
           <line x1="12" y1="22.08" x2="12" y2="12"/>
         </svg>
       </div>
     </div>
-    <div class="dash-kpi-val" style="color:#3b82f6">{{ kpis.stock_alfajores }}</div>
+    <div class="dash-kpi-val" style="color:var(--color-brand)">{{ kpis.stock_alfajores }}</div>
     <div class="dash-kpi-sub">alfajores · ${{ "{:,.0f}".format(kpis.valor_stock_alfajores) }} inv.</div>
   </div>
 
@@ -538,14 +538,14 @@ body.light .dash-tab-btn.active {
   <div class="dash-kpi acc-green">
     <div class="dash-kpi-top">
       <span class="dash-kpi-label">Margen del mes</span>
-      <div class="dash-kpi-ico" style="background:#0a1f10">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <div class="dash-kpi-ico" style="background:var(--color-brand-glow)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-brand)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
           <polyline points="17 6 23 6 23 12"/>
         </svg>
       </div>
     </div>
-    <div class="dash-kpi-val" style="color:#22c55e">{{ kpis.margen_porcentaje }}%</div>
+    <div class="dash-kpi-val" style="color:var(--color-brand)">{{ kpis.margen_porcentaje }}%</div>
     <div class="dash-kpi-sub">
       ${{ "{:,.0f}".format(kpis.margen_mes) }} · ventas ${{ "{:,.0f}".format(kpis.ventas_mes) }}
     </div>
@@ -556,8 +556,8 @@ body.light .dash-tab-btn.active {
   <div class="dash-kpi {% if hay_alerta %}acc-orange{% else %}acc-green{% endif %}">
     <div class="dash-kpi-top">
       <span class="dash-kpi-label">Alertas</span>
-      <div class="dash-kpi-ico" style="background:{% if hay_alerta %}#1e1200{% else %}#0a1f10{% endif %}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="{% if hay_alerta %}#f59e0b{% else %}#22c55e{% endif %}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <div class="dash-kpi-ico" style="background:var(--color-brand-glow)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="{% if hay_alerta %}#f59e0b{% else %}var(--color-brand){% endif %}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 01-3.46 0"/>
         </svg>

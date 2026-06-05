@@ -43,16 +43,20 @@
 }
 
 body.light {
-  --color-bg:           #d8ccb8;
-  --color-bg-card:      #fdfcf9;
-  --color-bg-elevated:  #cdc0aa;
-  --color-sidebar:      #b8a88e;
-  --color-sidebar-hover:#a89880;
-  --color-border:       #b8a890;
-  --color-border-glow:  #a09078;
-  --color-text:         #1a1714;
-  --color-text-muted:   #6b6258;
-  --color-text-dim:     #9e9288;
+  --color-bg:           #f0ebe0;
+  --color-bg-card:      #faf6ee;
+  --color-bg-elevated:  #e8e0d0;
+  --color-sidebar:      #e8e0d0;
+  --color-sidebar-hover:#ddd3be;
+  --color-border:       #d4c9b0;
+  --color-border-glow:  #b8a890;
+  --color-text:         #2c1a0e;
+  --color-text-muted:   #8b6e52;
+  --color-text-dim:     #a8917a;
+  --color-brand:        #c47820;
+  --color-brand-light:  #d4892a;
+  --color-brand-glow:   rgba(196,120,32,0.15);
+  --shadow-card:        0 1px 4px rgba(92,51,23,0.08), 0 4px 16px rgba(92,51,23,0.06);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -589,82 +593,82 @@ body.light .badge-info    { color: #2563eb; background: rgba(59,130,246,0.12); b
   background: var(--color-bg-elevated);
 }
 
-body.light .btn-accent:hover { background: #e5e5e5; }
-body.light .topbar { background: #b8a88e; border-bottom-color: #a49078; }
+body.light .btn-accent:hover { background: #ddd3be; }
+body.light .topbar { background: #ede8dd; border-bottom-color: #d4c9b0; }
 
-/* ── Inputs y buscadores blancos en modo claro ── */
+/* ── Inputs en modo claro crema ── */
 body.light .form-control {
-  background: #ffffff !important;
-  border-color: #b8a890 !important;
-  color: #1a1714 !important;
+  background: #faf6ee !important;
+  border-color: #d4c9b0 !important;
+  color: #2c1a0e !important;
 }
-body.light .form-control::placeholder { color: #9e9288 !important; }
+body.light .form-control::placeholder { color: #a8917a !important; }
 body.light .form-control:focus {
-  background: #ffffff !important;
+  background: #faf6ee !important;
   border-color: var(--color-brand) !important;
   box-shadow: 0 0 0 3px rgba(196,120,32,0.12) !important;
 }
 body.light select.form-control {
-  background-color: #ffffff !important;
+  background-color: #faf6ee !important;
 }
 
-/* ── Cards con fondo bien claro ── */
+/* ── Cards crema/hueso ── */
 body.light .card,
 body.light .dash-card,
 body.light .dash-kpi,
 body.light .kpi-card {
-  background: #fdfcf9 !important;
-  border-color: #c8b89e !important;
+  background: #faf6ee !important;
+  border-color: #d4c9b0 !important;
 }
 
 /* ── Badges legibles en claro ── */
-body.light .badge-muted { background: #e8e0d4; color: #4a3e2e; border-color: #c8b89e; }
-body.light .pago-tag { background: #ede8df; border-color: #c8b89e; color: #4a3e2e; }
+body.light .badge-muted { background: #ede8dd; color: #4a3e2e; border-color: #d4c9b0; }
+body.light .pago-tag { background: #f0ebe0; border-color: #d4c9b0; color: #4a3e2e; }
 
 /* ── Texto de tablas legible ── */
-body.light tbody td { color: #1a1714; }
-body.light .text-muted { color: #6b6258 !important; }
+body.light tbody td { color: #2c1a0e; }
+body.light .text-muted { color: #8b6e52 !important; }
 
 /* ── Botón outline claro ── */
 body.light .btn-outline {
-  border-color: #b8a890;
-  color: #4a3e2e;
+  border-color: #d4c9b0;
+  color: #5c3317;
   background: transparent;
 }
 body.light .btn-outline:hover {
-  background: #e8dfd4;
-  border-color: #a49078;
-  color: #1a1714;
+  background: #ede8dd;
+  border-color: #b8a890;
+  color: #2c1a0e;
 }
 
 /* ── Tabs fichas en claro ── */
-body.light .page-tab { color: #6b6258; }
-body.light .page-tab:hover { color: #2a1e10; }
+body.light .page-tab { color: #8b6e52; }
+body.light .page-tab:hover { color: #2c1a0e; }
 
 /* ── Modal en claro ── */
-body.light .modal { background: #fdfcf9; }
-body.light .modal-header { background: #e8dfd4; }
-body.light .modal-footer { background: #ede8df; }
+body.light .modal { background: #faf6ee; }
+body.light .modal-header { background: #ede8dd; }
+body.light .modal-footer { background: #f0ebe0; }
 
 /* ── Toast en claro ── */
-body.light .toast { color: #1a1714; box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+body.light .toast { color: #2c1a0e; box-shadow: 0 4px 16px rgba(92,51,23,0.12); }
 
 /* ── Sidebar toggle border ── */
 body.light .nav-section-label { border-top: none !important; }
 
-/* Sidebar claro: texto e íconos oscuros */
-body.light .nav-item { color: #2a1e10; }
-body.light .nav-item:hover { background: var(--color-sidebar-hover); color: #1a1008; }
-body.light .nav-item.active { background: rgba(196,120,32,0.2); color: #1a1008; box-shadow: inset 3px 0 0 0 var(--color-brand); }
-body.light .nav-section-label { color: #5a4e3e; }
-body.light .sidebar-logo-text .brand { color: #1a1008; }
-body.light .sidebar-logo-text .sub { color: #5a4e3e; }
-body.light .sidebar-toggle { color: #5a4e3e; border-top-color: transparent; }
-/* Fusión sidebar+topbar: sin borde derecho, sin línea inferior en el logo */
-body.light .sidebar { border-right-color: transparent; }
-body.light .sidebar-logo { border-bottom-color: rgba(0,0,0,0.1); }
-body.light thead th { background: #b8a88e; border-bottom-color: #a49078; color: #2e2418; }
-body.light .page-tabs { border-bottom-color: #a49078; }
+/* Sidebar crema: texto e íconos oscuros */
+body.light .nav-item { color: #5c3317; }
+body.light .nav-item:hover { background: var(--color-sidebar-hover); color: #2c1a0e; }
+body.light .nav-item.active { background: rgba(196,120,32,0.18); color: #2c1a0e; box-shadow: inset 3px 0 0 0 var(--color-brand); }
+body.light .nav-section-label { color: #8b6e52; }
+body.light .sidebar-logo-text .brand { color: #2c1a0e; }
+body.light .sidebar-logo-text .sub { color: #8b6e52; }
+body.light .sidebar-toggle { color: #8b6e52; border-top-color: transparent; }
+/* Fusión sidebar+topbar */
+body.light .sidebar { border-right-color: #d4c9b0; }
+body.light .sidebar-logo { border-bottom-color: rgba(92,51,23,0.1); }
+body.light thead th { background: #ede8dd; border-bottom-color: #d4c9b0; color: #5c3317; }
+body.light .page-tabs { border-bottom-color: #d4c9b0; }
 
 .btn-danger {
   background: rgba(239,68,68,0.08);

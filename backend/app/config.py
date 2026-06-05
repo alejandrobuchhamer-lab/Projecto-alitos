@@ -1,11 +1,16 @@
+import os
 from pydantic_settings import BaseSettings
+
+
+def _default_debug() -> bool:
+    return os.environ.get("RAILWAY_ENVIRONMENT") is None
 
 
 class Settings(BaseSettings):
     app_name: str = "ALITOS Sistema Operativo"
     app_version: str = "1.0.0"
     database_url: str = "sqlite:///./alitos.db"
-    debug: bool = True
+    debug: bool = _default_debug()
     moneda_base: str = "ARS"
     moneda_secundaria: str = "USD"
     anthropic_api_key: str = ""

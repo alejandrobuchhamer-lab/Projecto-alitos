@@ -52,7 +52,9 @@ def _get_ip(request: Request) -> str:
 
 
 @router.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, error: str = ""):
+def login_page(request: Request, error: str = "", db: Session = Depends(get_db)):
+    if get_current_user(request, db):
+        return RedirectResponse("/", status_code=303)
     csrf = generate_csrf_token()
     response = templates.TemplateResponse(
         "auth/login.html",

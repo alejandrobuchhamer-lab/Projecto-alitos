@@ -1,5 +1,5 @@
 ﻿from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services.dashboard_service import (
@@ -18,6 +18,11 @@ from app.templates import templates
 def dashboard_html(request: Request, db: Session = Depends(get_db)):
     kpis = get_kpis_dashboard(db)
     return templates.TemplateResponse("dashboard.html", {"request": request, "kpis": kpis})
+
+
+@router.get("/dashboard/")
+def dashboard_redirect():
+    return RedirectResponse("/", status_code=301)
 
 
 @router.get("/api/dashboard/kpis")
