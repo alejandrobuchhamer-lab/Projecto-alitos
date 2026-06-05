@@ -2,5 +2,5 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "cd backend && python run.py"
+startCommand = "cd backend && python3 run.py"
 restartPolicyType = "ON_FAILURE"
