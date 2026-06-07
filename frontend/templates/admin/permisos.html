@@ -1,0 +1,561 @@
+{% extends "base.html" %}
+{% block title %}Admin — Permisos{% endblock %}
+{% block page_title %}Permisos de Usuarios{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ═══════════════════ LAYOUT ═══════════════════ */
+.permisos-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0;
+  height: calc(100vh - var(--topbar-height) - 48px);
+  min-height: 500px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-bg-card);
+}
+
+/* ═══════════════════ PANEL IZQUIERDO — USUARIOS ═══════════════════ */
+.user-panel {
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.user-panel-header {
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.user-panel-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-dim);
+  margin-bottom: 8px;
+}
+
+.user-search {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  color: var(--color-text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.user-search:focus { border-color: var(--color-brand); }
+.user-search::placeholder { color: var(--color-text-dim); }
+
+.user-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 6px 0;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+}
+.user-card:hover { background: var(--color-bg-elevated); }
+.user-card.active {
+  background: var(--color-brand-glow);
+  border-left-color: var(--color-brand);
+}
+
+.user-card-avatar {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.82rem; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.user-card-avatar.rol-produccion { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); }
+.user-card-avatar.rol-vendedor   { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
+
+.user-card-info { flex: 1; min-width: 0; }
+.user-card-name {
+  font-size: 0.83rem; font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.user-card-meta {
+  font-size: 0.7rem; color: var(--color-text-muted);
+  display: flex; align-items: center; gap: 5px; margin-top: 1px;
+}
+.user-card-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.dot-produccion { background: #d97706; }
+.dot-vendedor   { background: #059669; }
+
+.user-card-saved {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--color-brand);
+  flex-shrink: 0;
+  display: none;
+}
+.user-card.dirty .user-card-saved { display: block; }
+
+/* ═══════════════════ PANEL DERECHO — PERMISOS ═══════════════════ */
+.perm-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.perm-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-text-dim);
+}
+.perm-empty svg { opacity: 0.3; }
+.perm-empty-text { font-size: 0.85rem; }
+
+.perm-header {
+  padding: 14px 20px 0;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  display: none;
+}
+.perm-header.visible { display: block; }
+
+.perm-user-info {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+
+.perm-user-avatar {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--color-brand) 0%, #a36318 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; font-weight: 800; color: #fff;
+  flex-shrink: 0; text-transform: uppercase;
+}
+
+.perm-user-name { font-size: 0.95rem; font-weight: 600; color: var(--color-text); }
+.perm-user-sub  { font-size: 0.72rem; color: var(--color-text-muted); margin-top: 2px; }
+
+/* ── Presets ── */
+.preset-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 20px;
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  display: none;
+}
+.preset-row.visible { display: flex; }
+.preset-label { font-size: 0.71rem; color: var(--color-text-dim); font-weight: 500; }
+.preset-chip {
+  padding: 4px 11px; font-size: 0.74rem; font-weight: 500;
+  border-radius: 20px; border: 1px solid var(--color-border);
+  background: var(--color-bg-card); color: var(--color-text-muted);
+  cursor: pointer; font-family: inherit;
+  transition: all 0.15s;
+}
+.preset-chip:hover { border-color: var(--color-brand); color: var(--color-brand); background: var(--color-brand-glow); }
+
+/* ── Module tabs ── */
+.mod-tabs-bar {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  display: none;
+  scrollbar-width: none;
+}
+.mod-tabs-bar.visible { display: flex; }
+.mod-tabs-bar::-webkit-scrollbar { display: none; }
+
+.mod-tab {
+  padding: 10px 16px;
+  font-size: 0.78rem; font-weight: 500;
+  color: var(--color-text-muted);
+  border: none; background: transparent;
+  cursor: pointer; font-family: inherit;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.15s;
+  position: relative;
+}
+.mod-tab:hover { color: var(--color-text); }
+.mod-tab.active {
+  color: var(--color-brand);
+  border-bottom-color: var(--color-brand);
+}
+.mod-tab-dot {
+  display: inline-block;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--color-brand);
+  margin-left: 5px;
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.mod-tab.has-perms .mod-tab-dot { opacity: 1; }
+
+/* ── Acciones ── */
+.acciones-panel {
+  flex: 1;
+  overflow-y: auto;
+  display: none;
+  padding: 0;
+}
+.acciones-panel.visible { display: block; }
+
+.mod-content { display: none; }
+.mod-content.active { display: block; }
+
+.accion-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.accion-row:last-child { border-bottom: none; }
+.accion-row:hover { background: var(--color-bg-elevated); }
+
+.accion-checkbox {
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 5px;
+  background: var(--color-bg-elevated);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.accion-row.checked .accion-checkbox {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+}
+.accion-row.checked .accion-checkbox::after {
+  content: '';
+  width: 10px; height: 7px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translateY(-1px);
+}
+
+.accion-label { font-size: 0.84rem; color: var(--color-text); flex: 1; }
+.accion-key   { font-size: 0.68rem; color: var(--color-text-dim); font-family: monospace; }
+
+/* ── Footer con botón guardar ── */
+.perm-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--color-border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+  display: none;
+  background: var(--color-bg-card);
+}
+.perm-footer.visible { display: flex; }
+
+.perm-footer-left { font-size: 0.75rem; color: var(--color-text-dim); }
+.perm-footer-left.unsaved { color: var(--color-brand); font-weight: 500; }
+
+/* ── Empty state de acciones ── */
+.admin-tabs-nav {
+  display: flex; gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0;
+}
+.admin-tab-btn {
+  padding: 9px 18px;
+  font-size: 0.82rem; font-weight: 500;
+  color: var(--color-text-muted);
+  border: none; background: transparent;
+  cursor: pointer; font-family: inherit;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s;
+}
+.admin-tab-btn:hover { color: var(--color-text); }
+.admin-tab-btn.active { color: var(--color-brand); border-bottom-color: var(--color-brand); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Tabs de navegación admin -->
+<div class="admin-tabs-nav">
+  <a href="/admin/" class="admin-tab-btn">Usuarios</a>
+  <button class="admin-tab-btn active">Permisos</button>
+</div>
+
+<div class="permisos-layout">
+
+  <!-- ═══ PANEL IZQUIERDO — Lista de usuarios ═══ -->
+  <div class="user-panel">
+    <div class="user-panel-header">
+      <div class="user-panel-title">Seleccioná un usuario</div>
+      <input class="user-search" id="user-search" placeholder="Buscar usuario…" oninput="filtrarUsuarios(this.value)">
+    </div>
+
+    <div class="user-list" id="user-list">
+      {% for u in usuarios %}
+      <div class="user-card" id="ucard-{{ u.id }}"
+           data-uid="{{ u.id }}"
+           data-nombre="{{ u.nombre }}"
+           data-username="{{ u.username }}"
+           data-rol="{{ u.rol }}"
+           onclick="seleccionarUsuario({{ u.id }}, '{{ u.nombre }}', '{{ u.username }}', '{{ u.rol }}')">
+        <div class="user-card-avatar rol-{{ u.rol }}">{{ u.nombre[0] }}</div>
+        <div class="user-card-info">
+          <div class="user-card-name">{{ u.nombre }}</div>
+          <div class="user-card-meta">
+            <div class="user-card-dot dot-{{ u.rol }}"></div>
+            <span>{{ u.rol_label }}</span>
+            <span style="opacity:0.4">·</span>
+            <span>@{{ u.username }}</span>
+          </div>
+        </div>
+        <div class="user-card-saved" title="Cambios sin guardar"></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ═══ PANEL DERECHO — Configuración de permisos ═══ -->
+  <div class="perm-panel" id="perm-panel">
+
+    <!-- Estado vacío inicial -->
+    <div class="perm-empty" id="perm-empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+      </svg>
+      <div class="perm-empty-text">Seleccioná un usuario para configurar sus permisos</div>
+    </div>
+
+    <!-- Header del usuario seleccionado -->
+    <div class="perm-header" id="perm-header">
+      <div class="perm-user-info">
+        <div class="perm-user-avatar" id="perm-avatar">?</div>
+        <div>
+          <div class="perm-user-name" id="perm-nombre">—</div>
+          <div class="perm-user-sub" id="perm-sub">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Presets rápidos -->
+    <div class="preset-row" id="preset-row">
+      <span class="preset-label">Preset:</span>
+      <button class="preset-chip" onclick="aplicarPreset('produccion')">Producción</button>
+      <button class="preset-chip" onclick="aplicarPreset('vendedor')">Vendedor</button>
+      <button class="preset-chip" onclick="aplicarPreset('todo')">Habilitar todo</button>
+      <button class="preset-chip" onclick="aplicarPreset('nada')">Deshabilitar todo</button>
+    </div>
+
+    <!-- Solapas de módulos -->
+    <div class="mod-tabs-bar" id="mod-tabs-bar">
+      {% for mod_key, mod_label, acciones in modulos_acciones %}
+      <button class="mod-tab {% if loop.first %}active{% endif %}" id="modtab-{{ mod_key }}" onclick="switchMod('{{ mod_key }}')">
+        {{ mod_label }}<span class="mod-tab-dot"></span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <!-- Contenido de acciones -->
+    <div class="acciones-panel" id="acciones-panel">
+      {% for mod_key, mod_label, acciones in modulos_acciones %}
+      <div class="mod-content {% if loop.first %}active{% endif %}" id="modcontent-{{ mod_key }}">
+        {% for accion_key, accion_label in acciones %}
+        <div class="accion-row" id="accion-{{ mod_key }}-{{ accion_key }}"
+             data-mod="{{ mod_key }}" data-accion="{{ accion_key }}"
+             onclick="toggleAccion(this)">
+          <div class="accion-checkbox"></div>
+          <div class="accion-label">{{ accion_label }}</div>
+          <div class="accion-key">{{ mod_key }}.{{ accion_key }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Footer -->
+    <div class="perm-footer" id="perm-footer">
+      <div class="perm-footer-left" id="perm-status">Sin cambios</div>
+      <button class="btn btn-primary" onclick="guardarPermisos()">Guardar permisos</button>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const PRESETS = {{ presets | tojson }};
+const MODULOS_ACCIONES = {{ modulos_acciones | tojson }};
+
+let _uid = null;
+let _dirty = false;
+
+// ── Selección de usuario ───────────────────────────────────────────────────
+async function seleccionarUsuario(uid, nombre, username, rol) {
+  if (_dirty) {
+    if (!confirm('Tenés cambios sin guardar. ¿Descartarlos?')) return;
+  }
+  _uid = uid;
+  _dirty = false;
+
+  // Marcar activo en la lista
+  document.querySelectorAll('.user-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('ucard-' + uid)?.classList.add('active');
+
+  // Mostrar panel
+  document.getElementById('perm-empty').style.display   = 'none';
+  document.getElementById('perm-header').classList.add('visible');
+  document.getElementById('preset-row').classList.add('visible');
+  document.getElementById('mod-tabs-bar').classList.add('visible');
+  document.getElementById('acciones-panel').classList.add('visible');
+  document.getElementById('perm-footer').classList.add('visible');
+
+  // Actualizar header
+  document.getElementById('perm-avatar').textContent  = nombre[0].toUpperCase();
+  document.getElementById('perm-nombre').textContent  = nombre;
+  document.getElementById('perm-sub').textContent     = '@' + username + ' · ' + rol;
+  document.getElementById('perm-status').textContent  = 'Sin cambios';
+  document.getElementById('perm-status').classList.remove('unsaved');
+
+  // Cargar permisos del servidor
+  try {
+    const data = await apiGet(`/admin/api/usuarios/${uid}/permisos`);
+    aplicarPermisos(data.permisos);
+    actualizarDots();
+  } catch(e) { toast('Error cargando permisos', 'error'); }
+}
+
+// ── Aplicar dict de permisos a los checkboxes ──────────────────────────────
+function aplicarPermisos(permisos) {
+  document.querySelectorAll('.accion-row').forEach(row => {
+    const mod   = row.dataset.mod;
+    const accion = row.dataset.accion;
+    const val   = permisos?.[mod]?.[accion] || false;
+    row.classList.toggle('checked', val);
+  });
+}
+
+// ── Toggle individual ──────────────────────────────────────────────────────
+function toggleAccion(row) {
+  row.classList.toggle('checked');
+  marcarDirty();
+  actualizarDots();
+}
+
+function marcarDirty() {
+  _dirty = true;
+  document.getElementById('perm-status').textContent = 'Cambios sin guardar';
+  document.getElementById('perm-status').classList.add('unsaved');
+  if (_uid) {
+    document.getElementById('ucard-' + _uid)?.classList.add('dirty');
+  }
+}
+
+// ── Presets ────────────────────────────────────────────────────────────────
+function aplicarPreset(nombre) {
+  let permisos;
+  if (nombre === 'todo') {
+    permisos = Object.fromEntries(MODULOS_ACCIONES.map(([k, , acc]) => [k, Object.fromEntries(acc.map(([a]) => [a, true]))]));
+  } else if (nombre === 'nada') {
+    permisos = Object.fromEntries(MODULOS_ACCIONES.map(([k, , acc]) => [k, Object.fromEntries(acc.map(([a]) => [a, false]))]));
+  } else {
+    permisos = PRESETS[nombre];
+  }
+  if (!permisos) return;
+  aplicarPermisos(permisos);
+  marcarDirty();
+  actualizarDots();
+}
+
+// ── Dots en las solapas (indica si tiene al menos un permiso activo) ────────
+function actualizarDots() {
+  MODULOS_ACCIONES.forEach(([modKey]) => {
+    const rows    = document.querySelectorAll(`.accion-row[data-mod="${modKey}"]`);
+    const alguno  = [...rows].some(r => r.classList.contains('checked'));
+    document.getElementById('modtab-' + modKey)?.classList.toggle('has-perms', alguno);
+  });
+}
+
+// ── Solapas de módulo ──────────────────────────────────────────────────────
+function switchMod(modKey) {
+  document.querySelectorAll('.mod-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.mod-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('modtab-' + modKey)?.classList.add('active');
+  document.getElementById('modcontent-' + modKey)?.classList.add('active');
+}
+
+// ── Guardar ────────────────────────────────────────────────────────────────
+function leerPermisos() {
+  const result = {};
+  document.querySelectorAll('.accion-row').forEach(row => {
+    const mod    = row.dataset.mod;
+    const accion = row.dataset.accion;
+    if (!result[mod]) result[mod] = {};
+    result[mod][accion] = row.classList.contains('checked');
+  });
+  return result;
+}
+
+async function guardarPermisos() {
+  if (!_uid) return;
+  const permisos = leerPermisos();
+  try {
+    await fetch(`/admin/api/usuarios/${_uid}/permisos`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(permisos),
+    }).then(async r => {
+      if (!r.ok) { const d = await r.json(); throw new Error(d.detail || 'Error'); }
+    });
+    _dirty = false;
+    document.getElementById('perm-status').textContent = 'Guardado correctamente';
+    document.getElementById('perm-status').classList.remove('unsaved');
+    document.getElementById('ucard-' + _uid)?.classList.remove('dirty');
+    toast('Permisos guardados', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Búsqueda de usuario ────────────────────────────────────────────────────
+function filtrarUsuarios(q) {
+  const term = q.toLowerCase();
+  document.querySelectorAll('.user-card').forEach(c => {
+    const name = (c.dataset.nombre + ' ' + c.dataset.username).toLowerCase();
+    c.style.display = name.includes(term) ? '' : 'none';
+  });
+}
+
+// ── Ctrl+S / ⌘S para guardar ──────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    guardarPermisos();
+  }
+});
+</script>
+{% endblock %}

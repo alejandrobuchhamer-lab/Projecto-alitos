@@ -93,10 +93,22 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header">
+<style>
+.admin-tabs-nav { display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--color-border);padding-bottom:0; }
+.admin-tab-btn { padding:9px 18px;font-size:0.82rem;font-weight:500;color:var(--color-text-muted);border:none;background:transparent;cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s;text-decoration:none;display:inline-block; }
+.admin-tab-btn:hover { color:var(--color-text); }
+.admin-tab-btn.active { color:var(--color-brand);border-bottom-color:var(--color-brand); }
+</style>
+
+<div class="admin-tabs-nav">
+  <button class="admin-tab-btn active">Usuarios</button>
+  <a href="/admin/permisos" class="admin-tab-btn">Permisos</a>
+</div>
+
+<div class="page-header" style="margin-top:0">
   <div>
     <h1>Gestión de Usuarios</h1>
-    <div class="subtitle">Usuarios, roles y permisos por módulo</div>
+    <div class="subtitle">Crear, editar y gestionar usuarios del sistema</div>
   </div>
   <button class="btn btn-primary" onclick="openModal('modal-nuevo-usuario')">+ Nuevo Usuario</button>
 </div>

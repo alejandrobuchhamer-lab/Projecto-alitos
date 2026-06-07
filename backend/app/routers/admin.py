@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import get_db
-from app.models.usuario import Usuario, MODULOS, PERMISOS_POR_ROL
+from app.models.usuario import Usuario, MODULOS, MODULOS_ACCIONES, PERMISOS_POR_ROL
 from app.routers.auth import require_admin
 from app.templates import templates
 
@@ -33,6 +33,20 @@ def admin_panel(request: Request, db: Session = Depends(get_db), _admin: Usuario
         "usuarios": usuarios,
         "current_user": _admin,
         "modulos": MODULOS,
+    })
+
+
+@router.get("/permisos", response_class=HTMLResponse)
+def permisos_panel(request: Request, db: Session = Depends(get_db), _admin: Usuario = Depends(require_admin)):
+    usuarios = db.query(Usuario).filter(
+        Usuario.activo == True, Usuario.rol != "admin"
+    ).order_by(Usuario.nombre).all()
+    return templates.TemplateResponse("admin/permisos.html", {
+        "request": request,
+        "usuarios": usuarios,
+        "modulos_acciones": MODULOS_ACCIONES,
+        "presets": {rol: PERMISOS_POR_ROL[rol] for rol in ("produccion", "vendedor")},
+        "current_user": _admin,
     })
 
 
