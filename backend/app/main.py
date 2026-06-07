@@ -2,7 +2,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
@@ -11,11 +11,15 @@ from app.routers import dashboard, insumos, recetas, produccion, productos, clie
 from app.routers import auth as auth_router, admin as admin_router
 from app.routers import mobile_auth as mobile_auth_router
 from app.routers import pos as pos_router
+from app.routers import cuenta as cuenta_router
+from app.routers import vendedores as vendedores_router
+from app.routers import cuentas as cuentas_router
+from app.routers import push as push_router
 from app.services.auth_service import verify_session_token
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-_PUBLIC = ("/auth/", "/static/", "/health", "/favicon", "/pos/")
+_PUBLIC = ("/auth/", "/static/", "/health", "/favicon", "/pos/", "/sw.js", "/manifest.json")
 _API_MARKER = "/api"
 
 # Acciones que se auditan automáticamente
@@ -124,6 +128,22 @@ app.include_router(alertas.router)
 app.include_router(finanzas.router)
 app.include_router(stock.router)
 app.include_router(pos_router.router)
+app.include_router(cuenta_router.router)
+app.include_router(vendedores_router.router)
+app.include_router(cuentas_router.router)
+app.include_router(push_router.router)
+
+
+@app.get("/sw.js", include_in_schema=False)
+def serve_sw():
+    path = PROJECT_ROOT / "frontend" / "static" / "sw.js"
+    return FileResponse(str(path), media_type="application/javascript")
+
+
+@app.get("/manifest.json", include_in_schema=False)
+def serve_manifest():
+    path = PROJECT_ROOT / "frontend" / "static" / "manifest.json"
+    return FileResponse(str(path), media_type="application/manifest+json")
 
 
 @app.on_event("startup")

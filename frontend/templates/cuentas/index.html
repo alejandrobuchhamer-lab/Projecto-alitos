@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Cuentas{% endblock %}
+
+{% block extra_css %}
+<style>
+.cuenta-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all .15s ease;
+  position: relative;
+  overflow: hidden;
+}
+.cuenta-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px; height: 100%;
+  background: var(--cuenta-color, #c47820);
+}
+.cuenta-card:hover { border-color: var(--cuenta-color, #c47820); transform: translateY(-1px); }
+.cuenta-card.active { border-color: var(--cuenta-color, #c47820); background: var(--color-bg-elevated); }
+.cuenta-saldo { font-size: 1.7rem; font-weight: 800; color: var(--color-text); line-height: 1; }
+.cuenta-nombre { font-size: 0.78rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+.tipo-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; }
+.mov-row { display: grid; grid-template-columns: 90px 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-border); font-size: 0.82rem; }
+.mov-row:last-child { border-bottom: none; }
+.mov-tipo-entrada { color: #22c55e; }
+.mov-tipo-salida   { color: #ef4444; }
+.mov-tipo-transfer { color: #3b82f6; }
+.mov-monto { font-weight: 700; font-size: 0.9rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex-direction:column;gap:20px">
+
+  <!-- Encabezado -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div>
+      <h1 style="font-size:1.4rem;font-weight:800;color:var(--color-text);margin:0">Cuentas financieras</h1>
+      <p style="font-size:0.82rem;color:var(--color-text-muted);margin:4px 0 0">Efectivo, banco y MercadoPago en un solo lugar</p>
+    </div>
+    <button class="btn btn-primary" onclick="abrirModalMovimiento()">+ Registrar movimiento</button>
+  </div>
+
+  <!-- Saldo total -->
+  <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;
+              background:linear-gradient(135deg,rgba(196,120,32,.12),rgba(196,120,32,.05));
+              border:1px solid rgba(196,120,32,.2);border-radius:12px">
+    <div style="flex:1">
+      <div style="font-size:0.75rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.05em">Saldo total</div>
+      <div id="saldo-total" style="font-size:2rem;font-weight:800;color:#c47820;margin-top:2px">$0</div>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="nuevaCuenta()">+ Cuenta</button>
+  </div>
+
+  <!-- Tarjetas de cuentas -->
+  <div id="cuentas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
+
+  <!-- Movimientos -->
+  <div class="card">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <h3 class="card-title" id="mov-titulo">Todos los movimientos</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="mov-buscar" class="form-input" type="search" placeholder="Buscar…" style="width:180px;height:32px;font-size:0.8rem" oninput="filtrarMovs()">
+        <select id="mov-tipo-filter" class="form-input" style="width:130px;height:32px;font-size:0.8rem" onchange="filtrarMovs()">
+          <option value="">Todos los tipos</option>
+          <option value="entrada">Entradas</option>
+          <option value="salida">Salidas</option>
+          <option value="transferencia">Transferencias</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0 16px">
+      <div id="movimientos-list">
+        <div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Cargando movimientos…</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal movimiento -->
+<div id="modal-mov" class="modal-backdrop" style="display:none" onclick="if(event.target===this)cerrarModal()">
+  <div class="modal" style="max-width:500px;width:100%">
+    <div class="modal-header">
+      <h3 class="modal-title">Registrar movimiento</h3>
+      <button class="modal-close" onclick="cerrarModal()">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label class="form-label">Tipo *</label>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <button class="tipo-btn active" data-tipo="entrada" onclick="selTipo('entrada')"
+            style="padding:8px;border-radius:8px;border:2px solid #22c55e;background:rgba(34,197,94,.1);
+                   color:#22c55e;font-weight:600;cursor:pointer;font-size:0.8rem">Entrada</button>
+          <button class="tipo-btn" data-tipo="salida" onclick="selTipo('salida')"
+            style="padding:8px;border-radius:8px;border:2px solid var(--color-border);background:transparent;
+                   color:var(--color-text-muted);font-weight:600;cursor:pointer;font-size:0.8rem">Salida</button>
+          <button class="tipo-btn" data-tipo="transferencia" onclick="selTipo('transferencia')"
+            style="padding:8px;border-radius:8px;border:2px solid var(--color-border);background:transparent;
+                   color:var(--color-text-muted);font-weight:600;cursor:pointer;font-size:0.8rem">Transferencia</button>
+        </div>
+        <input type="hidden" id="mov-tipo" value="entrada">
+      </div>
+      <div>
+        <label class="form-label">Cuenta *</label>
+        <select id="mov-cuenta" class="form-input"></select>
+      </div>
+      <div id="mov-destino-row" style="display:none">
+        <label class="form-label">Cuenta destino *</label>
+        <select id="mov-cuenta-destino" class="form-input"></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label class="form-label">Monto *</label>
+          <input id="mov-monto" class="form-input" type="number" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div>
+          <label class="form-label">Fecha</label>
+          <input id="mov-fecha" class="form-input" type="datetime-local">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Concepto *</label>
+        <input id="mov-concepto" class="form-input" type="text" placeholder="Descripción del movimiento">
+      </div>
+      <div>
+        <label class="form-label">Referencia</label>
+        <input id="mov-ref" class="form-input" type="text" placeholder="Nro. factura, pedido, etc.">
+      </div>
+      <div>
+        <label class="form-label">Notas</label>
+        <textarea id="mov-notas" class="form-input" rows="2" placeholder="Detalles adicionales"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarMovimiento()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let _cuentas = [];
+let _movs = [];
+let _cuentaSeleccionada = null;
+
+async function cargar() {
+  _cuentas = await apiGet('/cuentas/api/cuentas');
+  renderCuentas();
+  await cargarMovimientos();
+}
+
+function renderCuentas() {
+  const grid = document.getElementById('cuentas-grid');
+  const total = _cuentas.reduce((s, c) => s + c.saldo, 0);
+  document.getElementById('saldo-total').textContent = '$' + total.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  const tipoIcon = { efectivo: '💵', banco: '🏦', mercadopago: '💙', otro: '💳' };
+  grid.innerHTML = _cuentas.map(c => `
+    <div class="cuenta-card ${_cuentaSeleccionada === c.id ? 'active' : ''}"
+         style="--cuenta-color:${c.color}" onclick="selCuenta(${c.id})">
+      <div class="cuenta-nombre">${tipoIcon[c.tipo] || '💳'} ${c.nombre}</div>
+      <div class="cuenta-saldo" style="color:${c.color}">$${c.saldo.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+    </div>`).join('');
+}
+
+async function cargarMovimientos(cuentaId) {
+  const url = cuentaId ? `/cuentas/api/movimientos?cuenta_id=${cuentaId}` : '/cuentas/api/movimientos';
+  _movs = await apiGet(url);
+  renderMovs(_movs);
+}
+
+function renderMovs(movs) {
+  const list = document.getElementById('movimientos-list');
+  if (!movs.length) {
+    list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Sin movimientos</div>';
+    return;
+  }
+  const tipoColor = { entrada: 'mov-tipo-entrada', salida: 'mov-tipo-salida', transferencia: 'mov-tipo-transfer' };
+  const tipoLabel = { entrada: '▲ Entrada', salida: '▼ Salida', transferencia: '⇄ Transfer.' };
+  const tipoSign  = { entrada: '+', salida: '-', transferencia: '⇄' };
+  list.innerHTML = movs.map(m => `
+    <div class="mov-row">
+      <div style="color:var(--color-text-muted)">${m.fecha}</div>
+      <div>
+        <div style="font-weight:500;color:var(--color-text)">${m.concepto}</div>
+        <div style="font-size:0.72rem;color:var(--color-text-muted)">${m.cuenta}${m.cuenta_destino ? ' → '+m.cuenta_destino : ''}${m.referencia ? ' · '+m.referencia : ''}</div>
+      </div>
+      <div class="${tipoColor[m.tipo]} mov-monto">${tipoSign[m.tipo]}$${m.monto.toLocaleString('es-AR',{minimumFractionDigits:2})}</div>
+      <button onclick="eliminarMov(${m.id})" style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);padding:4px;border-radius:4px;opacity:.5;font-size:0.75rem" title="Eliminar">✕</button>
+    </div>`).join('');
+}
+
+function filtrarMovs() {
+  const txt  = document.getElementById('mov-buscar').value.toLowerCase();
+  const tipo = document.getElementById('mov-tipo-filter').value;
+  renderMovs(_movs.filter(m =>
+    (!txt  || m.concepto.toLowerCase().includes(txt) || m.cuenta.toLowerCase().includes(txt)) &&
+    (!tipo || m.tipo === tipo)
+  ));
+}
+
+function selCuenta(id) {
+  _cuentaSeleccionada = _cuentaSeleccionada === id ? null : id;
+  document.getElementById('mov-titulo').textContent = _cuentaSeleccionada
+    ? 'Movimientos: ' + (_cuentas.find(c => c.id === id)?.nombre || '')
+    : 'Todos los movimientos';
+  renderCuentas();
+  cargarMovimientos(_cuentaSeleccionada);
+}
+
+// ── Modal movimiento ────────────────────────────────────────────────────────
+function abrirModalMovimiento() {
+  const sel  = id => document.getElementById(id);
+  const opts = _cuentas.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  sel('mov-cuenta').innerHTML = opts;
+  sel('mov-cuenta-destino').innerHTML = opts;
+  sel('mov-monto').value = '';
+  sel('mov-concepto').value = '';
+  sel('mov-ref').value = '';
+  sel('mov-notas').value = '';
+  sel('mov-fecha').value = new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+  selTipo('entrada');
+  document.getElementById('modal-mov').style.display = 'flex';
+}
+
+function cerrarModal() { document.getElementById('modal-mov').style.display = 'none'; }
+
+function selTipo(tipo) {
+  document.getElementById('mov-tipo').value = tipo;
+  document.querySelectorAll('.tipo-btn').forEach(b => {
+    const active = b.dataset.tipo === tipo;
+    const colors = { entrada: '#22c55e', salida: '#ef4444', transferencia: '#3b82f6' };
+    b.style.borderColor = active ? colors[b.dataset.tipo] : 'var(--color-border)';
+    b.style.background  = active ? `rgba(${b.dataset.tipo==='entrada'?'34,197,94':b.dataset.tipo==='salida'?'239,68,68':'59,130,246'},.1)` : 'transparent';
+    b.style.color       = active ? colors[b.dataset.tipo] : 'var(--color-text-muted)';
+  });
+  document.getElementById('mov-destino-row').style.display = tipo === 'transferencia' ? '' : 'none';
+}
+
+async function guardarMovimiento() {
+  const val = id => document.getElementById(id).value;
+  const tipo    = val('mov-tipo');
+  const monto   = parseFloat(val('mov-monto'));
+  const concepto = val('mov-concepto').trim();
+  if (!monto || !concepto) return toast('Completá monto y concepto', 'error');
+  const body = {
+    cuenta_id:       parseInt(val('mov-cuenta')),
+    cuenta_destino_id: tipo === 'transferencia' ? parseInt(val('mov-cuenta-destino')) : null,
+    tipo, monto, concepto,
+    referencia: val('mov-ref') || null,
+    notas:      val('mov-notas') || null,
+    fecha:      val('mov-fecha'),
+  };
+  try {
+    await apiPost('/cuentas/api/movimientos', body);
+    toast('Movimiento registrado', 'success');
+    cerrarModal();
+    await cargar();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function eliminarMov(id) {
+  if (!confirm('¿Eliminar este movimiento?')) return;
+  try {
+    await apiDelete(`/cuentas/api/movimientos/${id}`);
+    toast('Eliminado', 'info');
+    await cargar();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function nuevaCuenta() {
+  const nombre = prompt('Nombre de la cuenta:');
+  if (!nombre) return;
+  const tipo = prompt('Tipo (efectivo/banco/mercadopago/otro):', 'efectivo') || 'efectivo';
+  const saldo = parseFloat(prompt('Saldo inicial:', '0') || 0);
+  try {
+    await apiPost('/cuentas/api/cuentas', { nombre, tipo, saldo_inicial: saldo });
+    toast('Cuenta creada', 'success');
+    await cargar();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+cargar();
+</script>
+{% endblock %}

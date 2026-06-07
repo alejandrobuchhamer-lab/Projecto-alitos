@@ -96,9 +96,27 @@ async function apiPost(url, data) {
   return r.json();
 }
 
-async function apiDelete(url) {
-  const r = await fetch(url, { method: 'DELETE' });
+async function apiDelete(url, data) {
+  const opts = { method: 'DELETE' };
+  if (data) { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(data); }
+  const r = await fetch(url, opts);
   if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function apiPut(url, data) {
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ detail: 'Error desconocido' }));
+    const detail = Array.isArray(err.detail)
+      ? err.detail.map(d => d.msg || JSON.stringify(d)).join(', ')
+      : (err.detail || JSON.stringify(err));
+    throw new Error(detail);
+  }
   return r.json();
 }
 

@@ -35,9 +35,11 @@ def init_db():
     )
     from app.models.venta import PedidoReserva  # noqa: F401
     from app.models.produccion import ProduccionTacho  # noqa: F401
+    from app.models import negocio, vendedor, cuenta, push_subscription  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _run_migrations()
     _seed_admin()
+    _seed_cuentas()
 
 
 def _run_migrations():
@@ -98,6 +100,9 @@ def _run_migrations():
         "ALTER TABLE registros_tapas ADD COLUMN notas TEXT",
         "ALTER TABLE registros_tapas ADD COLUMN created_at DATETIME",
         "ALTER TABLE usuarios ADD COLUMN permisos TEXT",
+        # Nuevas tablas (create_all las crea, solo columnas adicionales aquí)
+        "ALTER TABLE movimientos_cuenta ADD COLUMN notas TEXT",
+        "ALTER TABLE entregas_negocio ADD COLUMN stock_vendedor_id INTEGER",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -116,6 +121,23 @@ def _seed_admin():
             u = Usuario(username="admin", nombre="Administrador", rol="admin")
             u.set_password("alitos2025")
             db.add(u)
+            db.commit()
+    finally:
+        db.close()
+
+
+def _seed_cuentas():
+    """Crea las cuentas por defecto si no existen."""
+    from app.models.cuenta import Cuenta
+    db = SessionLocal()
+    try:
+        if db.query(Cuenta).count() == 0:
+            defaults = [
+                Cuenta(nombre="Efectivo", tipo="efectivo", saldo_inicial=0, color="#22c55e"),
+                Cuenta(nombre="Banco",    tipo="banco",    saldo_inicial=0, color="#3b82f6"),
+                Cuenta(nombre="MercadoPago", tipo="mercadopago", saldo_inicial=0, color="#8b5cf6"),
+            ]
+            db.add_all(defaults)
             db.commit()
     finally:
         db.close()

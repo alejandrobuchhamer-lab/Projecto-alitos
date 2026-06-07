@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+{% block title %}Vendedores{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+#mapa { height: 420px; border-radius: 10px; border: 1px solid var(--color-border); }
+.entrega-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; padding:14px 16px; display:flex; flex-direction:column; gap:6px; }
+.entrega-card.vencida { border-color:#ef4444; }
+.entrega-card.cobrada { opacity:.55; }
+.tab-vendedores { display:flex; gap:4px; border-bottom:1px solid var(--color-border); margin-bottom:16px; }
+.tab-v { padding:8px 16px; font-size:0.83rem; font-weight:500; border:none; background:none; color:var(--color-text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.tab-v.active { color:#c47820; border-bottom-color:#c47820; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex-direction:column;gap:20px">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div>
+      <h1 style="font-size:1.4rem;font-weight:800;color:var(--color-text);margin:0">Vendedores & Repartos</h1>
+      <p style="font-size:0.82rem;color:var(--color-text-muted);margin:4px 0 0">Seguí el stock en la calle y las entregas en negocios</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" onclick="openTabVend('mapa')">Ver mapa</button>
+      {% if request.state.user.rol == 'admin' %}
+      <button class="btn btn-primary" onclick="abrirAsignarStock()">Asignar stock</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-vendedores">
+    <button class="tab-v active" id="tab-btn-entregas" onclick="openTabVend('entregas')">Entregas activas</button>
+    <button class="tab-v" id="tab-btn-mapa" onclick="openTabVend('mapa')">Mapa en vivo</button>
+    <button class="tab-v" id="tab-btn-stock" onclick="openTabVend('stock')">Stock asignado</button>
+    <button class="tab-v" id="tab-btn-negocios" onclick="openTabVend('negocios')">Negocios</button>
+  </div>
+
+  <!-- Tab entregas activas -->
+  <div id="tab-entregas">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="registrarEntrega()">+ Nueva entrega</button>
+      <select id="filtro-vendedor" class="form-input" style="width:180px;height:34px;font-size:0.8rem" onchange="cargarEntregas()">
+        <option value="">Todos los vendedores</option>
+      </select>
+    </div>
+    <div id="entregas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+      <div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Cargando…</div>
+    </div>
+  </div>
+
+  <!-- Tab mapa -->
+  <div id="tab-mapa" style="display:none">
+    <div id="mapa"></div>
+    <div id="mapa-leyenda" style="display:flex;gap:12px;margin-top:10px;font-size:0.78rem;color:var(--color-text-muted);flex-wrap:wrap">
+      <span>🟠 Pendiente de cobro</span>
+      <span>🟡 Próximo a vencer (≤7 días)</span>
+      <span>🔴 Vencido</span>
+      <span>🟢 Cobrado</span>
+    </div>
+  </div>
+
+  <!-- Tab stock asignado -->
+  <div id="tab-stock" style="display:none">
+    <div id="stock-list">
+      <div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Cargando…</div>
+    </div>
+  </div>
+
+  <!-- Tab negocios -->
+  <div id="tab-negocios" style="display:none">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn btn-secondary" onclick="abrirNuevoNegocio()">+ Agregar negocio</button>
+    </div>
+    <div id="negocios-list">
+      <div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Cargando…</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal asignar stock -->
+<div id="modal-stock" class="modal-backdrop" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:460px;width:100%">
+    <div class="modal-header">
+      <h3 class="modal-title">Asignar stock a vendedor</h3>
+      <button class="modal-close" onclick="document.getElementById('modal-stock').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label class="form-label">Vendedor *</label>
+        <select id="as-vendedor" class="form-input"></select>
+      </div>
+      <div>
+        <label class="form-label">Producto *</label>
+        <select id="as-producto" class="form-input"></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label class="form-label">Cantidad *</label>
+          <input id="as-cantidad" class="form-input" type="number" min="1" placeholder="0">
+        </div>
+        <div>
+          <label class="form-label">Precio unitario</label>
+          <input id="as-precio" class="form-input" type="number" min="0" placeholder="$0">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Notas</label>
+        <textarea id="as-notas" class="form-input" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-stock').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarAsignarStock()">Asignar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nueva entrega -->
+<div id="modal-entrega" class="modal-backdrop" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:480px;width:100%">
+    <div class="modal-header">
+      <h3 class="modal-title">Registrar entrega</h3>
+      <button class="modal-close" onclick="document.getElementById('modal-entrega').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label class="form-label">Negocio *</label>
+        <select id="ent-negocio" class="form-input"></select>
+      </div>
+      <div>
+        <label class="form-label">Stock a entregar *</label>
+        <select id="ent-stock" class="form-input" onchange="autoFillPrecio()"></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label class="form-label">Cantidad *</label>
+          <input id="ent-cantidad" class="form-input" type="number" min="1" placeholder="0">
+        </div>
+        <div>
+          <label class="form-label">Precio unitario</label>
+          <input id="ent-precio" class="form-input" type="number" min="0" placeholder="$0">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Días de consignación</label>
+        <input id="ent-dias" class="form-input" type="number" min="1" value="7">
+      </div>
+      <div>
+        <label class="form-label">Notas</label>
+        <textarea id="ent-notas" class="form-input" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-entrega').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarEntrega()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal cobrar -->
+<div id="modal-cobrar" class="modal-backdrop" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:380px;width:100%">
+    <div class="modal-header">
+      <h3 class="modal-title">Registrar cobro</h3>
+      <button class="modal-close" onclick="document.getElementById('modal-cobrar').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="cobr-id">
+      <div>
+        <label class="form-label">Cantidad cobrada *</label>
+        <input id="cobr-cantidad" class="form-input" type="number" min="0">
+      </div>
+      <div>
+        <label class="form-label">Monto cobrado ($) *</label>
+        <input id="cobr-monto" class="form-input" type="number" min="0">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-cobrar').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarCobro()">Confirmar cobro</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLcE=" crossorigin=""></script>
+<script>
+let _entregas = [], _stocks = [], _negocios = [], _vendedores = [], _mapa = null;
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+function openTabVend(tab) {
+  ['entregas','mapa','stock','negocios'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
+    document.getElementById('tab-btn-' + t)?.classList.toggle('active', t === tab);
+  });
+  if (tab === 'mapa') initMapa();
+  if (tab === 'stock') cargarStock();
+  if (tab === 'negocios') cargarNegocios();
+}
+
+// ── Cargar datos ────────────────────────────────────────────────────────────
+async function cargarVendedores() {
+  try {
+    _vendedores = await apiGet('/vendedores/api/vendedores');
+    const sel = document.getElementById('filtro-vendedor');
+    const asV = document.getElementById('as-vendedor');
+    _vendedores.forEach(v => {
+      [sel, asV].forEach(s => {
+        const o = document.createElement('option');
+        o.value = v.id; o.textContent = v.nombre;
+        s.appendChild(o);
+      });
+    });
+  } catch(_) {}
+}
+
+async function cargarEntregas() {
+  const vid = document.getElementById('filtro-vendedor').value;
+  const url = '/vendedores/api/entregas?activas=true' + (vid ? '&vendedor_id=' + vid : '');
+  _entregas = await apiGet(url);
+  renderEntregas();
+}
+
+function renderEntregas() {
+  const grid = document.getElementById('entregas-grid');
+  if (!_entregas.length) {
+    grid.innerHTML = '<div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Sin entregas activas</div>';
+    return;
+  }
+  grid.innerHTML = _entregas.map(e => {
+    const alerta = e.alerta_vencimiento;
+    return `
+    <div class="entrega-card ${alerta ? 'vencida' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="font-weight:600;color:var(--color-text)">${e.negocio}</div>
+        ${alerta ? '<span style="font-size:0.7rem;color:#ef4444;font-weight:700">⚠ ${e.dias_restantes}d</span>' : ''}
+      </div>
+      <div style="font-size:0.78rem;color:var(--color-text-muted)">${e.vendedor} · ${e.producto}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:0.8rem;color:var(--color-text)">
+          <b>${e.cantidad}</b> uds
+          ${e.precio_unitario ? `· $${(e.cantidad * e.precio_unitario).toLocaleString('es-AR')}` : ''}
+        </div>
+        <div style="font-size:0.72rem;color:var(--color-text-muted)">Vence: ${e.vencimiento || '—'}</div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <button class="btn btn-primary btn-sm" onclick="abrirCobrar(${e.id}, ${e.cantidad}, ${e.precio_unitario || 0})">Cobrar</button>
+        <button class="btn btn-secondary btn-sm" onclick="retirarEntrega(${e.id})">Retirar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Mapa ────────────────────────────────────────────────────────────────────
+async function initMapa() {
+  if (_mapa) { _mapa.invalidateSize(); return; }
+  // Default coords: Argentina
+  _mapa = L.map('mapa').setView([-34.6, -58.4], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19,
+  }).addTo(_mapa);
+  await actualizarMapa();
+}
+
+async function actualizarMapa() {
+  if (!_mapa) return;
+  const datos = await apiGet('/vendedores/api/entregas?activas=true');
+  datos.forEach(e => {
+    if (!e.lat || !e.lng) return;
+    const hoy = new Date();
+    let color = '#f97316';
+    if (e.alerta_vencimiento) color = '#f59e0b';
+    if (e.dias_restantes !== null && e.dias_restantes < 0) color = '#ef4444';
+    if (e.cobrado) color = '#22c55e';
+    const icon = L.divIcon({
+      html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>`,
+      className: '', iconSize: [14,14], iconAnchor: [7,7],
+    });
+    const marker = L.marker([e.lat, e.lng], { icon }).addTo(_mapa);
+    marker.bindPopup(`
+      <b>${e.negocio}</b><br>
+      ${e.producto} · ${e.cantidad} uds<br>
+      Vendedor: ${e.vendedor}<br>
+      ${e.vencimiento ? 'Vence: ' + e.vencimiento : ''}
+      ${e.cobrado ? '<br><b style="color:#22c55e">✓ Cobrado</b>' : ''}
+    `);
+  });
+}
+
+// ── Stock asignado ───────────────────────────────────────────────────────────
+async function cargarStock() {
+  _stocks = await apiGet('/vendedores/api/stock');
+  const list = document.getElementById('stock-list');
+  if (!_stocks.length) {
+    list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Sin stock asignado</div>';
+    return;
+  }
+  list.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:0.83rem">
+      <thead>
+        <tr style="border-bottom:1px solid var(--color-border);color:var(--color-text-muted)">
+          <th style="padding:8px;text-align:left">Vendedor</th>
+          <th style="padding:8px;text-align:left">Producto</th>
+          <th style="padding:8px;text-align:right">Asignado</th>
+          <th style="padding:8px;text-align:right">Disponible</th>
+          <th style="padding:8px;text-align:right">Precio</th>
+          <th style="padding:8px;text-align:left">Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${_stocks.map(s => `
+          <tr style="border-bottom:1px solid var(--color-border)">
+            <td style="padding:8px">${s.vendedor}</td>
+            <td style="padding:8px">${s.producto}</td>
+            <td style="padding:8px;text-align:right">${s.cantidad_asignada}</td>
+            <td style="padding:8px;text-align:right;color:${s.cantidad_disponible < s.cantidad_asignada * 0.2 ? '#ef4444' : 'inherit'}">${s.cantidad_disponible}</td>
+            <td style="padding:8px;text-align:right">${s.precio_unitario ? '$'+s.precio_unitario : '—'}</td>
+            <td style="padding:8px;color:var(--color-text-muted)">${s.fecha_asignacion}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── Negocios ────────────────────────────────────────────────────────────────
+async function cargarNegocios() {
+  _negocios = await apiGet('/vendedores/api/negocios');
+  const list = document.getElementById('negocios-list');
+  if (!_negocios.length) {
+    list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Sin negocios registrados</div>';
+    return;
+  }
+  list.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">
+    ${_negocios.map(n => `
+      <div class="entrega-card">
+        <div style="font-weight:600;color:var(--color-text)">${n.nombre}</div>
+        ${n.direccion ? `<div style="font-size:0.78rem;color:var(--color-text-muted)">📍 ${n.direccion}</div>` : ''}
+        ${n.contacto  ? `<div style="font-size:0.78rem;color:var(--color-text-muted)">👤 ${n.contacto}</div>` : ''}
+        ${n.telefono  ? `<div style="font-size:0.78rem;color:var(--color-text-muted)">📞 ${n.telefono}</div>` : ''}
+      </div>`).join('')}
+  </div>`;
+}
+
+async function abrirNuevoNegocio() {
+  const nombre = prompt('Nombre del negocio:');
+  if (!nombre) return;
+  const direccion = prompt('Dirección (opcional):') || null;
+  const contacto  = prompt('Contacto (opcional):') || null;
+  const telefono  = prompt('Teléfono (opcional):') || null;
+  try {
+    await apiPost('/vendedores/api/negocios', { nombre, direccion, contacto, telefono });
+    toast('Negocio creado', 'success');
+    await cargarNegocios();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Asignar stock ────────────────────────────────────────────────────────────
+async function abrirAsignarStock() {
+  // cargar productos disponibles
+  try {
+    const prods = await apiGet('/productos/api');
+    const sel = document.getElementById('as-producto');
+    sel.innerHTML = prods.map(p => `<option value="${p.id}">${p.nombre} (${p.stock_total || 0} disp.)</option>`).join('');
+  } catch(_) {}
+  document.getElementById('as-cantidad').value = '';
+  document.getElementById('as-precio').value = '';
+  document.getElementById('as-notas').value = '';
+  document.getElementById('modal-stock').style.display = 'flex';
+}
+
+async function confirmarAsignarStock() {
+  const vid = parseInt(document.getElementById('as-vendedor').value);
+  const pid = parseInt(document.getElementById('as-producto').value);
+  const cantidad = parseFloat(document.getElementById('as-cantidad').value);
+  if (!vid || !pid || !cantidad) return toast('Completá todos los campos', 'error');
+  try {
+    await apiPost('/vendedores/api/stock', {
+      vendedor_id: vid, producto_id: pid, cantidad,
+      precio_unitario: parseFloat(document.getElementById('as-precio').value) || null,
+      notas: document.getElementById('as-notas').value || null,
+    });
+    toast('Stock asignado', 'success');
+    document.getElementById('modal-stock').style.display = 'none';
+    await cargarStock();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Registrar entrega ────────────────────────────────────────────────────────
+async function registrarEntrega() {
+  // Cargar negocios y stock disponible del usuario actual
+  const negSel = document.getElementById('ent-negocio');
+  negSel.innerHTML = _negocios.map(n => `<option value="${n.id}">${n.nombre}</option>`).join('');
+  const myStock = await apiGet('/vendedores/api/stock');
+  const stSel = document.getElementById('ent-stock');
+  stSel.innerHTML = myStock.map(s => `<option value="${s.id}" data-pid="${s.producto_id}" data-precio="${s.precio_unitario||0}">${s.producto} (${s.cantidad_disponible} disp.)</option>`).join('');
+  document.getElementById('ent-cantidad').value = '';
+  document.getElementById('ent-dias').value = '7';
+  document.getElementById('ent-notas').value = '';
+  autoFillPrecio();
+  document.getElementById('modal-entrega').style.display = 'flex';
+}
+
+function autoFillPrecio() {
+  const sel = document.getElementById('ent-stock');
+  const opt = sel.options[sel.selectedIndex];
+  if (opt) document.getElementById('ent-precio').value = opt.dataset.precio || '';
+}
+
+async function confirmarEntrega() {
+  const stSel = document.getElementById('ent-stock');
+  const opt = stSel.options[stSel.selectedIndex];
+  const pid = opt ? parseInt(opt.dataset.pid) : null;
+  const svid = parseInt(stSel.value);
+  const nid  = parseInt(document.getElementById('ent-negocio').value);
+  const cant = parseFloat(document.getElementById('ent-cantidad').value);
+  if (!pid || !nid || !cant) return toast('Completá los campos requeridos', 'error');
+  try {
+    await apiPost('/vendedores/api/entregas', {
+      negocio_id: nid, producto_id: pid, stock_vendedor_id: svid,
+      cantidad: cant,
+      precio_unitario: parseFloat(document.getElementById('ent-precio').value) || null,
+      dias_consignacion: parseInt(document.getElementById('ent-dias').value) || 7,
+      notas: document.getElementById('ent-notas').value || null,
+    });
+    toast('Entrega registrada', 'success');
+    document.getElementById('modal-entrega').style.display = 'none';
+    await cargarEntregas();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Cobrar ───────────────────────────────────────────────────────────────────
+function abrirCobrar(id, cantidad, precio) {
+  document.getElementById('cobr-id').value = id;
+  document.getElementById('cobr-cantidad').value = cantidad;
+  document.getElementById('cobr-monto').value = (cantidad * precio).toFixed(2);
+  document.getElementById('modal-cobrar').style.display = 'flex';
+}
+
+async function confirmarCobro() {
+  const id = document.getElementById('cobr-id').value;
+  try {
+    await apiPut(`/vendedores/api/entregas/${id}/cobrar`, {
+      cantidad: parseFloat(document.getElementById('cobr-cantidad').value),
+      monto:    parseFloat(document.getElementById('cobr-monto').value),
+    });
+    toast('Cobro registrado', 'success');
+    document.getElementById('modal-cobrar').style.display = 'none';
+    await cargarEntregas();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function retirarEntrega(id) {
+  const cant = prompt('¿Cuántas unidades retirás?', '0');
+  if (cant === null) return;
+  try {
+    await apiPut(`/vendedores/api/entregas/${id}/retirar`, { cantidad: parseFloat(cant) || 0 });
+    toast('Retiro registrado', 'success');
+    await cargarEntregas();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  await cargarVendedores();
+  await cargarEntregas();
+  _negocios = await apiGet('/vendedores/api/negocios');
+})();
+</script>
+{% endblock %}

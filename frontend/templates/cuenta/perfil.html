@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Mi Cuenta{% endblock %}
+
+{% block content %}
+<div style="max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:20px">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:16px;padding:24px 0 8px">
+    <div style="width:64px;height:64px;border-radius:14px;
+                background:linear-gradient(135deg,#c47820,#a36318);
+                border:2px solid rgba(196,120,32,.4);
+                display:flex;align-items:center;justify-content:center;
+                font-size:1.8rem;font-weight:800;color:#fff;text-transform:uppercase;
+                box-shadow:0 4px 16px rgba(196,120,32,.3)">
+      {{ (request.state.user.nombre or request.state.user.username or 'U')[0] | upper }}
+    </div>
+    <div>
+      <div style="font-size:1.3rem;font-weight:700;color:var(--color-text)">{{ request.state.user.nombre or request.state.user.username }}</div>
+      <div style="font-size:0.82rem;color:var(--color-text-muted);margin-top:2px;text-transform:capitalize">
+        {{ request.state.user.rol }}
+        {% if request.state.user.rol == 'admin' %} &nbsp;·&nbsp; <span style="color:#c47820">Acceso completo</span>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Datos personales -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Datos personales</h3>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label class="form-label">Nombre completo</label>
+        <input id="inp-nombre" class="form-input" type="text" value="{{ request.state.user.nombre or '' }}" placeholder="Tu nombre">
+      </div>
+      <div>
+        <label class="form-label">Usuario</label>
+        <input class="form-input" type="text" value="{{ request.state.user.username }}" disabled style="opacity:.5">
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-primary" onclick="guardarNombre()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cambiar contraseña -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Cambiar contraseña</h3>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label class="form-label">Contraseña actual</label>
+        <input id="inp-actual" class="form-input" type="password" placeholder="••••••••">
+      </div>
+      <div>
+        <label class="form-label">Nueva contraseña</label>
+        <input id="inp-nueva" class="form-input" type="password" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div>
+        <label class="form-label">Confirmar nueva contraseña</label>
+        <input id="inp-confirma" class="form-input" type="password" placeholder="Repetir contraseña">
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-primary" onclick="cambiarPassword()">Cambiar contraseña</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mis permisos -->
+  {% if request.state.user.rol != 'admin' %}
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Mis permisos</h3>
+    </div>
+    <div class="card-body">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        {% for mod_key, mod_label, acciones in modulos_acciones %}
+          {% for acc_key, acc_label in acciones %}
+            {% if request.state.user.puede(mod_key, acc_key) %}
+            <span style="display:inline-flex;align-items:center;gap:5px;
+                         padding:4px 10px;border-radius:20px;font-size:0.74rem;font-weight:500;
+                         background:rgba(196,120,32,.12);color:#c47820;border:1px solid rgba(196,120,32,.25)">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              {{ mod_label }} · {{ acc_label }}
+            </span>
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Notificaciones push -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Notificaciones push</h3>
+      <div id="push-status" style="font-size:0.78rem;color:var(--color-text-muted)">Verificando…</div>
+    </div>
+    <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <p style="font-size:0.83rem;color:var(--color-text-muted);margin:0;max-width:400px">
+        Recibí alertas de stock bajo, nuevas ventas y vencimientos directamente en tu dispositivo aunque la app esté cerrada.
+      </p>
+      <button id="push-btn" class="btn btn-secondary" onclick="togglePush()">Activar</button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function guardarNombre() {
+  const nombre = document.getElementById('inp-nombre').value.trim();
+  if (!nombre) return toast('El nombre no puede estar vacío', 'error');
+  try {
+    await apiPut('/cuenta/api/actualizar', { nombre });
+    toast('Nombre actualizado', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function cambiarPassword() {
+  const actual   = document.getElementById('inp-actual').value;
+  const nueva    = document.getElementById('inp-nueva').value;
+  const confirma = document.getElementById('inp-confirma').value;
+  if (!actual || !nueva || !confirma) return toast('Completá todos los campos', 'error');
+  try {
+    await apiPut('/cuenta/api/cambiar-password', { actual, nueva, confirma });
+    toast('Contraseña cambiada', 'success');
+    ['inp-actual','inp-nueva','inp-confirma'].forEach(id => document.getElementById(id).value = '');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Push notifications ──────────────────────────────────────────────────────
+let _swReg = null;
+
+async function checkPushStatus() {
+  const btn = document.getElementById('push-btn');
+  const status = document.getElementById('push-status');
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    status.textContent = 'No soportado en este dispositivo';
+    btn.disabled = true; return;
+  }
+  try {
+    _swReg = await navigator.serviceWorker.ready;
+    const sub = await _swReg.pushManager.getSubscription();
+    if (sub) {
+      status.textContent = 'Activas';
+      status.style.color = '#22c55e';
+      btn.textContent = 'Desactivar';
+      btn.classList.replace('btn-secondary','btn-danger');
+    } else {
+      status.textContent = 'Inactivas';
+      btn.textContent = 'Activar';
+    }
+  } catch(e) { status.textContent = 'Error: ' + e.message; }
+}
+
+async function togglePush() {
+  if (!_swReg) return;
+  const sub = await _swReg.pushManager.getSubscription();
+  if (sub) {
+    await sub.unsubscribe();
+    await apiDelete('/api/push/unsubscribe', { endpoint: sub.endpoint });
+    toast('Notificaciones desactivadas', 'info');
+  } else {
+    if (Notification.permission === 'denied') return toast('Permiso denegado en el navegador', 'error');
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return toast('Permiso denegado', 'error');
+    const { publicKey } = await apiGet('/api/push/vapid-key');
+    if (!publicKey) return toast('Push no configurado en el servidor', 'info');
+    const newSub = await _swReg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    const json = newSub.toJSON();
+    await apiPost('/api/push/subscribe', { endpoint: json.endpoint, keys: json.keys });
+    toast('Notificaciones activadas', 'success');
+  }
+  await checkPushStatus();
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+checkPushStatus();
+</script>
+{% endblock %}

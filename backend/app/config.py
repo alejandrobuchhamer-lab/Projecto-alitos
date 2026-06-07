@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     moneda_secundaria: str = "USD"
     anthropic_api_key: str = ""
     secret_key: str = "alitos-secret-key-cambia-esto-en-produccion-2025"
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_email: str = "mailto:admin@alitos.com"
 
     class Config:
         env_file = ".env"

@@ -51,6 +51,10 @@ MODULOS_ACCIONES = [
         ("registrar_gasto", "Registrar gastos"),
         ("capital",         "Gestionar inyecciones de capital"),
     ]),
+    ("vendedores", "Vendedores & Repartos", [
+        ("ver",       "Ver entregas y mapa"),
+        ("registrar", "Registrar entregas y cobros"),
+    ]),
     ("alertas", "Alertas", [
         ("ver",        "Ver alertas activas"),
         ("configurar", "Configurar umbrales de alerta"),
@@ -90,9 +94,10 @@ PERMISOS_POR_ROL = {
         "ia":         ["asistente", "analisis_precios"],
     }),
     "vendedor": _build_defaults({
-        "ventas":   ["ver", "crear", "cobrar", "ver_margen"],
-        "pedidos":  ["ver", "crear", "gestionar"],
-        "clientes": ["ver", "crear", "editar"],
+        "ventas":      ["ver", "crear", "cobrar", "ver_margen"],
+        "pedidos":     ["ver", "crear", "gestionar"],
+        "clientes":    ["ver", "crear", "editar"],
+        "vendedores":  ["ver", "registrar"],
     }),
 }
 
