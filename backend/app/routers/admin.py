@@ -1,9 +1,10 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import get_db
-from app.models.usuario import Usuario
+from app.models.usuario import Usuario, MODULOS, PERMISOS_POR_ROL
 from app.routers.auth import require_admin
 from app.templates import templates
 
@@ -31,6 +32,7 @@ def admin_panel(request: Request, db: Session = Depends(get_db), _admin: Usuario
         "request": request,
         "usuarios": usuarios,
         "current_user": _admin,
+        "modulos": MODULOS,
     })
 
 
@@ -97,5 +99,36 @@ def eliminar_usuario(
     if u.id == _admin.id:
         raise HTTPException(400, "No podes eliminar tu propio usuario")
     u.activo = False
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/api/usuarios/{user_id}/permisos")
+def get_permisos(user_id: int, db: Session = Depends(get_db), _admin: Usuario = Depends(require_admin)):
+    u = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "Usuario no encontrado")
+    return {
+        "permisos": u.permisos_completos(),
+        "rol": u.rol,
+        "defaults": {rol: PERMISOS_POR_ROL[rol] for rol in ("produccion", "vendedor")},
+    }
+
+
+@router.put("/api/usuarios/{user_id}/permisos")
+def actualizar_permisos(
+    user_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    _admin: Usuario = Depends(require_admin),
+):
+    u = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "Usuario no encontrado")
+    if u.id == _admin.id:
+        raise HTTPException(400, "No podés modificar tus propios permisos")
+    if u.rol == "admin":
+        raise HTTPException(400, "Los administradores tienen acceso total, no necesitan configuración")
+    u.permisos = json.dumps(data)
     db.commit()
     return {"ok": True}

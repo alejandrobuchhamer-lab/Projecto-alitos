@@ -97,6 +97,7 @@ def _run_migrations():
         "ALTER TABLE registros_tapas ADD COLUMN masa_desperdiciada_g FLOAT",
         "ALTER TABLE registros_tapas ADD COLUMN notas TEXT",
         "ALTER TABLE registros_tapas ADD COLUMN created_at DATETIME",
+        "ALTER TABLE usuarios ADD COLUMN permisos TEXT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

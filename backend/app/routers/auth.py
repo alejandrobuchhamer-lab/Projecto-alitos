@@ -39,20 +39,14 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> Usuario:
     return user
 
 
-def require_produccion(request: Request, db: Session = Depends(get_db)) -> Usuario:
-    """Requiere rol admin o produccion."""
-    user = require_user(request, db)
-    if user.rol not in ("admin", "produccion"):
-        raise _redirect_forbidden()
-    return user
-
-
-def require_vendedor(request: Request, db: Session = Depends(get_db)) -> Usuario:
-    """Requiere rol admin o vendedor."""
-    user = require_user(request, db)
-    if user.rol not in ("admin", "vendedor"):
-        raise _redirect_forbidden()
-    return user
+def permiso(modulo: str, accion: str = "ver"):
+    """Factory de dependencia: verifica que el usuario tenga permiso sobre un módulo."""
+    def _dep(request: Request, db: Session = Depends(get_db)) -> Usuario:
+        user = require_user(request, db)
+        if not user.puede(modulo, accion):
+            raise _redirect_forbidden()
+        return user
+    return _dep
 
 
 def _redirect_login():

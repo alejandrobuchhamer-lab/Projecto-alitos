@@ -10,7 +10,7 @@ from app.schemas.insumo import (
     IngresoMasivoCreate, IngresoMasivoResult,
 )
 from app.templates import templates
-from app.routers.auth import require_produccion
+from app.routers.auth import permiso
 from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/insumos", tags=["insumos"])
@@ -24,7 +24,7 @@ def _auto_numero_lote(db: Session, insumo_id: int) -> str:
 # ─── Páginas HTML ─────────────────────────────────────────────────────────────
 
 @router.get("/", response_class=HTMLResponse)
-def lista_insumos_html(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(require_produccion)):
+def lista_insumos_html(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(permiso("insumos"))):
     insumos = db.query(Insumo).filter(Insumo.activo == True).order_by(Insumo.nombre).all()
     lotes = db.query(LoteInsumo).order_by(LoteInsumo.fecha_ingreso.desc()).limit(200).all()
     ordenes = db.query(OrdenCompra).order_by(OrdenCompra.fecha.desc()).limit(50).all()

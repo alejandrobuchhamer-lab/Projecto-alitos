@@ -9,7 +9,7 @@ from app.models.insumo import Insumo, LoteInsumo
 from app.models.producto import ProductoTerminado, LoteProductoTerminado
 from app.models.ajuste_stock import AjusteStock
 from app.templates import templates
-from app.routers.auth import require_produccion
+from app.routers.auth import permiso
 from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/stock", tags=["stock"])
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/stock", tags=["stock"])
 # ── Página HTML ───────────────────────────────────────────────────────────────
 
 @router.get("/conteo", response_class=HTMLResponse)
-def conteo_html(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(require_produccion)):
+def conteo_html(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(permiso("stock"))):
     return templates.TemplateResponse("stock/conteo.html", {"request": request})
 
 
