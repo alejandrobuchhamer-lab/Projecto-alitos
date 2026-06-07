@@ -149,6 +149,10 @@
 </head>
 
 <body>
+{% set _rol = request.state.user.rol if request.state.user else 'none' %}
+{% set _is_admin = _rol == 'admin' %}
+{% set _is_prod = _rol in ['admin', 'produccion'] %}
+{% set _is_vend = _rol in ['admin', 'vendedor'] %}
 
 <!-- ====== SIDEBAR ====== -->
 <nav class="sidebar collapsed" id="sidebar">
@@ -173,6 +177,7 @@
       <span class="label">Dashboard</span>
     </a>
 
+    {% if _is_prod %}
     <div class="nav-section-label">Operaciones</div>
 
     <a href="/produccion/" class="nav-item" data-tip="Producción">
@@ -213,9 +218,11 @@
       </span>
       <span class="label">Recetas</span>
     </a>
+    {% endif %}
 
     <div class="nav-section-label">Comercial</div>
 
+    {% if _is_prod %}
     <a href="/productos/" class="nav-item" data-tip="Stock Alfajores">
       <span class="icon">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -226,7 +233,9 @@
       </span>
       <span class="label">Stock Alfajores</span>
     </a>
+    {% endif %}
 
+    {% if _is_vend %}
     <a href="/ventas/" class="nav-item" data-tip="Ventas">
       <span class="icon">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -257,7 +266,9 @@
       </span>
       <span class="label">Clientes</span>
     </a>
+    {% endif %}
 
+    {% if _is_admin %}
     <a href="/finanzas/" class="nav-item" data-tip="Finanzas">
       <span class="icon">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -268,7 +279,9 @@
       </span>
       <span class="label">Finanzas</span>
     </a>
+    {% endif %}
 
+    {% if _is_prod %}
     <div class="nav-section-label">Calidad & IA</div>
 
     <a href="/sensorial/" class="nav-item" data-tip="Lab Sensorial">
@@ -311,7 +324,9 @@
       </span>
       <span class="label">Análisis Precios</span>
     </a>
+    {% endif %}
 
+    {% if _is_admin %}
     <div class="nav-section-label">Sistema</div>
 
     <a href="/admin/" class="nav-item" data-tip="Administración">
@@ -336,6 +351,7 @@
       </span>
       <span class="label">API Docs</span>
     </a>
+    {% endif %}
 
   </div>
 
@@ -440,6 +456,7 @@
             <div class="user-dropdown-name">{{ request.state.user.nombre or request.state.user.username }}</div>
             <div class="user-dropdown-role">{{ request.state.user.rol }}</div>
           </div>
+          {% if _is_admin %}
           <a href="/admin/" class="user-dropdown-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7"/>
@@ -447,6 +464,7 @@
             Administración
           </a>
           <hr class="user-dropdown-sep">
+          {% endif %}
           <a href="/auth/logout" class="user-dropdown-item danger">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>

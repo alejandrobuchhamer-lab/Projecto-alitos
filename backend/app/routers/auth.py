@@ -35,13 +35,34 @@ def require_user(request: Request, db: Session = Depends(get_db)) -> Usuario:
 def require_admin(request: Request, db: Session = Depends(get_db)) -> Usuario:
     user = require_user(request, db)
     if not user.es_admin:
-        raise _redirect_login()
+        raise _redirect_forbidden()
+    return user
+
+
+def require_produccion(request: Request, db: Session = Depends(get_db)) -> Usuario:
+    """Requiere rol admin o produccion."""
+    user = require_user(request, db)
+    if user.rol not in ("admin", "produccion"):
+        raise _redirect_forbidden()
+    return user
+
+
+def require_vendedor(request: Request, db: Session = Depends(get_db)) -> Usuario:
+    """Requiere rol admin o vendedor."""
+    user = require_user(request, db)
+    if user.rol not in ("admin", "vendedor"):
+        raise _redirect_forbidden()
     return user
 
 
 def _redirect_login():
     from fastapi import HTTPException
     return HTTPException(status_code=302, headers={"Location": "/auth/login"})
+
+
+def _redirect_forbidden():
+    from fastapi import HTTPException
+    return HTTPException(status_code=302, headers={"Location": "/?acceso=denegado"})
 
 
 def _get_ip(request: Request) -> str:

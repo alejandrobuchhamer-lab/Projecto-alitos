@@ -12,6 +12,8 @@ from app.models.insumo import LoteInsumo
 from app.models.producto import LoteProductoTerminado
 from app.models.capital import InyeccionCapital
 from app.templates import templates
+from app.routers.auth import require_admin
+from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/finanzas", tags=["finanzas"])
 
@@ -19,7 +21,7 @@ router = APIRouter(prefix="/finanzas", tags=["finanzas"])
 # ── HTML page ────────────────────────────────────────────────────────────────
 
 @router.get("/", response_class=HTMLResponse)
-def finanzas_index(request: Request, db: Session = Depends(get_db)):
+def finanzas_index(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(require_admin)):
     return templates.TemplateResponse("finanzas/index.html", {"request": request})
 
 

@@ -15,9 +15,13 @@ from app.templates import templates
 
 
 @router.get("/", response_class=HTMLResponse)
-def dashboard_html(request: Request, db: Session = Depends(get_db)):
+def dashboard_html(request: Request, acceso: str = "", db: Session = Depends(get_db)):
     kpis = get_kpis_dashboard(db)
-    return templates.TemplateResponse("dashboard.html", {"request": request, "kpis": kpis})
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "kpis": kpis,
+        "acceso_denegado": acceso == "denegado",
+    })
 
 
 @router.get("/dashboard/")

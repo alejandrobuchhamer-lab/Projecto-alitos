@@ -8,13 +8,15 @@ from app.models.producto import ProductoTerminado, LoteProductoTerminado
 from app.models.cliente import Cliente
 from app.schemas.venta import VentaCreate, VentaOut, PedidoCreate, PedidoOut
 from app.services.venta_service import crear_venta, cobrar_venta, generar_numero_pedido
+from app.routers.auth import require_vendedor
+from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/ventas", tags=["ventas"])
 from app.templates import templates
 
 
 @router.get("/", response_class=HTMLResponse)
-def lista_ventas_html(request: Request, db: Session = Depends(get_db)):
+def lista_ventas_html(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(require_vendedor)):
     ventas = db.query(Venta).order_by(Venta.fecha_venta.desc()).limit(50).all()
     clientes = db.query(Cliente).filter(Cliente.activo == True).all()
     return templates.TemplateResponse("ventas/lista.html", {
@@ -98,7 +100,7 @@ def analytics_formas_pago(db: Session = Depends(get_db)):
 
 # Pedidos
 @router.get("/pedidos", response_class=HTMLResponse)
-def lista_pedidos_html(request: Request, db: Session = Depends(get_db)):
+def lista_pedidos_html(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(require_vendedor)):
     from datetime import datetime
     pedidos = db.query(Pedido).order_by(Pedido.fecha_pedido.desc()).limit(50).all()
     clientes = db.query(Cliente).filter(Cliente.activo == True).all()

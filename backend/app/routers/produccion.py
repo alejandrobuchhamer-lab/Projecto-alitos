@@ -11,13 +11,15 @@ from app.models.insumo import LoteInsumo, Insumo
 from app.models.producto import LoteProductoTerminado, ProductoTerminado
 from app.schemas.produccion import ProduccionCreate, ProduccionOut, ProduccionFinalizar, ProduccionTapaUpdate
 from app.services.produccion_service import iniciar_produccion, finalizar_produccion, finalizar_armado
+from app.routers.auth import require_produccion
+from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/produccion", tags=["produccion"])
 from app.templates import templates
 
 
 @router.get("/", response_class=HTMLResponse)
-def lista_produccion_html(request: Request, db: Session = Depends(get_db)):
+def lista_produccion_html(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(require_produccion)):
     from sqlalchemy.orm import joinedload
     producciones = (
         db.query(Produccion)

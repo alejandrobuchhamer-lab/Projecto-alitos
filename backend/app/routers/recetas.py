@@ -5,13 +5,15 @@ from app.database import get_db
 from app.models.receta import RecetaVersion, RecetaIngrediente
 from app.models.producto import ProductoTerminado
 from app.schemas.receta import RecetaVersionCreate, RecetaVersionOut, RecetaIngredienteOut
+from app.routers.auth import require_produccion
+from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/recetas", tags=["recetas"])
 from app.templates import templates
 
 
 @router.get("/", response_class=HTMLResponse)
-def lista_recetas_html(request: Request, db: Session = Depends(get_db)):
+def lista_recetas_html(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(require_produccion)):
     recetas = db.query(RecetaVersion).filter(RecetaVersion.activo == True).order_by(RecetaVersion.nombre).all()
     productos = db.query(ProductoTerminado).filter(ProductoTerminado.activo == True).all()
     return templates.TemplateResponse("recetas/lista.html", {"request": request, "recetas": recetas, "productos": productos})

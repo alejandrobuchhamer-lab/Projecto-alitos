@@ -1106,5 +1106,9 @@ function renderProgreso(d) {
       </div>
     </div>`);
 }
+
+{% if acceso_denegado %}
+setTimeout(() => toast('No tenés permiso para acceder a esa sección', 'error'), 300);
+{% endif %}
 </script>
 {% endblock %}
