@@ -62,25 +62,32 @@ def actualizar_negocio(nid: int, data: dict, db: Session = Depends(get_db), _u: 
 # ── API: Stock vendedor ───────────────────────────────────────────────────────
 
 @router.get("/api/stock")
-def listar_stock_vendedores(vendedor_id: int | None = None, db: Session = Depends(get_db)):
+def listar_stock_vendedores(
+    vendedor_id: int | None = None,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(require_user),
+):
     q = db.query(StockVendedor).filter(StockVendedor.activo == True)
-    if vendedor_id:
+    # Vendedores no-admin solo ven su propio stock
+    if user.rol != "admin":
+        q = q.filter(StockVendedor.vendedor_id == user.id)
+    elif vendedor_id:
         q = q.filter(StockVendedor.vendedor_id == vendedor_id)
     stocks = q.all()
     vendedores_map = {u.id: u for u in db.query(Usuario).filter(Usuario.activo == True).all()}
     from app.models.producto import ProductoTerminado
     productos_map = {p.id: p for p in db.query(ProductoTerminado).all()}
     return [{
-        "id":                 s.id,
-        "vendedor_id":        s.vendedor_id,
-        "vendedor":           vendedores_map.get(s.vendedor_id, {}).nombre if s.vendedor_id in vendedores_map else "?",
-        "producto_id":        s.producto_id,
-        "producto":           productos_map.get(s.producto_id, {}).nombre if s.producto_id in productos_map else "?",
-        "cantidad_asignada":  s.cantidad_asignada,
+        "id":                  s.id,
+        "vendedor_id":         s.vendedor_id,
+        "vendedor":            vendedores_map[s.vendedor_id].nombre if s.vendedor_id in vendedores_map else "?",
+        "producto_id":         s.producto_id,
+        "producto":            productos_map[s.producto_id].nombre if s.producto_id in productos_map else "?",
+        "cantidad_asignada":   s.cantidad_asignada,
         "cantidad_disponible": s.cantidad_disponible,
-        "precio_unitario":    s.precio_unitario,
-        "fecha_asignacion":   s.fecha_asignacion.strftime("%d/%m/%Y %H:%M"),
-        "notas":              s.notas,
+        "precio_unitario":     s.precio_unitario,
+        "fecha_asignacion":    s.fecha_asignacion.strftime("%d/%m/%Y %H:%M"),
+        "notas":               s.notas,
     } for s in stocks]
 
 
@@ -245,7 +252,10 @@ def retirar_entrega(eid: int, data: dict, db: Session = Depends(get_db), user: U
 # ── API: Vendedores (lista de usuarios con rol vendedor) ──────────────────────
 
 @router.get("/api/vendedores")
-def listar_vendedores(db: Session = Depends(get_db), _u: Usuario = Depends(require_admin)):
+def listar_vendedores(db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
+    # No-admins solo se ven a sí mismos (para el selector de entrega)
+    if user.rol != "admin":
+        return [{"id": user.id, "nombre": user.nombre, "username": user.username, "rol": user.rol}]
     users = db.query(Usuario).filter(
         Usuario.activo == True,
         Usuario.rol.in_(["vendedor", "admin"])

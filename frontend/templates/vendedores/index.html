@@ -235,17 +235,22 @@ function renderEntregas() {
   }
   grid.innerHTML = _entregas.map(e => {
     const alerta = e.alerta_vencimiento;
+    const alertaBadge = alerta
+      ? `<span style="font-size:0.7rem;color:#ef4444;font-weight:700">⚠ ${e.dias_restantes}d</span>`
+      : '';
+    const totalStr = e.precio_unitario
+      ? `· $${(e.cantidad * e.precio_unitario).toLocaleString('es-AR')}`
+      : '';
     return `
     <div class="entrega-card ${alerta ? 'vencida' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="font-weight:600;color:var(--color-text)">${e.negocio}</div>
-        ${alerta ? '<span style="font-size:0.7rem;color:#ef4444;font-weight:700">⚠ ${e.dias_restantes}d</span>' : ''}
+        ${alertaBadge}
       </div>
       <div style="font-size:0.78rem;color:var(--color-text-muted)">${e.vendedor} · ${e.producto}</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:0.8rem;color:var(--color-text)">
-          <b>${e.cantidad}</b> uds
-          ${e.precio_unitario ? `· $${(e.cantidad * e.precio_unitario).toLocaleString('es-AR')}` : ''}
+          <b>${e.cantidad}</b> uds ${totalStr}
         </div>
         <div style="font-size:0.72rem;color:var(--color-text-muted)">Vence: ${e.vencimiento || '—'}</div>
       </div>
@@ -366,7 +371,7 @@ async function abrirAsignarStock() {
   try {
     const prods = await apiGet('/productos/api');
     const sel = document.getElementById('as-producto');
-    sel.innerHTML = prods.map(p => `<option value="${p.id}">${p.nombre} (${p.stock_total || 0} disp.)</option>`).join('');
+    sel.innerHTML = prods.map(p => `<option value="${p.id}">${p.nombre} (${p.stock_actual || 0} disp.)</option>`).join('');
   } catch(_) {}
   document.getElementById('as-cantidad').value = '';
   document.getElementById('as-precio').value = '';
