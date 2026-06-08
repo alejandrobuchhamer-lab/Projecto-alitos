@@ -2,7 +2,7 @@
 {% block title %}Vendedores{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
 #mapa { height: 420px; border-radius: 10px; border: 1px solid var(--color-border); }
 .entrega-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; padding:14px 16px; display:flex; flex-direction:column; gap:6px; }
@@ -53,8 +53,11 @@
 
   <!-- Tab mapa -->
   <div id="tab-mapa" style="display:none">
-    <div id="mapa"></div>
-    <div id="mapa-leyenda" style="display:flex;gap:12px;margin-top:10px;font-size:0.78rem;color:var(--color-text-muted);flex-wrap:wrap">
+    <div id="mapa-loading" style="display:flex;align-items:center;justify-content:center;height:60px;color:var(--color-text-muted);font-size:0.82rem">
+      Cargando mapa…
+    </div>
+    <div id="mapa" style="display:none"></div>
+    <div id="mapa-leyenda" style="display:none;gap:12px;margin-top:10px;font-size:0.78rem;color:var(--color-text-muted);flex-wrap:wrap">
       <span>🟠 Pendiente de cobro</span>
       <span>🟡 Próximo a vencer (≤7 días)</span>
       <span>🔴 Vencido</span>
@@ -189,7 +192,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLcE=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 let _entregas = [], _stocks = [], _negocios = [], _vendedores = [], _mapa = null;
 
@@ -199,7 +202,8 @@ function openTabVend(tab) {
     document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
     document.getElementById('tab-btn-' + t)?.classList.toggle('active', t === tab);
   });
-  if (tab === 'mapa') initMapa();
+  // Mapa necesita que el div sea visible antes de inicializar (Leaflet mide dimensiones)
+  if (tab === 'mapa') setTimeout(initMapa, 80);
   if (tab === 'stock') cargarStock();
   if (tab === 'negocios') cargarNegocios();
 }
@@ -264,13 +268,32 @@ function renderEntregas() {
 
 // ── Mapa ────────────────────────────────────────────────────────────────────
 async function initMapa() {
-  if (_mapa) { _mapa.invalidateSize(); return; }
-  // Default coords: Argentina
-  _mapa = L.map('mapa').setView([-34.6, -58.4], 11);
+  if (_mapa) {
+    setTimeout(() => _mapa.invalidateSize(), 50);
+    return;
+  }
+  // Verificar que Leaflet cargó
+  if (typeof L === 'undefined') {
+    document.getElementById('mapa-loading').textContent = 'Error: no se pudo cargar Leaflet. Verificá tu conexión.';
+    return;
+  }
+  // Mostrar el div del mapa (oculto hasta ahora)
+  const loading = document.getElementById('mapa-loading');
+  const container = document.getElementById('mapa');
+  container.style.display = '';
+  // Esperar a que el navegador calcule dimensiones
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  if (container.offsetWidth === 0) {
+    setTimeout(initMapa, 150);
+    return;
+  }
+  loading.style.display = 'none';
+  _mapa = L.map('mapa').setView([-34.6, -58.4], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
+    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
     maxZoom: 19,
   }).addTo(_mapa);
+  document.getElementById('mapa-leyenda').style.display = 'flex';
   await actualizarMapa();
 }
 
