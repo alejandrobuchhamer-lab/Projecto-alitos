@@ -164,6 +164,91 @@
   </div>
 </div>
 
+<!-- Modal negocio -->
+<div id="modal-negocio" class="modal-backdrop" style="display:none" onclick="if(event.target===this)cerrarModalNeg()">
+  <div class="modal" style="max-width:580px;width:100%">
+    <div class="modal-header">
+      <h3 class="modal-title" id="neg-modal-titulo">Nuevo negocio</h3>
+      <button class="modal-close" onclick="cerrarModalNeg()">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="neg-id">
+
+      <!-- Foto -->
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="neg-foto-preview" onclick="document.getElementById('neg-foto-input').click()"
+          style="width:72px;height:72px;border-radius:10px;border:2px dashed var(--color-border);
+                 display:flex;align-items:center;justify-content:center;cursor:pointer;
+                 background:var(--color-bg-elevated);flex-shrink:0;overflow:hidden;
+                 font-size:1.6rem;transition:border-color .15s" title="Agregar foto">
+          🏪
+        </div>
+        <div style="flex:1">
+          <div style="font-size:0.8rem;font-weight:500;color:var(--color-text)">Foto del local</div>
+          <div style="font-size:0.74rem;color:var(--color-text-muted);margin-top:2px">Hacé click para subir una imagen</div>
+          <button type="button" onclick="document.getElementById('neg-foto-input').click()"
+            style="margin-top:6px;padding:4px 10px;font-size:0.74rem;border-radius:6px;
+                   border:1px solid var(--color-border);background:var(--color-bg-elevated);
+                   color:var(--color-text-muted);cursor:pointer">
+            📷 Elegir foto
+          </button>
+        </div>
+        <input id="neg-foto-input" type="file" accept="image/*" style="display:none" onchange="onFotoChange(event)">
+      </div>
+
+      <!-- Datos -->
+      <div>
+        <label class="form-label">Nombre *</label>
+        <input id="neg-nombre" class="form-input" type="text" placeholder="Ej: Kiosco Don Pedro">
+      </div>
+
+      <!-- Dirección con geocoding -->
+      <div>
+        <label class="form-label">Dirección</label>
+        <div style="display:flex;gap:6px">
+          <input id="neg-direccion" class="form-input" type="text" placeholder="Ej: Av. Corrientes 1234, Buenos Aires"
+            style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();geocodificar()}">
+          <button type="button" class="btn btn-secondary" onclick="geocodificar()" id="btn-geocode"
+            style="white-space:nowrap;padding:0 12px">🔍 Buscar</button>
+          <button type="button" class="btn btn-secondary" onclick="usarGPS()" title="Usar mi ubicación actual"
+            style="padding:0 10px">📍</button>
+        </div>
+        <div id="neg-geo-status" style="font-size:0.74rem;margin-top:4px;color:var(--color-text-muted)"></div>
+      </div>
+
+      <!-- Mini mapa de ubicación -->
+      <div>
+        <label class="form-label" style="display:flex;justify-content:space-between">
+          <span>Ubicación en mapa</span>
+          <span id="neg-coords-label" style="font-size:0.72rem;color:var(--color-text-muted);font-weight:400"></span>
+        </label>
+        <div id="neg-mapa" style="height:200px;border-radius:8px;border:1px solid var(--color-border);background:var(--color-bg-elevated)"></div>
+        <div style="font-size:0.72rem;color:var(--color-text-muted);margin-top:4px">Podés hacer click en el mapa para ajustar la ubicación</div>
+      </div>
+
+      <!-- Contacto -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label class="form-label">Contacto</label>
+          <input id="neg-contacto" class="form-input" type="text" placeholder="Nombre del dueño">
+        </div>
+        <div>
+          <label class="form-label">Teléfono</label>
+          <input id="neg-telefono" class="form-input" type="tel" placeholder="011-XXXX-XXXX">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Notas</label>
+        <textarea id="neg-notas" class="form-input" rows="2" placeholder="Horarios, referencias, etc."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="cerrarModalNeg()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarNegocio()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal cobrar -->
 <div id="modal-cobrar" class="modal-backdrop" style="display:none" onclick="if(event.target===this)this.style.display='none'">
   <div class="modal" style="max-width:380px;width:100%">
@@ -364,26 +449,241 @@ async function cargarNegocios() {
     list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Sin negocios registrados</div>';
     return;
   }
-  list.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">
-    ${_negocios.map(n => `
-      <div class="entrega-card">
-        <div style="font-weight:600;color:var(--color-text)">${n.nombre}</div>
-        ${n.direccion ? `<div style="font-size:0.78rem;color:var(--color-text-muted)">📍 ${n.direccion}</div>` : ''}
-        ${n.contacto  ? `<div style="font-size:0.78rem;color:var(--color-text-muted)">👤 ${n.contacto}</div>` : ''}
-        ${n.telefono  ? `<div style="font-size:0.78rem;color:var(--color-text-muted)">📞 ${n.telefono}</div>` : ''}
-      </div>`).join('')}
+  list.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+    ${_negocios.map(n => {
+      const fotoHtml = n.foto
+        ? `<div style="width:100%;height:120px;border-radius:8px;margin-bottom:10px;
+                       background:url('${n.foto}') center/cover no-repeat;
+                       border:1px solid var(--color-border)"></div>`
+        : `<div style="width:100%;height:70px;border-radius:8px;margin-bottom:10px;
+                       background:var(--color-bg-elevated);
+                       display:flex;align-items:center;justify-content:center;
+                       font-size:2rem;border:1px solid var(--color-border)">🏪</div>`;
+      return `
+      <div class="entrega-card" style="padding:12px">
+        ${fotoHtml}
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="font-weight:600;color:var(--color-text);font-size:0.9rem">${n.nombre}</div>
+          <button onclick='abrirEditarNegocio(${JSON.stringify(n).replace(/'/g,"&#39;")})'
+            style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:0.75rem;padding:2px 6px;
+                   border-radius:4px;border:1px solid var(--color-border)" title="Editar">✏</button>
+        </div>
+        ${n.direccion ? `<div style="font-size:0.76rem;color:var(--color-text-muted);margin-top:3px">📍 ${n.direccion}</div>` : ''}
+        ${n.contacto  ? `<div style="font-size:0.76rem;color:var(--color-text-muted)">👤 ${n.contacto}${n.telefono ? ' · ' + n.telefono : ''}</div>` : ''}
+        ${n.lat ? `<div style="font-size:0.7rem;color:var(--color-text-muted);opacity:.6;margin-top:2px">📌 ${n.lat.toFixed(4)}, ${n.lng.toFixed(4)}</div>` : '<div style="font-size:0.7rem;color:#f59e0b;margin-top:2px">⚠ Sin ubicación</div>'}
+      </div>`;
+    }).join('')}
   </div>`;
 }
 
-async function abrirNuevoNegocio() {
-  const nombre = prompt('Nombre del negocio:');
-  if (!nombre) return;
-  const direccion = prompt('Dirección (opcional):') || null;
-  const contacto  = prompt('Contacto (opcional):') || null;
-  const telefono  = prompt('Teléfono (opcional):') || null;
+// ── Modal negocio con geocoding ──────────────────────────────────────────────
+let _negMapaModal = null, _negMarker = null;
+let _negLat = null, _negLng = null;
+
+function abrirNuevoNegocio() {
+  document.getElementById('neg-id').value = '';
+  document.getElementById('neg-modal-titulo').textContent = 'Nuevo negocio';
+  document.getElementById('neg-nombre').value = '';
+  document.getElementById('neg-direccion').value = '';
+  document.getElementById('neg-contacto').value = '';
+  document.getElementById('neg-telefono').value = '';
+  document.getElementById('neg-notas').value = '';
+  document.getElementById('neg-geo-status').textContent = '';
+  document.getElementById('neg-coords-label').textContent = '';
+  document.getElementById('neg-foto-preview').innerHTML = '🏪';
+  document.getElementById('neg-foto-preview').style.backgroundImage = '';
+  _negLat = null; _negLng = null;
+  document.getElementById('modal-negocio').style.display = 'flex';
+  setTimeout(initNegMapa, 120);
+}
+
+function abrirEditarNegocio(n) {
+  document.getElementById('neg-id').value = n.id;
+  document.getElementById('neg-modal-titulo').textContent = 'Editar negocio';
+  document.getElementById('neg-nombre').value = n.nombre || '';
+  document.getElementById('neg-direccion').value = n.direccion || '';
+  document.getElementById('neg-contacto').value = n.contacto || '';
+  document.getElementById('neg-telefono').value = n.telefono || '';
+  document.getElementById('neg-notas').value = n.notas || '';
+  _negLat = n.lat; _negLng = n.lng;
+  if (n.lat) document.getElementById('neg-coords-label').textContent = `${n.lat.toFixed(5)}, ${n.lng.toFixed(5)}`;
+  if (n.foto) {
+    const prev = document.getElementById('neg-foto-preview');
+    prev.innerHTML = '';
+    prev.style.backgroundImage = `url(${n.foto})`;
+    prev.style.backgroundSize = 'cover';
+    prev.style.backgroundPosition = 'center';
+  } else {
+    document.getElementById('neg-foto-preview').innerHTML = '🏪';
+    document.getElementById('neg-foto-preview').style.backgroundImage = '';
+  }
+  document.getElementById('modal-negocio').style.display = 'flex';
+  setTimeout(() => initNegMapa(n.lat, n.lng), 120);
+}
+
+function cerrarModalNeg() {
+  document.getElementById('modal-negocio').style.display = 'none';
+}
+
+function initNegMapa(lat, lng) {
+  if (typeof L === 'undefined') return;
+  const container = document.getElementById('neg-mapa');
+  if (!container || container.offsetWidth === 0) { setTimeout(() => initNegMapa(lat, lng), 100); return; }
+  const centerLat = lat || -34.6037;
+  const centerLng = lng || -58.3816;
+  const zoom = lat ? 15 : 12;
+  if (_negMapaModal) {
+    _negMapaModal.invalidateSize();
+    _negMapaModal.setView([centerLat, centerLng], zoom);
+    if (_negMarker) { _negMarker.setLatLng([centerLat, centerLng]); }
+    else if (lat) { _negMarker = L.marker([centerLat, centerLng], {draggable:true}).addTo(_negMapaModal); bindMarker(); }
+    return;
+  }
+  _negMapaModal = L.map('neg-mapa').setView([centerLat, centerLng], zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 19,
+  }).addTo(_negMapaModal);
+  if (lat) {
+    _negMarker = L.marker([lat, lng], {draggable:true}).addTo(_negMapaModal);
+    bindMarker();
+  }
+  // Click en mapa para fijar ubicación
+  _negMapaModal.on('click', e => {
+    _negLat = e.latlng.lat; _negLng = e.latlng.lng;
+    if (_negMarker) _negMarker.setLatLng([_negLat, _negLng]);
+    else { _negMarker = L.marker([_negLat, _negLng], {draggable:true}).addTo(_negMapaModal); bindMarker(); }
+    document.getElementById('neg-coords-label').textContent = `${_negLat.toFixed(5)}, ${_negLng.toFixed(5)}`;
+    document.getElementById('neg-geo-status').textContent = '📍 Ubicación fijada manualmente';
+    document.getElementById('neg-geo-status').style.color = '#22c55e';
+  });
+}
+
+function bindMarker() {
+  _negMarker.on('dragend', e => {
+    _negLat = e.target.getLatLng().lat;
+    _negLng = e.target.getLatLng().lng;
+    document.getElementById('neg-coords-label').textContent = `${_negLat.toFixed(5)}, ${_negLng.toFixed(5)}`;
+  });
+}
+
+async function geocodificar() {
+  const dir = document.getElementById('neg-direccion').value.trim();
+  if (!dir) return;
+  const status = document.getElementById('neg-geo-status');
+  const btn = document.getElementById('btn-geocode');
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  status.textContent = 'Buscando…';
+  status.style.color = 'var(--color-text-muted)';
   try {
-    await apiPost('/vendedores/api/negocios', { nombre, direccion, contacto, telefono });
-    toast('Negocio creado', 'success');
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(dir)}&format=json&limit=1&addressdetails=1`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+    const data = await res.json();
+    if (!data.length) {
+      status.textContent = '❌ No se encontró la dirección. Probá con más detalle (ciudad, país).';
+      status.style.color = '#ef4444';
+      return;
+    }
+    _negLat = parseFloat(data[0].lat);
+    _negLng = parseFloat(data[0].lon);
+    const displayName = data[0].display_name;
+    status.textContent = `✓ ${displayName.split(',').slice(0,3).join(', ')}`;
+    status.style.color = '#22c55e';
+    document.getElementById('neg-coords-label').textContent = `${_negLat.toFixed(5)}, ${_negLng.toFixed(5)}`;
+    // Actualizar mapa
+    if (_negMapaModal) {
+      _negMapaModal.setView([_negLat, _negLng], 16);
+      if (_negMarker) _negMarker.setLatLng([_negLat, _negLng]);
+      else { _negMarker = L.marker([_negLat, _negLng], {draggable:true}).addTo(_negMapaModal); bindMarker(); }
+    }
+  } catch(e) {
+    status.textContent = '❌ Error al buscar. Verificá tu conexión.';
+    status.style.color = '#ef4444';
+  } finally {
+    btn.textContent = '🔍 Buscar'; btn.disabled = false;
+  }
+}
+
+function usarGPS() {
+  const status = document.getElementById('neg-geo-status');
+  if (!navigator.geolocation) { status.textContent = '❌ GPS no disponible en este dispositivo'; return; }
+  status.textContent = '📡 Obteniendo ubicación…';
+  status.style.color = 'var(--color-text-muted)';
+  navigator.geolocation.getCurrentPosition(pos => {
+    _negLat = pos.coords.latitude;
+    _negLng = pos.coords.longitude;
+    status.textContent = `✓ Ubicación obtenida (precisión: ${Math.round(pos.coords.accuracy)}m)`;
+    status.style.color = '#22c55e';
+    document.getElementById('neg-coords-label').textContent = `${_negLat.toFixed(5)}, ${_negLng.toFixed(5)}`;
+    if (_negMapaModal) {
+      _negMapaModal.setView([_negLat, _negLng], 17);
+      if (_negMarker) _negMarker.setLatLng([_negLat, _negLng]);
+      else { _negMarker = L.marker([_negLat, _negLng], {draggable:true}).addTo(_negMapaModal); bindMarker(); }
+    }
+  }, err => {
+    status.textContent = `❌ GPS denegado. ${err.message}`;
+    status.style.color = '#ef4444';
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+function onFotoChange(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast('La foto no puede superar 2 MB', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const preview = document.getElementById('neg-foto-preview');
+    preview.innerHTML = '';
+    preview.style.backgroundImage = `url(${e.target.result})`;
+    preview.style.backgroundSize = 'cover';
+    preview.style.backgroundPosition = 'center';
+    preview._dataUri = e.target.result;
+  };
+  // Comprimir a max 800px antes de guardar
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    const maxW = 800;
+    const scale = img.width > maxW ? maxW / img.width : 1;
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    const dataUri = canvas.toDataURL('image/jpeg', 0.75);
+    const preview = document.getElementById('neg-foto-preview');
+    preview.innerHTML = '';
+    preview.style.backgroundImage = `url(${dataUri})`;
+    preview.style.backgroundSize = 'cover';
+    preview.style.backgroundPosition = 'center';
+    preview._dataUri = dataUri;
+  };
+  const tmpReader = new FileReader();
+  tmpReader.onload = e => { img.src = e.target.result; };
+  tmpReader.readAsDataURL(file);
+}
+
+async function guardarNegocio() {
+  const nombre = document.getElementById('neg-nombre').value.trim();
+  if (!nombre) return toast('El nombre es obligatorio', 'error');
+  const id = document.getElementById('neg-id').value;
+  const foto = document.getElementById('neg-foto-preview')._dataUri || null;
+  const body = {
+    nombre,
+    direccion: document.getElementById('neg-direccion').value.trim() || null,
+    contacto:  document.getElementById('neg-contacto').value.trim() || null,
+    telefono:  document.getElementById('neg-telefono').value.trim() || null,
+    notas:     document.getElementById('neg-notas').value.trim() || null,
+    lat: _negLat, lng: _negLng, foto,
+  };
+  try {
+    if (id) {
+      await apiPut(`/vendedores/api/negocios/${id}`, body);
+      toast('Negocio actualizado', 'success');
+    } else {
+      await apiPost('/vendedores/api/negocios', body);
+      toast('Negocio creado', 'success');
+    }
+    cerrarModalNeg();
+    _negocios = await apiGet('/vendedores/api/negocios');
     await cargarNegocios();
   } catch(e) { toast(e.message, 'error'); }
 }

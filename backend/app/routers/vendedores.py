@@ -27,6 +27,7 @@ def listar_negocios(db: Session = Depends(get_db)):
         "id": n.id, "nombre": n.nombre, "direccion": n.direccion,
         "contacto": n.contacto, "telefono": n.telefono,
         "lat": n.lat, "lng": n.lng, "notas": n.notas,
+        "foto": n.foto,
     } for n in db.query(Negocio).filter(Negocio.activo == True).order_by(Negocio.nombre).all()]
 
 
@@ -40,6 +41,7 @@ def crear_negocio(data: dict, db: Session = Depends(get_db), _u: Usuario = Depen
         lat=data.get("lat"),
         lng=data.get("lng"),
         notas=data.get("notas"),
+        foto=data.get("foto"),
     )
     db.add(n)
     db.commit()
@@ -52,7 +54,7 @@ def actualizar_negocio(nid: int, data: dict, db: Session = Depends(get_db), _u: 
     n = db.query(Negocio).filter(Negocio.id == nid).first()
     if not n:
         raise HTTPException(404, "Negocio no encontrado")
-    for field in ("nombre", "direccion", "contacto", "telefono", "lat", "lng", "notas"):
+    for field in ("nombre", "direccion", "contacto", "telefono", "lat", "lng", "notas", "foto"):
         if field in data:
             setattr(n, field, data[field])
     db.commit()

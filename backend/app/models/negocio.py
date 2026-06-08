@@ -15,5 +15,6 @@ class Negocio(Base):
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
     notas: Mapped[str | None] = mapped_column(Text)
+    foto: Mapped[str | None] = mapped_column(Text)   # base64 data URI
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

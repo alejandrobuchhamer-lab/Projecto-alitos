@@ -103,6 +103,7 @@ def _run_migrations():
         # Nuevas tablas (create_all las crea, solo columnas adicionales aquí)
         "ALTER TABLE movimientos_cuenta ADD COLUMN notas TEXT",
         "ALTER TABLE entregas_negocio ADD COLUMN stock_vendedor_id INTEGER",
+        "ALTER TABLE negocios ADD COLUMN foto TEXT",
     ]
     with engine.connect() as conn:
         for sql in migrations:
