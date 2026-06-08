@@ -31,6 +31,19 @@ def listar_alertas(db: Session = Depends(get_db)):
 def verificar(db: Session = Depends(get_db)):
     alertas = verificar_alertas_stock(db)
     db.commit()
+    if alertas:
+        try:
+            from app.routers.push import enviar_push
+            altas = [a for a in alertas if a.prioridad == "alta"]
+            if altas:
+                nombres = ", ".join(a.mensaje[:40] for a in altas[:3])
+                enviar_push(db, None, {
+                    "title": f"⚠ Stock bajo ({len(altas)} alerta{'s' if len(altas)>1 else ''})",
+                    "body":  nombres,
+                    "url":   "/alertas/",
+                }, a_todos_admins=True)
+        except Exception:
+            pass
     return {"alertas_generadas": len(alertas)}
 
 

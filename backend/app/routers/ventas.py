@@ -44,6 +44,15 @@ def nueva_venta(data: VentaCreate, db: Session = Depends(get_db)):
         )
         db.commit()
         db.refresh(venta)
+        try:
+            from app.routers.push import enviar_push
+            enviar_push(db, None, {
+                "title": "Nueva venta registrada",
+                "body":  f"${venta.total:.0f} · {len(venta.detalles)} producto(s) · {venta.forma_pago}",
+                "url":   "/ventas/",
+            }, a_todos_admins=True)
+        except Exception:
+            pass
         return VentaOut.model_validate(venta)
     except ValueError as e:
         db.rollback()

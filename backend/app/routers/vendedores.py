@@ -19,11 +19,6 @@ def vendedores_index(request: Request, db: Session = Depends(get_db), _u: Usuari
     return templates.TemplateResponse("vendedores/index.html", {"request": request})
 
 
-@router.get("/mapa", response_class=HTMLResponse)
-def mapa_entregas(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(permiso("vendedores"))):
-    return templates.TemplateResponse("vendedores/mapa.html", {"request": request})
-
-
 # ── API: Negocios ─────────────────────────────────────────────────────────────
 
 @router.get("/api/negocios")
