@@ -22,8 +22,9 @@
       <h1 style="font-size:1.4rem;font-weight:800;color:var(--color-text);margin:0">Vendedores & Repartos</h1>
       <p style="font-size:0.82rem;color:var(--color-text-muted);margin:4px 0 0">Seguí el stock en la calle y las entregas en negocios</p>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-secondary" onclick="openTabVend('mapa')">Ver mapa</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="openTabVend('mapa')">Mapa</button>
+      <button class="btn btn-secondary" onclick="openTabVend('negocios');setTimeout(abrirNuevoNegocio,50)">+ Negocio</button>
       {% if request.state.user.rol == 'admin' %}
       <button class="btn btn-primary" onclick="abrirAsignarStock()">Asignar stock</button>
       {% endif %}
@@ -481,6 +482,9 @@ let _negMapaModal = null, _negMarker = null;
 let _negLat = null, _negLng = null;
 
 function abrirNuevoNegocio() {
+  // Abrir modal primero — que no falle nada antes de esto
+  document.getElementById('modal-negocio').style.display = 'flex';
+  // Resetear campos
   document.getElementById('neg-id').value = '';
   document.getElementById('neg-modal-titulo').textContent = 'Nuevo negocio';
   document.getElementById('neg-nombre').value = '';
@@ -490,14 +494,17 @@ function abrirNuevoNegocio() {
   document.getElementById('neg-notas').value = '';
   document.getElementById('neg-geo-status').textContent = '';
   document.getElementById('neg-coords-label').textContent = '';
-  document.getElementById('neg-foto-preview').innerHTML = '🏪';
-  document.getElementById('neg-foto-preview').style.backgroundImage = '';
+  const prev = document.getElementById('neg-foto-preview');
+  prev.innerHTML = '🏪';
+  prev.style.backgroundImage = '';
+  prev._dataUri = null;
   _negLat = null; _negLng = null;
-  document.getElementById('modal-negocio').style.display = 'flex';
-  setTimeout(initNegMapa, 120);
+  // Mapa: intentar después de que el DOM sea visible
+  setTimeout(initNegMapa, 150);
 }
 
 function abrirEditarNegocio(n) {
+  document.getElementById('modal-negocio').style.display = 'flex';
   document.getElementById('neg-id').value = n.id;
   document.getElementById('neg-modal-titulo').textContent = 'Editar negocio';
   document.getElementById('neg-nombre').value = n.nombre || '';
@@ -517,8 +524,7 @@ function abrirEditarNegocio(n) {
     document.getElementById('neg-foto-preview').innerHTML = '🏪';
     document.getElementById('neg-foto-preview').style.backgroundImage = '';
   }
-  document.getElementById('modal-negocio').style.display = 'flex';
-  setTimeout(() => initNegMapa(n.lat, n.lng), 120);
+  setTimeout(() => initNegMapa(n.lat, n.lng), 150);
 }
 
 function cerrarModalNeg() {
