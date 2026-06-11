@@ -32,6 +32,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         token = request.cookies.get("session")
         request.state.user = None
+
         if token:
             user_id = verify_session_token(token)
             if user_id:
@@ -44,6 +45,23 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     ).first()
                 finally:
                     db.close()
+
+        # Bearer token para la app móvil React (Authorization: Bearer <jwt>)
+        if request.state.user is None:
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Bearer "):
+                from app.routers.mobile_auth import verificar_token
+                from app.database import SessionLocal
+                from app.models.usuario import Usuario
+                payload = verificar_token(auth_header.split(" ", 1)[1])
+                if payload:
+                    db = SessionLocal()
+                    try:
+                        request.state.user = db.query(Usuario).filter(
+                            Usuario.id == int(payload["sub"]), Usuario.activo == True
+                        ).first()
+                    finally:
+                        db.close()
 
         if any(path.startswith(p) for p in _PUBLIC) or _API_MARKER in path:
             return await call_next(request)

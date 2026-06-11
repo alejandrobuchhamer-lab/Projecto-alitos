@@ -81,6 +81,23 @@ def get_mobile_user(authorization: str = Header(None)) -> dict:
     return payload
 
 
+@router.get("/usuarios")
+def listar_usuarios_mobile(db: Session = Depends(get_db)):
+    """Lista de usuarios activos para el user picker de la app móvil."""
+    ROL_LABEL = {"admin": "Administrador", "vendedor": "Vendedor", "produccion": "Producción"}
+    ROL_VIEW  = {"admin": "admin", "vendedor": "vendedor", "produccion": "produccion"}
+    users = db.query(Usuario).filter(Usuario.activo == True).order_by(Usuario.nombre).all()
+    return [{
+        "id":        u.id,
+        "username":  u.username,
+        "nombre":    u.nombre,
+        "first":     u.nombre.split()[0],
+        "rol":       u.rol,
+        "roleLabel": ROL_LABEL.get(u.rol, u.rol),
+        "view":      ROL_VIEW.get(u.rol, "vendedor"),
+    } for u in users]
+
+
 @router.get("/me")
 def mobile_me(token: str, db: Session = Depends(get_db)):
     payload = verificar_token(token)
