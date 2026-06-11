@@ -111,6 +111,8 @@ class Usuario(Base):
     nombre: Mapped[str] = mapped_column(String(100), nullable=False)
     rol: Mapped[str] = mapped_column(String(30), default="vendedor")
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    online: Mapped[bool] = mapped_column(Boolean, default=False)
+    ultima_actividad: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     permisos: Mapped[str | None] = mapped_column(String(4000), nullable=True)
 

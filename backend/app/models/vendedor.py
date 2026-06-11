@@ -47,3 +47,23 @@ class EntregaNegocio(Base):
     cantidad_retirada: Mapped[float | None] = mapped_column(Float)
     notas: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class VentaVendedor(Base):
+    """Venta directa callejera de un vendedor (sin consignación a negocio)."""
+    __tablename__ = "ventas_vendedor"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    vendedor_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
+    stock_vendedor_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("stock_vendedores.id"))
+    producto_id: Mapped[int] = mapped_column(Integer, ForeignKey("productos_terminados.id"), nullable=False)
+    cantidad: Mapped[float] = mapped_column(Float, nullable=False)
+    precio_unitario: Mapped[float] = mapped_column(Float, nullable=False)
+    monto_total: Mapped[float] = mapped_column(Float, nullable=False)
+    forma_pago: Mapped[str] = mapped_column(String(30), default="efectivo")  # efectivo|qr|transferencia
+    lugar: Mapped[str | None] = mapped_column(String(200))   # descripción libre del lugar
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+    fecha: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    notas: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

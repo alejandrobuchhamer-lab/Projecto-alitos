@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.usuario import Usuario
-from app.models.vendedor import StockVendedor, EntregaNegocio
+from app.models.vendedor import StockVendedor, EntregaNegocio, VentaVendedor
 from app.models.negocio import Negocio
 from app.routers.auth import permiso, require_user, require_admin
 from app.templates import templates
@@ -251,15 +251,143 @@ def retirar_entrega(eid: int, data: dict, db: Session = Depends(get_db), user: U
     return {"ok": True}
 
 
+# ── API: Venta directa ────────────────────────────────────────────────────────
+
+@router.post("/api/venta-directa", status_code=201)
+def registrar_venta_directa(data: dict, db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
+    """Venta callejera: el vendedor vende y cobra en el momento."""
+    cantidad = float(data["cantidad"])
+    precio   = float(data["precio_unitario"])
+    sv_id    = data.get("stock_vendedor_id")
+
+    # Descontar del stock asignado
+    if sv_id:
+        sv = db.query(StockVendedor).filter(StockVendedor.id == sv_id, StockVendedor.vendedor_id == user.id).first()
+        if sv:
+            sv.cantidad_disponible = max(0, sv.cantidad_disponible - cantidad)
+
+    v = VentaVendedor(
+        vendedor_id=user.id,
+        stock_vendedor_id=sv_id,
+        producto_id=data["producto_id"],
+        cantidad=cantidad,
+        precio_unitario=precio,
+        monto_total=round(cantidad * precio, 2),
+        forma_pago=data.get("forma_pago", "efectivo"),
+        lugar=data.get("lugar"),
+        lat=data.get("lat"),
+        lng=data.get("lng"),
+        notas=data.get("notas"),
+    )
+    db.add(v)
+    db.commit()
+    db.refresh(v)
+
+    # Push a admins
+    try:
+        from app.routers.push import enviar_push
+        enviar_push(db, None, {
+            "title": "Venta directa",
+            "body":  f"{user.nombre} vendió {int(cantidad)} uds · ${v.monto_total:.0f} ({v.forma_pago})",
+            "url":   "/vendedores/",
+        }, a_todos_admins=True)
+    except Exception:
+        pass
+
+    return {"id": v.id, "monto_total": v.monto_total, "ok": True}
+
+
+@router.get("/api/mis-ventas")
+def mis_ventas(db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
+    """Ventas directas del día del vendedor actual."""
+    from sqlalchemy import func
+    hoy = datetime.utcnow().date()
+    ventas = db.query(VentaVendedor).filter(
+        VentaVendedor.vendedor_id == user.id,
+        func.date(VentaVendedor.fecha) == hoy,
+    ).order_by(VentaVendedor.fecha.desc()).all()
+
+    from app.models.producto import ProductoTerminado
+    productos_map = {p.id: p for p in db.query(ProductoTerminado).all()}
+
+    return [{
+        "id":             v.id,
+        "hora":           v.fecha.strftime("%H:%M"),
+        "producto":       productos_map[v.producto_id].nombre if v.producto_id in productos_map else "?",
+        "producto_id":    v.producto_id,
+        "cantidad":       v.cantidad,
+        "precio_unitario": v.precio_unitario,
+        "monto_total":    v.monto_total,
+        "forma_pago":     v.forma_pago,
+        "lugar":          v.lugar,
+    } for v in ventas]
+
+
+@router.get("/api/resumen-vendedor")
+def resumen_vendedor(db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
+    """Resumen del día: ventas, cobros, stock disponible."""
+    from sqlalchemy import func
+    hoy = datetime.utcnow().date()
+
+    ventas_hoy = db.query(VentaVendedor).filter(
+        VentaVendedor.vendedor_id == user.id,
+        func.date(VentaVendedor.fecha) == hoy,
+    ).all()
+
+    cobros_hoy = db.query(EntregaNegocio).filter(
+        EntregaNegocio.vendedor_id == user.id,
+        EntregaNegocio.cobrado == True,
+        func.date(EntregaNegocio.fecha_cobro) == hoy,
+    ).all()
+
+    stock = db.query(StockVendedor).filter(
+        StockVendedor.vendedor_id == user.id,
+        StockVendedor.activo == True,
+    ).all()
+
+    return {
+        "unidades_vendidas": sum(v.cantidad for v in ventas_hoy),
+        "monto_ventas":      sum(v.monto_total for v in ventas_hoy),
+        "monto_cobros":      sum(e.monto_cobrado or 0 for e in cobros_hoy),
+        "stock_disponible":  sum(s.cantidad_disponible for s in stock),
+        "stock_asignado":    sum(s.cantidad_asignada for s in stock),
+    }
+
+
+# ── API: Ping (estado online) ─────────────────────────────────────────────────
+
+@router.post("/api/ping")
+def ping_vendedor(db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
+    """La app llama esto periódicamente para marcar al vendedor como online."""
+    user.online = True
+    user.ultima_actividad = datetime.utcnow()
+    db.commit()
+    return {"ok": True, "nombre": user.nombre}
+
+
 # ── API: Vendedores (lista de usuarios con rol vendedor) ──────────────────────
 
 @router.get("/api/vendedores")
 def listar_vendedores(db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
-    # No-admins solo se ven a sí mismos (para el selector de entrega)
     if user.rol != "admin":
-        return [{"id": user.id, "nombre": user.nombre, "username": user.username, "rol": user.rol}]
+        return [{
+            "id": user.id, "nombre": user.nombre,
+            "username": user.username, "rol": user.rol,
+            "online": user.online,
+            "ultima_actividad": user.ultima_actividad.strftime("%H:%M") if user.ultima_actividad else None,
+        }]
+    # Marcar como offline los que no hacen ping hace más de 10 minutos
+    cutoff = datetime.utcnow() - timedelta(minutes=10)
     users = db.query(Usuario).filter(
         Usuario.activo == True,
         Usuario.rol.in_(["vendedor", "admin"])
     ).order_by(Usuario.nombre).all()
-    return [{"id": u.id, "nombre": u.nombre, "username": u.username, "rol": u.rol} for u in users]
+    result = []
+    for u in users:
+        online = bool(u.online and u.ultima_actividad and u.ultima_actividad > cutoff)
+        result.append({
+            "id": u.id, "nombre": u.nombre, "username": u.username, "rol": u.rol,
+            "online": online,
+            "ultima_actividad": u.ultima_actividad.strftime("%d/%m %H:%M") if u.ultima_actividad else None,
+        })
+    return result

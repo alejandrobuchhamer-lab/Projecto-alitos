@@ -983,6 +983,35 @@ def agregar_registro_tapas(produccion_id: int, data: RegistroTapasBody, db: Sess
     return {"ok": True, "registro_id": reg.id, "tapas_ok": reg.tapas_ok}
 
 
+@router.get("/api/etapas")
+def etapas_activas(db: Session = Depends(get_db)):
+    """Vista simplificada de producciones activas para la app móvil."""
+    from sqlalchemy.orm import joinedload
+    prods = (
+        db.query(Produccion)
+        .options(joinedload(Produccion.receta_version).joinedload(RecetaVersion.producto))
+        .filter(Produccion.estado == "en_proceso")
+        .order_by(Produccion.fecha_inicio.desc())
+        .limit(20)
+        .all()
+    )
+    ETAPA_MAP = {"masa": "Amasado", "tapas": "Tapas", "armado": "Armado"}
+    result = []
+    for p in prods:
+        nombre_producto = p.receta_version.producto.nombre if p.receta_version and p.receta_version.producto else "Producción"
+        result.append({
+            "id":              p.id,
+            "tipo":            p.tipo_produccion,
+            "etapa_label":     ETAPA_MAP.get(p.tipo_produccion, p.tipo_produccion),
+            "producto":        nombre_producto,
+            "cantidad":        float(p.cantidad_producida or 0),
+            "unidad":          "kg" if p.tipo_produccion == "masa" else "und",
+            "fecha_inicio":    p.fecha_inicio.strftime("%d/%m %H:%M") if p.fecha_inicio else None,
+            "operario":        p.operario or "Sin asignar",
+        })
+    return result
+
+
 @router.delete("/api/{produccion_id}/registros-tapas/{registro_id}")
 def eliminar_registro_tapas(produccion_id: int, registro_id: int, db: Session = Depends(get_db)):
     prod = db.query(Produccion).filter(Produccion.id == produccion_id).first()

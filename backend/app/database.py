@@ -36,6 +36,7 @@ def init_db():
     from app.models.venta import PedidoReserva  # noqa: F401
     from app.models.produccion import ProduccionTacho  # noqa: F401
     from app.models import negocio, vendedor, cuenta, push_subscription  # noqa: F401
+    from app.models.vendedor import VentaVendedor  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _run_migrations()
     _seed_admin()
@@ -104,6 +105,8 @@ def _run_migrations():
         "ALTER TABLE movimientos_cuenta ADD COLUMN notas TEXT",
         "ALTER TABLE entregas_negocio ADD COLUMN stock_vendedor_id INTEGER",
         "ALTER TABLE negocios ADD COLUMN foto TEXT",
+        "ALTER TABLE usuarios ADD COLUMN online BOOLEAN DEFAULT 0",
+        "ALTER TABLE usuarios ADD COLUMN ultima_actividad DATETIME",
     ]
     with engine.connect() as conn:
         for sql in migrations:

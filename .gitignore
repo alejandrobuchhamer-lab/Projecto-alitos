@@ -32,3 +32,4 @@ migrate_to_pg.py
 # OS
 .DS_Store
 Thumbs.db
+.gstack/

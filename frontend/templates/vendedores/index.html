@@ -34,6 +34,7 @@
   <!-- Tabs -->
   <div class="tab-vendedores">
     <button class="tab-v active" id="tab-btn-entregas" onclick="openTabVend('entregas')">Entregas activas</button>
+    <button class="tab-v" id="tab-btn-ventas" onclick="openTabVend('ventas')">Ventas directas</button>
     <button class="tab-v" id="tab-btn-mapa" onclick="openTabVend('mapa')">Mapa en vivo</button>
     <button class="tab-v" id="tab-btn-stock" onclick="openTabVend('stock')">Stock asignado</button>
     <button class="tab-v" id="tab-btn-negocios" onclick="openTabVend('negocios')">Negocios</button>
@@ -50,6 +51,15 @@
     <div id="entregas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
       <div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Cargando…</div>
     </div>
+  </div>
+
+  <!-- Tab ventas directas -->
+  <div id="tab-ventas" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:0.82rem;color:var(--color-text-muted)">Ventas del día · <span id="ventas-total" style="color:var(--color-primary);font-weight:600">$0</span></div>
+      <button class="btn btn-primary" style="font-size:0.8rem;padding:6px 14px" onclick="abrirNuevaVentaDirecta()">+ Registrar venta</button>
+    </div>
+    <div id="ventas-list"></div>
   </div>
 
   <!-- Tab mapa -->
@@ -275,6 +285,48 @@
   </div>
 </div>
 
+<!-- Modal venta directa -->
+<div id="modal-venta-directa" class="modal-backdrop" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-header">
+      <h3 class="modal-title">Registrar venta directa</h3>
+      <button class="modal-close" onclick="document.getElementById('modal-venta-directa').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label class="form-label">Stock asignado (producto)</label>
+        <select id="vd-stock" class="form-input"></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Cantidad</label>
+          <input id="vd-cantidad" type="number" min="1" class="form-input" value="1">
+        </div>
+        <div>
+          <label class="form-label">Precio unitario</label>
+          <input id="vd-precio" type="number" min="0" class="form-input" placeholder="$">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Forma de pago</label>
+        <select id="vd-forma-pago" class="form-input">
+          <option value="efectivo">Efectivo</option>
+          <option value="qr">QR / MercadoPago</option>
+          <option value="transferencia">Transferencia</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Lugar (opcional)</label>
+        <input id="vd-lugar" type="text" class="form-input" placeholder="Ej: Feria, esquina Mitre y Paz...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-venta-directa').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarVentaDirecta()">Registrar venta</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -284,7 +336,7 @@ let _entregas = [], _stocks = [], _negocios = [], _vendedores = [], _mapa = null
 
 // ── Tabs ────────────────────────────────────────────────────────────────────
 function openTabVend(tab) {
-  ['entregas','mapa','stock','negocios'].forEach(t => {
+  ['entregas','ventas','mapa','stock','negocios'].forEach(t => {
     document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
     document.getElementById('tab-btn-' + t)?.classList.toggle('active', t === tab);
   });
@@ -292,6 +344,7 @@ function openTabVend(tab) {
   if (tab === 'mapa') setTimeout(initMapa, 80);
   if (tab === 'stock') cargarStock();
   if (tab === 'negocios') cargarNegocios();
+  if (tab === 'ventas') cargarVentasDirectas();
 }
 
 // ── Cargar datos ────────────────────────────────────────────────────────────
@@ -799,11 +852,83 @@ async function retirarEntrega(id) {
   } catch(e) { toast(e.message, 'error'); }
 }
 
+// ── Ventas directas ──────────────────────────────────────────────────────────
+let _misVentas = [];
+
+async function cargarVentasDirectas() {
+  _misVentas = await apiGet('/vendedores/api/mis-ventas');
+  const total = _misVentas.reduce((s, v) => s + v.monto_total, 0);
+  document.getElementById('ventas-total').textContent = '$' + total.toLocaleString('es-AR', {maximumFractionDigits:0});
+  const el = document.getElementById('ventas-list');
+  if (!_misVentas.length) {
+    el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--color-text-muted);font-size:0.82rem">Sin ventas registradas hoy</div>';
+    return;
+  }
+  const PAGO_ICON = { efectivo: '💵', qr: '📱', transferencia: '🏦' };
+  el.innerHTML = _misVentas.map(v => `
+    <div style="background:var(--color-bg-elevated);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600;font-size:0.9rem">${v.producto}</div>
+        <div style="font-size:0.78rem;color:var(--color-text-muted)">${v.hora} · ${v.cantidad} u. · ${PAGO_ICON[v.forma_pago] || ''} ${v.forma_pago}</div>
+        ${v.lugar ? `<div style="font-size:0.73rem;color:var(--color-text-muted)">${v.lugar}</div>` : ''}
+      </div>
+      <div style="font-size:1.05rem;font-weight:700;color:var(--color-primary)">$${v.monto_total.toLocaleString('es-AR',{maximumFractionDigits:0})}</div>
+    </div>`).join('');
+}
+
+function abrirNuevaVentaDirecta() {
+  document.getElementById('modal-venta-directa').style.display = 'flex';
+  // Poblar selector de stock disponible
+  const sel = document.getElementById('vd-stock');
+  sel.innerHTML = '<option value="">Sin stock asignado</option>' +
+    _stocks.map(s => `<option value="${s.id}" data-pid="${s.producto_id}" data-precio="${s.precio_unitario || ''}">${s.producto} (${s.cantidad_disponible} disp.)</option>`).join('');
+  document.getElementById('vd-cantidad').value = 1;
+  document.getElementById('vd-precio').value = '';
+  document.getElementById('vd-forma-pago').value = 'efectivo';
+  document.getElementById('vd-lugar').value = '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('vd-stock')?.addEventListener('change', function() {
+    const opt = this.selectedOptions[0];
+    const precio = opt?.dataset?.precio;
+    if (precio) document.getElementById('vd-precio').value = precio;
+  });
+});
+
+async function guardarVentaDirecta() {
+  const svSel = document.getElementById('vd-stock');
+  const svId = svSel.value || null;
+  const opt = svSel.selectedOptions[0];
+  const productoId = opt?.dataset?.pid ? parseInt(opt.dataset.pid) : null;
+  const cantidad = parseFloat(document.getElementById('vd-cantidad').value) || 0;
+  const precio = parseFloat(document.getElementById('vd-precio').value) || 0;
+  if (!productoId) { toast('Seleccioná un producto o stock', 'error'); return; }
+  if (cantidad <= 0 || precio <= 0) { toast('Cantidad y precio requeridos', 'error'); return; }
+  try {
+    await apiPost('/vendedores/api/venta-directa', {
+      stock_vendedor_id: svId ? parseInt(svId) : null,
+      producto_id: productoId,
+      cantidad, precio_unitario: precio,
+      forma_pago: document.getElementById('vd-forma-pago').value,
+      lugar: document.getElementById('vd-lugar').value || null,
+    });
+    toast('Venta registrada', 'success');
+    document.getElementById('modal-venta-directa').style.display = 'none';
+    await cargarVentasDirectas();
+    await cargarStock();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 (async function init() {
   await cargarVendedores();
   await cargarEntregas();
+  await cargarStock();
   _negocios = await apiGet('/vendedores/api/negocios');
+  // Ping periódico para marcar vendedor online
+  try { await apiPost('/vendedores/api/ping', {}); } catch(_) {}
+  setInterval(async () => { try { await apiPost('/vendedores/api/ping', {}); } catch(_) {} }, 5 * 60 * 1000);
 })();
 </script>
 {% endblock %}
