@@ -49,8 +49,21 @@ class EntregaNegocio(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class StockVendedorLote(Base):
+    """Desglose por lote de producción del stock asignado a un vendedor (para cálculo de costo FEFO)."""
+    __tablename__ = "stock_vendedor_lotes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    stock_vendedor_id: Mapped[int] = mapped_column(Integer, ForeignKey("stock_vendedores.id"), nullable=False, index=True)
+    lote_id: Mapped[int] = mapped_column(Integer, ForeignKey("lotes_producto_terminado.id"), nullable=False)
+    cantidad_asignada: Mapped[float] = mapped_column(Float, nullable=False)
+    cantidad_disponible: Mapped[float] = mapped_column(Float, nullable=False)
+    costo_unitario: Mapped[float] = mapped_column(Float, default=0.0)
+    fecha_asignacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class VentaVendedor(Base):
-    """Venta directa callejera de un vendedor (sin consignación a negocio)."""
+    """Venta directa de un vendedor (callejera, negocio o cliente)."""
     __tablename__ = "ventas_vendedor"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -60,10 +73,26 @@ class VentaVendedor(Base):
     cantidad: Mapped[float] = mapped_column(Float, nullable=False)
     precio_unitario: Mapped[float] = mapped_column(Float, nullable=False)
     monto_total: Mapped[float] = mapped_column(Float, nullable=False)
-    forma_pago: Mapped[str] = mapped_column(String(30), default="efectivo")  # efectivo|qr|transferencia
-    lugar: Mapped[str | None] = mapped_column(String(200))   # descripción libre del lugar
+    forma_pago: Mapped[str] = mapped_column(String(30), default="efectivo")
+    lugar: Mapped[str | None] = mapped_column(String(200))
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
     fecha: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     notas: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Cliente
+    tipo_cliente: Mapped[str] = mapped_column(String(30), default="consumidor_final")
+    cliente_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cliente_nombre: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Pagos multi-método
+    pagos_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estado_pago: Mapped[str] = mapped_column(String(20), default="completo")  # completo|parcial|pendiente
+    monto_pendiente: Mapped[float] = mapped_column(Float, default=0.0)
+    # Precio y descuento
+    monto_original: Mapped[float] = mapped_column(Float, default=0.0)
+    descuento_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    descuento_monto: Mapped[float] = mapped_column(Float, default=0.0)
+    # Costo y rentabilidad (calculado con FEFO desde lotes)
+    costo_unitario_calculado: Mapped[float] = mapped_column(Float, default=0.0)
+    ganancia_bruta: Mapped[float] = mapped_column(Float, default=0.0)
+    ganancia_neta: Mapped[float] = mapped_column(Float, default=0.0)

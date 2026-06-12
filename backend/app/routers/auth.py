@@ -16,6 +16,9 @@ SESSION_MAX_AGE = 60 * 60 * 8  # 8 horas
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> Usuario | None:
+    # AuthMiddleware ya resolvió el usuario (cookie o Bearer token)
+    if getattr(request.state, "user", None) is not None:
+        return request.state.user
     token = request.cookies.get("session")
     if not token:
         return None

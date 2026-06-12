@@ -43,10 +43,21 @@ def listar_cuentas(db: Session = Depends(get_db)):
             MovimientoCuenta.tipo == "transferencia"
         ).scalar() or 0
         saldo = c.saldo_inicial + entradas - salidas - transferencias_out + transferencias_in
+        movimientos = db.query(MovimientoCuenta).filter(
+            MovimientoCuenta.cuenta_id == c.id
+        ).order_by(MovimientoCuenta.fecha.desc()).limit(50).all()
         result.append({
             "id": c.id, "nombre": c.nombre, "tipo": c.tipo,
             "color": c.color, "saldo": round(saldo, 2),
             "saldo_inicial": c.saldo_inicial,
+            "movimientos": [{
+                "id":        m.id,
+                "fecha":     m.fecha.strftime("%d/%m/%Y %H:%M"),
+                "tipo":      m.tipo,
+                "monto":     m.monto,
+                "concepto":  m.concepto,
+                "descripcion": m.referencia or "",
+            } for m in movimientos],
         })
     return result
 

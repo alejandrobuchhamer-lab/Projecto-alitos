@@ -1,10 +1,12 @@
+import json
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
+from app.events import broadcast_event
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.usuario import Usuario
-from app.models.vendedor import StockVendedor, EntregaNegocio, VentaVendedor
+from app.models.vendedor import StockVendedor, EntregaNegocio, VentaVendedor, StockVendedorLote
 from app.models.negocio import Negocio
 from app.routers.auth import permiso, require_user, require_admin
 from app.templates import templates
@@ -17,6 +19,39 @@ router = APIRouter(prefix="/vendedores", tags=["vendedores"])
 @router.get("/", response_class=HTMLResponse)
 def vendedores_index(request: Request, db: Session = Depends(get_db), _u: Usuario = Depends(permiso("vendedores"))):
     return templates.TemplateResponse("vendedores/index.html", {"request": request})
+
+
+@router.get("/ventas", response_class=HTMLResponse)
+def ventas_vendedor_web(
+    request: Request,
+    db: Session = Depends(get_db),
+    _u: Usuario = Depends(permiso("ventas")),
+    vendedor_id: int | None = None,
+    estado_pago: str | None = None,
+    dias: int = 30,
+):
+    from sqlalchemy import func
+    from app.models.producto import ProductoTerminado
+    desde = datetime.utcnow().replace(hour=0, minute=0, second=0) - __import__("datetime").timedelta(days=dias - 1)
+    q = db.query(VentaVendedor).filter(VentaVendedor.fecha >= desde)
+    if vendedor_id:
+        q = q.filter(VentaVendedor.vendedor_id == vendedor_id)
+    if estado_pago:
+        q = q.filter(VentaVendedor.estado_pago == estado_pago)
+    ventas = q.order_by(VentaVendedor.fecha.desc()).limit(500).all()
+    productos_map = {p.id: p for p in db.query(ProductoTerminado).all()}
+    vendedores = db.query(Usuario).filter(
+        Usuario.activo == True, Usuario.rol.in_(["vendedor", "admin"])
+    ).order_by(Usuario.nombre).all()
+    ventas_json = json.dumps([_fmt_venta(v, productos_map) for v in ventas], ensure_ascii=False)
+    return templates.TemplateResponse("vendedores/ventas.html", {
+        "request":    request,
+        "ventas":     ventas,
+        "ventas_json": ventas_json,
+        "vendedores": vendedores,
+        "dias":       dias,
+        "productos_map": productos_map,
+    })
 
 
 # ── API: Negocios ─────────────────────────────────────────────────────────────
@@ -95,30 +130,59 @@ def listar_stock_vendedores(
 
 @router.post("/api/stock", status_code=201)
 def asignar_stock(data: dict, db: Session = Depends(get_db), user: Usuario = Depends(require_admin)):
-    """Solo admin puede asignar stock a vendedores."""
+    """Solo admin puede asignar stock a vendedores. Consume lotes FEFO y registra costo por lote."""
+    from app.models.producto import LoteProductoTerminado, ProductoTerminado
+
     vendedor = db.query(Usuario).filter(Usuario.id == data["vendedor_id"], Usuario.activo == True).first()
     if not vendedor:
         raise HTTPException(404, "Vendedor no encontrado")
+
+    cantidad_total = float(data["cantidad"])
     s = StockVendedor(
         vendedor_id=data["vendedor_id"],
         producto_id=data["producto_id"],
-        cantidad_asignada=float(data["cantidad"]),
-        cantidad_disponible=float(data["cantidad"]),
+        cantidad_asignada=cantidad_total,
+        cantidad_disponible=cantidad_total,
         precio_unitario=data.get("precio_unitario"),
         notas=data.get("notas"),
         asignado_por_id=user.id,
     )
     db.add(s)
+    db.flush()  # obtener s.id antes del commit
+
+    # FEFO: consumir lotes de más antiguo a más nuevo y registrar costo por lote
+    lotes = db.query(LoteProductoTerminado).filter(
+        LoteProductoTerminado.producto_id == data["producto_id"],
+        LoteProductoTerminado.tipo == "alfajor",
+        LoteProductoTerminado.activo == True,
+        LoteProductoTerminado.cantidad_actual > 0,
+    ).order_by(LoteProductoTerminado.fecha_produccion.asc()).all()
+
+    restante = cantidad_total
+    for lote in lotes:
+        if restante <= 0:
+            break
+        tomar = min(restante, lote.cantidad_actual)
+        lote.cantidad_actual -= tomar
+        db.add(StockVendedorLote(
+            stock_vendedor_id=s.id,
+            lote_id=lote.id,
+            cantidad_asignada=tomar,
+            cantidad_disponible=tomar,
+            costo_unitario=lote.costo_unitario_calculado or 0.0,
+        ))
+        restante -= tomar
+
     db.commit()
     db.refresh(s)
-    # Enviar push al vendedor
+    broadcast_event("stock", {"vendedor_id": data["vendedor_id"]})
+
     try:
         from app.routers.push import enviar_push
-        from app.models.producto import ProductoTerminado
         prod = db.query(ProductoTerminado).filter(ProductoTerminado.id == data["producto_id"]).first()
         enviar_push(db, vendedor.id, {
             "title": "Nuevo stock asignado",
-            "body":  f"Se te asignó {int(data['cantidad'])} unidades de {prod.nombre if prod else 'producto'}",
+            "body":  f"Se te asignó {int(cantidad_total)} unidades de {prod.nombre if prod else 'producto'}",
             "url":   "/vendedores/",
         })
     except Exception:
@@ -253,48 +317,195 @@ def retirar_entrega(eid: int, data: dict, db: Session = Depends(get_db), user: U
 
 # ── API: Venta directa ────────────────────────────────────────────────────────
 
+_PAGO_A_CUENTA = {
+    "efectivo":      "efectivo",
+    "transferencia": "banco",
+    "qr":            "mercadopago",
+}
+
+
+def _registrar_en_cuentas(db: Session, pagos: list, concepto: str, referencia: str, user_id: int) -> None:
+    """Crea un MovimientoCuenta de entrada por cada pago cobrado (excluye consignacion)."""
+    from app.models.cuenta import Cuenta, MovimientoCuenta
+    for pago in pagos:
+        metodo = pago.get("metodo", "efectivo")
+        monto  = float(pago.get("monto", 0))
+        if monto <= 0 or metodo == "consignacion":
+            continue
+        tipo_cuenta = _PAGO_A_CUENTA.get(metodo, "efectivo")
+        cuenta = db.query(Cuenta).filter(
+            Cuenta.tipo == tipo_cuenta, Cuenta.activo == True
+        ).first()
+        if not cuenta:
+            cuenta = db.query(Cuenta).filter(Cuenta.activo == True).first()
+        if not cuenta:
+            continue
+        db.add(MovimientoCuenta(
+            cuenta_id=cuenta.id,
+            tipo="entrada",
+            monto=monto,
+            concepto=concepto,
+            referencia=referencia,
+            creado_por_id=user_id,
+        ))
+
+
+def _calcular_costo_fefo(db: Session, sv_id: int, vendedor_id: int, cantidad: float) -> tuple[float, float]:
+    """Consume StockVendedorLote FEFO y retorna (costo_total, costo_unitario)."""
+    if not sv_id:
+        return 0.0, 0.0
+    lotes = db.query(StockVendedorLote).filter(
+        StockVendedorLote.stock_vendedor_id == sv_id,
+        StockVendedorLote.cantidad_disponible > 0,
+    ).order_by(StockVendedorLote.fecha_asignacion.asc()).all()
+
+    costo_total = 0.0
+    restante = cantidad
+    for svl in lotes:
+        if restante <= 0:
+            break
+        tomar = min(restante, svl.cantidad_disponible)
+        costo_total += tomar * svl.costo_unitario
+        svl.cantidad_disponible -= tomar
+        restante -= tomar
+
+    costo_unit = round(costo_total / cantidad, 4) if cantidad > 0 else 0.0
+    return round(costo_total, 4), costo_unit
+
+
+def _fmt_venta(v: VentaVendedor, productos_map: dict) -> dict:
+    pagos = []
+    try:
+        pagos = json.loads(v.pagos_json) if v.pagos_json else []
+    except Exception:
+        pass
+    return {
+        "id":               v.id,
+        "hora":             v.fecha.strftime("%H:%M"),
+        "fecha":            v.fecha.strftime("%d/%m %H:%M"),
+        "producto":         productos_map[v.producto_id].nombre if v.producto_id in productos_map else "?",
+        "producto_id":      v.producto_id,
+        "cantidad":         v.cantidad,
+        "precio_unitario":  v.precio_unitario,
+        "monto_original":   v.monto_original or v.monto_total,
+        "descuento_pct":    v.descuento_pct or 0,
+        "descuento_monto":  v.descuento_monto or 0,
+        "monto_total":      v.monto_total,
+        "forma_pago":       v.forma_pago,
+        "pagos":            pagos,
+        "estado_pago":      v.estado_pago or "completo",
+        "monto_pendiente":  v.monto_pendiente or 0,
+        "lugar":            v.lugar,
+        "tipo_cliente":     v.tipo_cliente or "consumidor_final",
+        "cliente_id":       v.cliente_id,
+        "cliente_nombre":   v.cliente_nombre or "",
+        "costo_unitario":   v.costo_unitario_calculado or 0,
+        "costo_total":      round((v.costo_unitario_calculado or 0) * v.cantidad, 2),
+        "ganancia_bruta":   v.ganancia_bruta or 0,
+        "ganancia_neta":    v.ganancia_neta or 0,
+    }
+
+
 @router.post("/api/venta-directa", status_code=201)
 def registrar_venta_directa(data: dict, db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
-    """Venta callejera: el vendedor vende y cobra en el momento."""
+    """Venta del vendedor: descuenta stock FEFO, calcula costo y rentabilidad real."""
     cantidad = float(data["cantidad"])
-    precio   = float(data["precio_unitario"])
-    sv_id    = data.get("stock_vendedor_id")
+    precio_unitario = float(data["precio_unitario"])
+    sv_id = data.get("stock_vendedor_id")
+    monto_original = round(cantidad * precio_unitario, 2)
 
-    # Descontar del stock asignado
+    # Descuento
+    descuento_pct = float(data.get("descuento_pct", 0))
+    descuento_monto = float(data.get("descuento_monto", 0))
+    if descuento_pct > 0 and descuento_monto == 0:
+        descuento_monto = round(monto_original * descuento_pct / 100, 2)
+    elif descuento_monto > 0 and descuento_pct == 0 and monto_original > 0:
+        descuento_pct = round(descuento_monto / monto_original * 100, 2)
+    monto_total = round(monto_original - descuento_monto, 2)
+
+    # Pagos
+    pagos_raw = data.get("pagos", [])
+    if pagos_raw:
+        pagos_json_str = json.dumps(pagos_raw)
+        forma_pago = max(pagos_raw, key=lambda p: p.get("monto", 0)).get("metodo", "efectivo")
+    else:
+        forma_pago = data.get("forma_pago", "efectivo")
+        pagos_json_str = json.dumps([{"metodo": forma_pago, "monto": monto_total}])
+
+    estado_pago = data.get("estado_pago", "completo")
+    monto_pendiente = float(data.get("monto_pendiente", 0))
+
+    # Costo FEFO y descuento del stock
+    costo_total, costo_unit = _calcular_costo_fefo(db, sv_id, user.id, cantidad)
     if sv_id:
-        sv = db.query(StockVendedor).filter(StockVendedor.id == sv_id, StockVendedor.vendedor_id == user.id).first()
+        sv = db.query(StockVendedor).filter(
+            StockVendedor.id == sv_id, StockVendedor.vendedor_id == user.id
+        ).first()
         if sv:
             sv.cantidad_disponible = max(0, sv.cantidad_disponible - cantidad)
+
+    ganancia_bruta = round(monto_total - costo_total, 2)
 
     v = VentaVendedor(
         vendedor_id=user.id,
         stock_vendedor_id=sv_id,
-        producto_id=data["producto_id"],
+        producto_id=data.get("producto_id"),
         cantidad=cantidad,
-        precio_unitario=precio,
-        monto_total=round(cantidad * precio, 2),
-        forma_pago=data.get("forma_pago", "efectivo"),
+        precio_unitario=precio_unitario,
+        monto_original=monto_original,
+        descuento_pct=descuento_pct,
+        descuento_monto=descuento_monto,
+        monto_total=monto_total,
+        forma_pago=forma_pago,
+        pagos_json=pagos_json_str,
+        estado_pago=estado_pago,
+        monto_pendiente=monto_pendiente,
         lugar=data.get("lugar"),
         lat=data.get("lat"),
         lng=data.get("lng"),
         notas=data.get("notas"),
+        tipo_cliente=data.get("tipo_cliente", "consumidor_final"),
+        cliente_id=data.get("cliente_id"),
+        cliente_nombre=data.get("cliente_nombre"),
+        costo_unitario_calculado=costo_unit,
+        ganancia_bruta=ganancia_bruta,
+        ganancia_neta=ganancia_bruta,
     )
     db.add(v)
     db.commit()
     db.refresh(v)
 
-    # Push a admins
+    # Registrar pagos cobrados en cuentas (excluye consignacion y monto pendiente)
+    pagos_cobrados = [p for p in pagos_raw if p.get("metodo") != "consignacion" and float(p.get("monto", 0)) > 0]
+    if not pagos_cobrados and estado_pago == "completo":
+        pagos_cobrados = [{"metodo": forma_pago, "monto": monto_total}]
+    cliente_str = data.get("cliente_nombre") or data.get("lugar") or "Consumidor Final"
+    _registrar_en_cuentas(
+        db, pagos_cobrados,
+        concepto=f"Venta {int(cantidad)} u. — {cliente_str} ({user.nombre})",
+        referencia=f"venta-{v.id}",
+        user_id=user.id,
+    )
+    db.commit()
+    broadcast_event("venta", {"vendedor_id": user.id})
+
     try:
         from app.routers.push import enviar_push
         enviar_push(db, None, {
             "title": "Venta directa",
-            "body":  f"{user.nombre} vendió {int(cantidad)} uds · ${v.monto_total:.0f} ({v.forma_pago})",
+            "body":  f"{user.nombre} vendió {int(cantidad)} uds · ${monto_total:.0f} ({forma_pago})",
             "url":   "/vendedores/",
         }, a_todos_admins=True)
     except Exception:
         pass
 
-    return {"id": v.id, "monto_total": v.monto_total, "ok": True}
+    return {
+        "id":          v.id,
+        "monto_total": v.monto_total,
+        "costo":       costo_total,
+        "ganancia":    ganancia_bruta,
+        "ok":          True,
+    }
 
 
 @router.get("/api/mis-ventas")
@@ -306,21 +517,57 @@ def mis_ventas(db: Session = Depends(get_db), user: Usuario = Depends(require_us
         VentaVendedor.vendedor_id == user.id,
         func.date(VentaVendedor.fecha) == hoy,
     ).order_by(VentaVendedor.fecha.desc()).all()
-
     from app.models.producto import ProductoTerminado
     productos_map = {p.id: p for p in db.query(ProductoTerminado).all()}
+    return [_fmt_venta(v, productos_map) for v in ventas]
 
-    return [{
-        "id":             v.id,
-        "hora":           v.fecha.strftime("%H:%M"),
-        "producto":       productos_map[v.producto_id].nombre if v.producto_id in productos_map else "?",
-        "producto_id":    v.producto_id,
-        "cantidad":       v.cantidad,
-        "precio_unitario": v.precio_unitario,
-        "monto_total":    v.monto_total,
-        "forma_pago":     v.forma_pago,
-        "lugar":          v.lugar,
-    } for v in ventas]
+
+@router.get("/api/ventas-pendientes")
+def ventas_pendientes(db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
+    """Ventas con cobro incompleto (parcial o pendiente)."""
+    q = db.query(VentaVendedor).filter(
+        VentaVendedor.estado_pago.in_(["parcial", "pendiente"])
+    )
+    if user.rol != "admin":
+        q = q.filter(VentaVendedor.vendedor_id == user.id)
+    ventas = q.order_by(VentaVendedor.fecha.desc()).limit(100).all()
+    from app.models.producto import ProductoTerminado
+    productos_map = {p.id: p for p in db.query(ProductoTerminado).all()}
+    return [_fmt_venta(v, productos_map) for v in ventas]
+
+
+@router.put("/api/ventas/{vid}/completar-pago")
+def completar_pago(vid: int, data: dict, db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
+    """Registra el pago faltante y cierra la venta."""
+    v = db.query(VentaVendedor).filter(VentaVendedor.id == vid).first()
+    if not v:
+        raise HTTPException(404, "Venta no encontrada")
+    if user.rol != "admin" and v.vendedor_id != user.id:
+        raise HTTPException(403, "Sin permiso")
+
+    forma_pago = data.get("forma_pago", "efectivo")
+    monto_pagado = float(data.get("monto", v.monto_pendiente or 0))
+
+    pagos = []
+    try:
+        pagos = json.loads(v.pagos_json) if v.pagos_json else []
+    except Exception:
+        pass
+    pagos.append({"metodo": forma_pago, "monto": monto_pagado, "complemento": True})
+    v.pagos_json = json.dumps(pagos)
+    v.estado_pago = "completo"
+    v.monto_pendiente = 0
+    db.commit()
+
+    _registrar_en_cuentas(
+        db, [{"metodo": forma_pago, "monto": monto_pagado}],
+        concepto=f"Cobro pendiente venta #{vid} ({v.cliente_nombre or v.lugar or 'CF'})",
+        referencia=f"venta-{vid}",
+        user_id=user.id,
+    )
+    db.commit()
+    broadcast_event("pago", {"venta_id": vid})
+    return {"ok": True}
 
 
 @router.get("/api/resumen-vendedor")

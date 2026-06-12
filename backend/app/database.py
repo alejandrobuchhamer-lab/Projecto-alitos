@@ -36,7 +36,8 @@ def init_db():
     from app.models.venta import PedidoReserva  # noqa: F401
     from app.models.produccion import ProduccionTacho  # noqa: F401
     from app.models import negocio, vendedor, cuenta, push_subscription  # noqa: F401
-    from app.models.vendedor import VentaVendedor  # noqa: F401
+    from app.models.vendedor import VentaVendedor, StockVendedorLote  # noqa: F401
+    from app.models import pedido  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _run_migrations()
     _seed_admin()
@@ -107,6 +108,29 @@ def _run_migrations():
         "ALTER TABLE negocios ADD COLUMN foto TEXT",
         "ALTER TABLE usuarios ADD COLUMN online BOOLEAN DEFAULT 0",
         "ALTER TABLE usuarios ADD COLUMN ultima_actividad DATETIME",
+        # Pedidos vendedor — campos extendidos
+        "ALTER TABLE pedidos_vendedor ADD COLUMN tipo_cliente VARCHAR(30) DEFAULT 'consumidor_final'",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN cliente_id INTEGER",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN cliente_nombre VARCHAR(200)",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN cliente_localidad VARCHAR(100)",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN fecha_entrega DATETIME",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN forma_pago VARCHAR(30)",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN descuento_pct FLOAT DEFAULT 0",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN monto_lista FLOAT DEFAULT 0",
+        # Circuito de ventas — stock por lote y campos extendidos
+        "CREATE TABLE IF NOT EXISTS stock_vendedor_lotes (id INTEGER PRIMARY KEY, stock_vendedor_id INTEGER NOT NULL, lote_id INTEGER NOT NULL, cantidad_asignada FLOAT NOT NULL, cantidad_disponible FLOAT NOT NULL, costo_unitario FLOAT DEFAULT 0, fecha_asignacion DATETIME)",
+        "ALTER TABLE ventas_vendedor ADD COLUMN tipo_cliente VARCHAR(30) DEFAULT 'consumidor_final'",
+        "ALTER TABLE ventas_vendedor ADD COLUMN cliente_id INTEGER",
+        "ALTER TABLE ventas_vendedor ADD COLUMN cliente_nombre VARCHAR(200)",
+        "ALTER TABLE ventas_vendedor ADD COLUMN pagos_json TEXT",
+        "ALTER TABLE ventas_vendedor ADD COLUMN estado_pago VARCHAR(20) DEFAULT 'completo'",
+        "ALTER TABLE ventas_vendedor ADD COLUMN monto_pendiente FLOAT DEFAULT 0",
+        "ALTER TABLE ventas_vendedor ADD COLUMN monto_original FLOAT DEFAULT 0",
+        "ALTER TABLE ventas_vendedor ADD COLUMN descuento_pct FLOAT DEFAULT 0",
+        "ALTER TABLE ventas_vendedor ADD COLUMN descuento_monto FLOAT DEFAULT 0",
+        "ALTER TABLE ventas_vendedor ADD COLUMN costo_unitario_calculado FLOAT DEFAULT 0",
+        "ALTER TABLE ventas_vendedor ADD COLUMN ganancia_bruta FLOAT DEFAULT 0",
+        "ALTER TABLE ventas_vendedor ADD COLUMN ganancia_neta FLOAT DEFAULT 0",
     ]
     with engine.connect() as conn:
         for sql in migrations:

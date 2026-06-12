@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}Pedidos App{% endblock %}
+{% block page_title %}Pedidos del Equipo{% endblock %}
+
+{% block content %}
+{% set pendientes  = pedidos|selectattr('estado','eq','pendiente')|list %}
+{% set preparando  = pedidos|selectattr('estado','eq','preparando')|list %}
+{% set entregados  = pedidos|selectattr('estado','eq','entregado')|list %}
+{% set monto_pend  = pendientes|sum(attribute='monto') %}
+{% set monto_total = pedidos|sum(attribute='monto') %}
+
+<div class="page-header">
+  <div>
+    <h1>📋 Pedidos del Equipo</h1>
+    <div class="subtitle">Pedidos tomados desde la app móvil — hacé click en cualquier fila para ver el detalle</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <select class="form-control btn-sm" id="filtro-vendedor" onchange="filtrar()" style="width:auto">
+      <option value="">Todos los vendedores</option>
+      {% for v in pedidos|map(attribute='vendedor_nombre')|unique|sort %}
+        {% if v %}<option value="{{ v }}">{{ v }}</option>{% endif %}
+      {% endfor %}
+    </select>
+    <select class="form-control btn-sm" id="filtro-estado" onchange="filtrar()" style="width:auto">
+      <option value="">Todos los estados</option>
+      <option value="pendiente">Pendientes</option>
+      <option value="preparando">Preparando</option>
+      <option value="entregado">Entregados</option>
+      <option value="cancelado">Cancelados</option>
+    </select>
+    <div id="live-badge" style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--color-success);font-weight:600;cursor:pointer" onclick="location.reload()" title="Auto-actualización activa">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--color-success);display:inline-block;animation:pulse 1.5s infinite"></span>
+      En vivo · <span id="live-countdown">30</span>s
+    </div>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+  <div class="kpi-card" style="--kpi-color:var(--color-warning);cursor:pointer" onclick="filtrarEstado('pendiente')">
+    <div class="kpi-label">Pendientes</div>
+    <div class="kpi-value">{{ pendientes|length }}</div>
+    <div class="kpi-sub text-muted">${{ "{:,.0f}".format(monto_pend) }}</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-info);cursor:pointer" onclick="filtrarEstado('preparando')">
+    <div class="kpi-label">En preparación</div>
+    <div class="kpi-value">{{ preparando|length }}</div>
+    <div class="kpi-sub text-muted">en proceso</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-success);cursor:pointer" onclick="filtrarEstado('entregado')">
+    <div class="kpi-label">Entregados</div>
+    <div class="kpi-value">{{ entregados|length }}</div>
+    <div class="kpi-sub text-muted">completados</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-accent);cursor:pointer" onclick="filtrarEstado('')">
+    <div class="kpi-label">Monto Total</div>
+    <div class="kpi-value" style="font-size:1.1rem">${{ "{:,.0f}".format(monto_total) }}</div>
+    <div class="kpi-sub text-muted">{{ pedidos|length }} pedidos</div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="table" id="tabla-pedidos">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Vendedor</th>
+          <th>Cliente</th>
+          <th>Tipo</th>
+          <th>Productos</th>
+          <th>Uds.</th>
+          <th>Monto</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+          <th>Entrega</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if pedidos %}
+          {% for p in pedidos %}
+          <tr class="fila-ped" data-estado="{{ p.estado }}" data-vendedor="{{ p.vendedor_nombre or '' }}"
+              data-id="{{ p.id }}" onclick="abrirDetalle({{ p.id }})" style="cursor:pointer"
+              title="Click para ver detalle">
+            <td class="fw-600 text-accent text-sm">{{ p.id }}</td>
+            <td class="text-sm">{{ p.vendedor_nombre or '—' }}</td>
+            <td>
+              <div class="fw-500">{{ p.cliente_nombre or p.lugar or '—' }}</div>
+              {% if p.cliente_localidad %}
+              <div class="text-muted text-xs">{{ p.cliente_localidad }}</div>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.tipo_cliente == 'negocio' %}
+                <span class="badge badge-info" style="font-size:0.7rem">Negocio</span>
+              {% elif p.tipo_cliente == 'cliente' %}
+                <span class="badge" style="font-size:0.7rem;background:var(--color-bg-elevated)">Cliente</span>
+              {% else %}
+                <span class="text-muted text-xs">CF</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.productos_list %}
+                {% for prod in p.productos_list[:2] %}
+                  <div class="text-xs" style="white-space:nowrap">{{ prod.qty }}× {{ prod.name }}</div>
+                {% endfor %}
+                {% if p.productos_list|length > 2 %}
+                  <div class="text-xs text-muted">+{{ p.productos_list|length - 2 }} más</div>
+                {% endif %}
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-center fw-600">{{ p.unidades }}</td>
+            <td>
+              <div class="fw-bold">${{ "{:,.0f}".format(p.monto) }}</div>
+              {% if p.descuento_pct and p.descuento_pct > 0 %}
+              <div class="text-xs" style="color:var(--color-success)">-{{ p.descuento_pct|int }}%</div>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.estado == 'pendiente' %}<span class="badge badge-warning">Pendiente</span>
+              {% elif p.estado == 'preparando' %}<span class="badge badge-info">Preparando</span>
+              {% elif p.estado == 'entregado' %}<span class="badge badge-success">Entregado</span>
+              {% elif p.estado == 'cancelado' %}<span class="badge badge-danger">Cancelado</span>
+              {% else %}<span class="badge">{{ p.estado }}</span>{% endif %}
+            </td>
+            <td class="text-muted text-xs" style="white-space:nowrap">{{ p.created_at.strftime('%d/%m %H:%M') }}</td>
+            <td class="text-sm" style="white-space:nowrap">
+              {% if p.fecha_entrega %}
+                <span style="color:var(--color-accent);font-weight:600">{{ p.fecha_entrega.strftime('%d/%m/%y') }}</span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="10">
+            <div class="empty-state">
+              <div class="icon">📋</div>
+              <h3>Sin pedidos registrados</h3>
+              <p class="text-muted">Los vendedores pueden tomar pedidos desde la app móvil</p>
+            </div>
+          </td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ====== MODAL DETALLE ====== -->
+<div class="modal-overlay" id="modal-detalle" onclick="if(event.target===this)closeModal('modal-detalle')">
+  <div class="modal" style="max-width:560px" id="modal-detalle-box">
+    <div class="modal-header">
+      <h3 id="det-titulo">Pedido</h3>
+      <button class="btn-icon" onclick="closeModal('modal-detalle')">✕</button>
+    </div>
+    <div class="modal-body" id="det-body">
+      <div class="text-muted text-center" style="padding:20px">Cargando…</div>
+    </div>
+    <div class="modal-footer" id="det-footer" style="flex-wrap:wrap;gap:8px"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Datos pre-cargados desde Jinja2
+const PEDIDOS_MAP = {};
+{{ pedidos_json | safe }}.forEach(p => { PEDIDOS_MAP[p.id] = p; });
+
+const TIPO_LABEL  = { consumidor_final: "Consumidor Final", cliente: "Cliente", negocio: "Negocio" };
+const PAGO_LABEL  = { efectivo: "Efectivo", transferencia: "Transferencia", qr: "QR / MP", consignacion: "Consignación" };
+const EST_BADGE   = { pendiente: "badge-warning", preparando: "badge-info", entregado: "badge-success", cancelado: "badge-danger" };
+const EST_LABEL   = { pendiente: "Pendiente", preparando: "Preparando", entregado: "Entregado", cancelado: "Cancelado" };
+
+function filtrar() {
+  const estado   = document.getElementById('filtro-estado').value;
+  const vendedor = document.getElementById('filtro-vendedor').value;
+  document.querySelectorAll('.fila-ped').forEach(r => {
+    const ok = (!estado || r.dataset.estado === estado) && (!vendedor || r.dataset.vendedor === vendedor);
+    r.style.display = ok ? '' : 'none';
+  });
+}
+
+function filtrarEstado(estado) {
+  document.getElementById('filtro-estado').value = estado;
+  filtrar();
+}
+
+function fmt(n) { return '$' + (n||0).toLocaleString('es-AR', {minimumFractionDigits:0}); }
+
+function abrirDetalle(id) {
+  const p = PEDIDOS_MAP[id];
+  if (!p) return;
+
+  document.getElementById('det-titulo').textContent = 'Pedido #' + p.id;
+  const badge = `<span class="badge ${EST_BADGE[p.estado]||''}">${EST_LABEL[p.estado]||p.estado}</span>`;
+  const tipoLabel = TIPO_LABEL[p.tipo] || p.tipo;
+  const clienteDisplay = p.cliente || p.lugar || 'Consumidor Final';
+  const localidad = p.localidad ? ` · ${p.localidad}` : '';
+
+  let productosHtml = '';
+  if (p.productos && p.productos.length) {
+    productosHtml = `
+    <div style="margin:12px 0;background:var(--color-bg-elevated);border-radius:8px;padding:12px">
+      <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--color-text-muted);margin-bottom:8px">Productos</div>
+      ${p.productos.map(pr => `
+        <div style="display:flex;justify-content:space-between;font-size:0.83rem;padding:3px 0">
+          <span style="color:var(--color-text-muted)">${pr.name||pr.nombre}</span>
+          <span style="font-weight:600">${pr.qty||pr.cantidad} u.</span>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  let precioHtml = '';
+  const descuento = p.desc_pct > 0
+    ? `<div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-top:4px">
+         <span style="color:var(--color-text-muted)">Precio de lista</span>
+         <span style="text-decoration:line-through;color:var(--color-text-dim)">${fmt(p.monto_lista)}</span>
+       </div>
+       <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-top:2px">
+         <span style="color:var(--color-success)">Descuento ${p.desc_pct}%</span>
+         <span style="color:var(--color-success);font-weight:600">-${fmt(p.monto_lista * p.desc_pct / 100)}</span>
+       </div>` : '';
+  const pagoLine = p.forma_pago
+    ? `<div style="font-size:0.75rem;color:var(--color-text-dim);margin-top:4px;text-align:right">${PAGO_LABEL[p.forma_pago]||p.forma_pago}</div>` : '';
+
+  precioHtml = `
+    <div style="margin:12px 0;background:var(--color-bg-elevated);border-radius:8px;padding:12px">
+      ${descuento}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:${p.desc_pct>0?'6':'0'}px">
+        <span style="font-weight:700">Total</span>
+        <span style="font-weight:800;font-size:1.3rem;color:var(--color-accent)">${fmt(p.monto)}</span>
+      </div>
+      ${pagoLine}
+    </div>`;
+
+  let fechaHtml = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;font-size:0.83rem">
+      <div>
+        <div style="color:var(--color-text-muted);margin-bottom:2px">Tomado</div>
+        <div style="font-weight:600">${p.fecha}</div>
+      </div>
+      ${p.fecha_entrega ? `<div>
+        <div style="color:var(--color-text-muted);margin-bottom:2px">🗓 Entrega</div>
+        <div style="font-weight:600;color:var(--color-accent)">${p.fecha_entrega}</div>
+      </div>` : '<div></div>'}
+    </div>`;
+
+  const notasHtml = p.notas ? `
+    <div style="margin:10px 0;padding:10px 12px;background:var(--color-bg-elevated);border-radius:8px;font-size:0.8rem;color:var(--color-text-muted)">
+      📝 ${p.notas}
+    </div>` : '';
+
+  document.getElementById('det-body').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+      <div>
+        <div style="font-size:1rem;font-weight:700">${clienteDisplay}</div>
+        <div style="font-size:0.8rem;color:var(--color-text-muted);margin-top:2px">${tipoLabel}${localidad}</div>
+        <div style="font-size:0.78rem;color:var(--color-text-dim);margin-top:2px">Por: ${p.vendedor||'—'}</div>
+      </div>
+      ${badge}
+    </div>
+    ${fechaHtml}
+    ${productosHtml}
+    ${precioHtml}
+    ${notasHtml}
+  `;
+
+  // Botones de acción
+  const footer = document.getElementById('det-footer');
+  footer.innerHTML = '';
+  if (p.estado !== 'entregado' && p.estado !== 'cancelado') {
+    if (p.estado === 'pendiente') {
+      const btn1 = document.createElement('button');
+      btn1.className = 'btn btn-outline';
+      btn1.textContent = '🔧 Preparar';
+      btn1.onclick = () => cambiarEstado(id, 'preparando');
+      footer.appendChild(btn1);
+    }
+    const btn2 = document.createElement('button');
+    btn2.className = 'btn btn-primary';
+    btn2.innerHTML = '✓ Marcar entregado';
+    btn2.onclick = () => cambiarEstado(id, 'entregado');
+    footer.appendChild(btn2);
+    const btn3 = document.createElement('button');
+    btn3.className = 'btn btn-danger btn-sm';
+    btn3.textContent = '✕ Cancelar';
+    btn3.onclick = () => { if(confirm('¿Cancelar este pedido?')) cambiarEstado(id, 'cancelado'); };
+    footer.appendChild(btn3);
+  } else {
+    const span = document.createElement('span');
+    span.style.cssText = 'color:var(--color-text-muted);font-size:0.82rem;padding:8px';
+    span.textContent = p.estado === 'entregado' ? '✓ Pedido entregado' : 'Pedido cancelado';
+    footer.appendChild(span);
+  }
+
+  openModal('modal-detalle');
+}
+
+async function cambiarEstado(id, estado) {
+  const labels = { preparando: 'en preparación', entregado: 'entregado', cancelado: 'cancelado' };
+  try {
+    await apiPut(`/pedidos/api/${id}/estado`, { estado });
+    toast(`Pedido marcado como ${labels[estado] || estado}`, 'success');
+    setTimeout(() => location.reload(), 700);
+  } catch(e) { toast(e.message || 'Error', 'error'); }
+}
+
+// Row hover effect
+document.querySelectorAll('.fila-ped').forEach(row => {
+  row.addEventListener('mouseenter', () => row.style.background = 'var(--color-bg-elevated)');
+  row.addEventListener('mouseleave', () => row.style.background = '');
+});
+
+// Auto-refresh cada 30s si no hay modal abierto
+let _countdown = 30;
+setInterval(() => {
+  _countdown--;
+  const el = document.getElementById('live-countdown');
+  if (el) el.textContent = _countdown;
+  if (_countdown <= 0) {
+    const modal = document.getElementById('modal-detalle');
+    if (!modal || modal.style.display === 'none' || !modal.classList.contains('open')) {
+      location.reload();
+    } else {
+      _countdown = 30; // modal abierto, reiniciar
+    }
+  }
+}, 1000);
+</script>
+{% endblock %}

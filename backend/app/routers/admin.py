@@ -27,7 +27,7 @@ class UsuarioUpdate(BaseModel):
 
 @router.get("/", response_class=HTMLResponse)
 def admin_panel(request: Request, db: Session = Depends(get_db), _admin: Usuario = Depends(require_admin)):
-    usuarios = db.query(Usuario).order_by(Usuario.created_at.desc()).all()
+    usuarios = db.query(Usuario).filter(Usuario.activo == True).order_by(Usuario.created_at.desc()).all()
     return templates.TemplateResponse("admin/usuarios.html", {
         "request": request,
         "usuarios": usuarios,

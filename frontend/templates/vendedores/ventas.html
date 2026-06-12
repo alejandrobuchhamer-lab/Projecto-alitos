@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+{% block title %}Ventas del Equipo{% endblock %}
+{% block page_title %}Ventas del Equipo{% endblock %}
+
+{% block content %}
+{% set completas   = ventas|selectattr('estado_pago','eq','completo')|list %}
+{% set parciales   = ventas|selectattr('estado_pago','eq','parcial')|list %}
+{% set pendientes  = ventas|selectattr('estado_pago','eq','pendiente')|list %}
+{% set monto_total = ventas|sum(attribute='monto_total') %}
+{% set monto_pend  = (parciales + pendientes)|sum(attribute='monto_pendiente') %}
+{% set ganancia    = ventas|sum(attribute='ganancia_bruta') %}
+
+<div class="page-header">
+  <div>
+    <h1>📱 Ventas del Equipo</h1>
+    <div class="subtitle">Ventas registradas desde la app móvil · últimos {{ dias }} días</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <select class="form-control btn-sm" id="filtro-vendedor" onchange="filtrar()" style="width:auto">
+      <option value="">Todos los vendedores</option>
+      {% for v in vendedores %}
+        <option value="{{ v.nombre }}">{{ v.nombre }}</option>
+      {% endfor %}
+    </select>
+    <select class="form-control btn-sm" id="filtro-estado" onchange="filtrar()" style="width:auto">
+      <option value="">Todos los estados</option>
+      <option value="completo">Cobrado</option>
+      <option value="parcial">Parcial</option>
+      <option value="pendiente">Pendiente</option>
+    </select>
+    <select class="form-control btn-sm" id="filtro-dias" onchange="cambiarDias(this.value)" style="width:auto">
+      <option value="7"  {% if dias==7 %}selected{% endif %}>7 días</option>
+      <option value="30" {% if dias==30 %}selected{% endif %}>30 días</option>
+      <option value="90" {% if dias==90 %}selected{% endif %}>90 días</option>
+    </select>
+    <div id="live-badge" style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--color-success);font-weight:600;cursor:pointer" onclick="location.reload()" title="Auto-actualización activa">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--color-success);display:inline-block;animation:pulse 1.5s infinite"></span>
+      En vivo · <span id="live-countdown">30</span>s
+    </div>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px">
+  <div class="kpi-card" style="--kpi-color:var(--color-accent);cursor:pointer" onclick="filtrarEstado('')">
+    <div class="kpi-label">Facturado</div>
+    <div class="kpi-value" style="font-size:1.1rem">${{ "{:,.0f}".format(monto_total) }}</div>
+    <div class="kpi-sub text-muted">{{ ventas|length }} ventas</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-success);cursor:pointer" onclick="filtrarEstado('completo')">
+    <div class="kpi-label">Cobrado</div>
+    <div class="kpi-value">{{ completas|length }}</div>
+    <div class="kpi-sub text-muted">${{ "{:,.0f}".format(completas|sum(attribute='monto_total')) }}</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-warning);cursor:pointer" onclick="filtrarEstado('pendiente')">
+    <div class="kpi-label">A cobrar</div>
+    <div class="kpi-value" style="font-size:1.1rem">${{ "{:,.0f}".format(monto_pend) }}</div>
+    <div class="kpi-sub text-muted">{{ (parciales|length + pendientes|length) }} ventas</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-primary)">
+    <div class="kpi-label">Ganancia bruta</div>
+    <div class="kpi-value" style="font-size:1.1rem">${{ "{:,.0f}".format(ganancia) }}</div>
+    <div class="kpi-sub text-muted">ingresos − costo lote</div>
+  </div>
+  <div class="kpi-card" style="--kpi-color:var(--color-info)">
+    <div class="kpi-label">Unidades</div>
+    <div class="kpi-value">{{ ventas|sum(attribute='cantidad')|int }}</div>
+    <div class="kpi-sub text-muted">alfajores</div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="table" id="tabla-ventas">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Vendedor</th>
+          <th>Cliente</th>
+          <th>Tipo</th>
+          <th>Producto</th>
+          <th>Uds.</th>
+          <th>Lista</th>
+          <th>Desc.</th>
+          <th>Total</th>
+          <th>Costo</th>
+          <th>Ganancia</th>
+          <th>Pago</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if ventas %}
+          {% for v in ventas %}
+          {% set vend = v.vendedor_id %}
+          <tr class="fila-venta" style="cursor:pointer"
+              data-vendedor="{{ v.vendedor_id }}"
+              data-vendedor-nombre="{% for u in vendedores %}{% if u.id == v.vendedor_id %}{{ u.nombre }}{% endif %}{% endfor %}"
+              data-estado="{{ v.estado_pago or 'completo' }}"
+              data-id="{{ v.id }}"
+              onclick="abrirDetalle({{ v.id }})">
+            <td class="fw-600 text-accent text-sm">{{ v.id }}</td>
+            <td class="text-sm">
+              {% for u in vendedores %}{% if u.id == v.vendedor_id %}{{ u.nombre }}{% endif %}{% endfor %}
+            </td>
+            <td>
+              <div class="fw-500">{{ v.cliente_nombre or v.lugar or "—" }}</div>
+            </td>
+            <td>
+              {% if v.tipo_cliente == 'negocio' %}
+                <span class="badge badge-info" style="font-size:0.7rem">Negocio</span>
+              {% elif v.tipo_cliente == 'cliente' %}
+                <span class="badge" style="font-size:0.7rem;background:var(--color-bg-elevated)">Cliente</span>
+              {% else %}
+                <span class="text-muted text-xs">CF</span>
+              {% endif %}
+            </td>
+            <td class="text-xs text-muted">
+              {% if v.producto_id in productos_map %}{{ productos_map[v.producto_id].nombre }}{% else %}—{% endif %}
+            </td>
+            <td class="text-center fw-600">{{ v.cantidad|int }}</td>
+            <td class="text-muted text-sm">
+              {% if v.monto_original and v.monto_original != v.monto_total %}
+                <span style="text-decoration:line-through">${{ "{:,.0f}".format(v.monto_original) }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if v.descuento_pct and v.descuento_pct > 0 %}
+                <span style="color:var(--color-success);font-size:0.78rem">-{{ v.descuento_pct|round(1) }}%</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="fw-bold">${{ "{:,.0f}".format(v.monto_total) }}</td>
+            <td class="text-muted text-sm">
+              {% if v.costo_unitario_calculado and v.costo_unitario_calculado > 0 %}
+                ${{ "{:,.0f}".format(v.costo_unitario_calculado * v.cantidad) }}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if v.ganancia_bruta %}
+                <span style="color:{% if v.ganancia_bruta >= 0 %}var(--color-success){% else %}var(--color-danger){% endif %};font-weight:600">
+                  ${{ "{:,.0f}".format(v.ganancia_bruta) }}
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-xs">
+              {% if v.forma_pago == 'efectivo' %}💵{% elif v.forma_pago == 'transferencia' %}🏦{% elif v.forma_pago == 'qr' %}📱{% elif v.forma_pago == 'consignacion' %}📦{% endif %}
+              {{ v.forma_pago or "—" }}
+            </td>
+            <td>
+              {% set ep = v.estado_pago or 'completo' %}
+              {% if ep == 'completo' %}<span class="badge badge-success">Cobrado</span>
+              {% elif ep == 'parcial' %}<span class="badge badge-warning">Parcial</span>
+              {% else %}<span class="badge badge-danger">Pendiente</span>{% endif %}
+            </td>
+            <td class="text-muted text-xs" style="white-space:nowrap">
+              {{ v.fecha.strftime('%d/%m %H:%M') }}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="14">
+            <div class="empty-state">
+              <div class="icon">📱</div>
+              <h3>Sin ventas registradas</h3>
+              <p class="text-muted">Los vendedores registran ventas desde la app móvil</p>
+            </div>
+          </td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal detalle -->
+<div class="modal-overlay" id="modal-detalle" onclick="if(event.target===this)closeModal('modal-detalle')">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <h3 id="det-titulo">Venta</h3>
+      <button class="btn-icon" onclick="closeModal('modal-detalle')">✕</button>
+    </div>
+    <div class="modal-body" id="det-body"></div>
+    <div class="modal-footer" id="det-footer"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const VENTAS_MAP = {};
+{{ ventas_json | safe }}.forEach(v => { VENTAS_MAP[v.id] = v; });
+
+const PAGO_LABEL = { efectivo:"Efectivo", transferencia:"Transferencia", qr:"QR/MercadoPago", consignacion:"Consignación" };
+const TIPO_LABEL = { consumidor_final:"Consumidor Final", cliente:"Cliente", negocio:"Negocio" };
+
+function filtrar() {
+  const vend  = document.getElementById('filtro-vendedor').value;
+  const est   = document.getElementById('filtro-estado').value;
+  document.querySelectorAll('.fila-venta').forEach(r => {
+    const okV = !vend || r.dataset.vendedorNombre === vend;
+    const okE = !est  || r.dataset.estado === est;
+    r.style.display = (okV && okE) ? '' : 'none';
+  });
+}
+
+function filtrarEstado(e) {
+  document.getElementById('filtro-estado').value = e; filtrar();
+}
+
+function cambiarDias(d) {
+  const url = new URL(location.href);
+  url.searchParams.set('dias', d);
+  location.href = url.toString();
+}
+
+function fmt(n) { return '$' + (n||0).toLocaleString('es-AR', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+
+function abrirDetalle(id) {
+  const v = VENTAS_MAP[id];
+  if (!v) return;
+  const ep = v.estado_pago || 'completo';
+  const epBadge = ep === 'completo'
+    ? '<span class="badge badge-success">Cobrado</span>'
+    : ep === 'parcial'
+    ? '<span class="badge badge-warning">Parcial</span>'
+    : '<span class="badge badge-danger">Pendiente</span>';
+
+  let pagosHtml = '';
+  if (v.pagos && v.pagos.length) {
+    pagosHtml = '<div style="margin:10px 0;background:var(--color-bg-elevated);border-radius:8px;padding:12px">';
+    pagosHtml += '<div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--color-text-muted);margin-bottom:8px">Pagos</div>';
+    v.pagos.forEach(p => {
+      const tag = p.complemento ? ' <span style="font-size:0.7rem;color:var(--color-text-dim)">(complemento)</span>' : '';
+      pagosHtml += `<div style="display:flex;justify-content:space-between;font-size:0.83rem;padding:3px 0">
+        <span>${PAGO_LABEL[p.metodo]||p.metodo}${tag}</span>
+        <span style="font-weight:600">${fmt(p.monto)}</span></div>`;
+    });
+    pagosHtml += '</div>';
+  }
+
+  let rentHtml = '';
+  if (v.costo_total > 0 || v.ganancia_bruta !== 0) {
+    const margen = v.monto_total > 0 ? (v.ganancia_bruta / v.monto_total * 100).toFixed(1) : 0;
+    rentHtml = `
+    <div style="margin:10px 0;background:var(--color-bg-elevated);border-radius:8px;padding:12px">
+      <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--color-text-muted);margin-bottom:8px">Rentabilidad</div>
+      <div style="display:flex;justify-content:space-between;font-size:0.83rem;padding:2px 0">
+        <span style="color:var(--color-text-muted)">Precio de venta</span><span>${fmt(v.monto_total)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:0.83rem;padding:2px 0">
+        <span style="color:var(--color-text-muted)">Costo lote (FEFO)</span><span>${fmt(v.costo_total)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:0.9rem;padding:4px 0;border-top:1px solid var(--color-border);margin-top:4px">
+        <span style="font-weight:700">Ganancia bruta</span>
+        <span style="font-weight:800;color:${v.ganancia_bruta >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
+          ${fmt(v.ganancia_bruta)} <span style="font-size:0.75rem;font-weight:500">(${margen}%)</span>
+        </span>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('det-titulo').textContent = `Venta #${v.id}`;
+  document.getElementById('det-body').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div>
+        <div style="font-size:1rem;font-weight:700">${v.cliente_nombre || v.lugar || 'Consumidor Final'}</div>
+        <div style="font-size:0.8rem;color:var(--color-text-muted);margin-top:2px">
+          ${TIPO_LABEL[v.tipo_cliente]||v.tipo_cliente} · ${v.fecha}
+        </div>
+      </div>
+      ${epBadge}
+    </div>
+    <div style="margin:10px 0;background:var(--color-bg-elevated);border-radius:8px;padding:12px">
+      <div style="display:flex;justify-content:space-between;font-size:0.83rem;padding:2px 0">
+        <span style="color:var(--color-text-muted)">Producto</span><span>${v.producto}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:0.83rem;padding:2px 0">
+        <span style="color:var(--color-text-muted)">Cantidad</span><span style="font-weight:600">${v.cantidad} u.</span></div>
+      ${v.descuento_pct > 0 ? `
+      <div style="display:flex;justify-content:space-between;font-size:0.83rem;padding:2px 0">
+        <span style="color:var(--color-text-muted)">Precio lista</span>
+        <span style="text-decoration:line-through;color:var(--color-text-dim)">${fmt(v.monto_original)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:0.83rem;padding:2px 0">
+        <span style="color:var(--color-success)">Descuento ${v.descuento_pct}%</span>
+        <span style="color:var(--color-success)">−${fmt(v.monto_original * v.descuento_pct / 100)}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;font-size:1rem;padding:4px 0;border-top:1px solid var(--color-border);margin-top:4px">
+        <span style="font-weight:700">Total</span>
+        <span style="font-weight:800;color:var(--color-accent)">${fmt(v.monto_total)}</span></div>
+      ${ep !== 'completo' ? `<div style="display:flex;justify-content:space-between;font-size:0.83rem;padding:2px 0">
+        <span style="color:var(--color-warning)">Pendiente</span>
+        <span style="font-weight:700;color:var(--color-warning)">${fmt(v.monto_pendiente)}</span></div>` : ''}
+    </div>
+    ${pagosHtml}
+    ${rentHtml}
+  `;
+
+  const footer = document.getElementById('det-footer');
+  footer.innerHTML = '';
+  if (ep !== 'completo') {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-primary';
+    btn.textContent = `Completar cobro · ${fmt(v.monto_pendiente)}`;
+    btn.onclick = () => completarCobroWeb(v.id, v.monto_pendiente);
+    footer.appendChild(btn);
+  }
+
+  openModal('modal-detalle');
+}
+
+async function completarCobroWeb(id, montoPend) {
+  const forma = prompt(`Forma de pago (efectivo / transferencia / qr):\nPendiente: $${montoPend}`, 'efectivo');
+  if (!forma) return;
+  try {
+    const res = await fetch(`/vendedores/api/ventas/${id}/completar-pago`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ forma_pago: forma, monto: montoPend }),
+    });
+    if (!res.ok) throw new Error();
+    toast('Cobro registrado', 'success');
+    setTimeout(() => location.reload(), 700);
+  } catch(e) { toast('Error al registrar cobro', 'error'); }
+}
+
+document.querySelectorAll('.fila-venta').forEach(row => {
+  row.addEventListener('mouseenter', () => row.style.background = 'var(--color-bg-elevated)');
+  row.addEventListener('mouseleave', () => row.style.background = '');
+});
+
+let _countdown = 30;
+setInterval(() => {
+  _countdown--;
+  const el = document.getElementById('live-countdown');
+  if (el) el.textContent = _countdown;
+  if (_countdown <= 0) {
+    const modal = document.getElementById('modal-detalle');
+    if (!modal || !modal.classList.contains('open')) {
+      location.reload();
+    } else {
+      _countdown = 30;
+    }
+  }
+}, 1000);
+</script>
+{% endblock %}

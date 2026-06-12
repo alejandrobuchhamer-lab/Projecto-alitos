@@ -15,6 +15,8 @@ from app.routers import cuenta as cuenta_router
 from app.routers import vendedores as vendedores_router
 from app.routers import cuentas as cuentas_router
 from app.routers import push as push_router
+from app.routers import pedidos as pedidos_router
+from app.events import router as events_router, broadcast_event  # noqa: F401 — reexport
 from app.services.auth_service import verify_session_token
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -150,6 +152,8 @@ app.include_router(cuenta_router.router)
 app.include_router(vendedores_router.router)
 app.include_router(cuentas_router.router)
 app.include_router(push_router.router)
+app.include_router(pedidos_router.router)
+app.include_router(events_router)
 
 
 @app.get("/sw.js", include_in_schema=False)

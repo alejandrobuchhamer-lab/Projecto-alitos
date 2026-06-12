@@ -983,6 +983,52 @@ def agregar_registro_tapas(produccion_id: int, data: RegistroTapasBody, db: Sess
     return {"ok": True, "registro_id": reg.id, "tapas_ok": reg.tapas_ok}
 
 
+@router.post("/api/{produccion_id}/avanzar-etapa-mobile")
+def avanzar_etapa_mobile(
+    produccion_id: int,
+    data: dict = None,
+    db: Session = Depends(get_db),
+):
+    """Avance rápido desde la app móvil. Marca la producción como finalizada
+    con los datos mínimos necesarios. El operario puede completar detalles
+    desde el sistema web."""
+    from datetime import datetime
+    prod = db.query(Produccion).filter(
+        Produccion.id == produccion_id,
+        Produccion.estado == "en_proceso",
+    ).first()
+    if not prod:
+        raise HTTPException(404, "Producción no encontrada o ya finalizada")
+
+    prod.estado = "finalizada"
+    prod.fecha_fin = datetime.utcnow()
+    if data:
+        if data.get("notas"):
+            # Guardar notas como referencia
+            pass
+
+    # Para producciones de tipo armado, intentar crear lote de producto terminado
+    if prod.tipo_produccion == "armado" and prod.receta_version_id:
+        from sqlalchemy.orm import joinedload
+        prod_full = db.query(Produccion).options(
+            joinedload(Produccion.receta_version).joinedload(RecetaVersion.producto)
+        ).filter(Produccion.id == produccion_id).first()
+        if prod_full and prod_full.receta_version and prod_full.receta_version.producto:
+            from datetime import timedelta
+            lote = LoteProductoTerminado(
+                producto_id=prod_full.receta_version.producto.id,
+                produccion_id=prod_full.id,
+                cantidad=float(prod_full.cantidad_producida or 0),
+                fecha_produccion=datetime.utcnow(),
+                fecha_vencimiento=datetime.utcnow() + timedelta(days=30),
+                tipo="alfajor",
+            )
+            db.add(lote)
+
+    db.commit()
+    return {"ok": True, "mensaje": f"Producción #{produccion_id} marcada como finalizada"}
+
+
 @router.get("/api/etapas")
 def etapas_activas(db: Session = Depends(get_db)):
     """Vista simplificada de producciones activas para la app móvil."""
