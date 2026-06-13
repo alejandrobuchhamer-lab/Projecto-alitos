@@ -362,7 +362,7 @@
 
 <!-- ══════════════════════════════════════════════════════ LOGIN -->
 <div id="login-screen">
-  <img class="login-logo" src="https://projecto-alitos-production.up.railway.app/static/img/logo1.png" alt="Alito's" onerror="this.style.display='none'">
+  <img class="login-logo" src="http://76.13.160.217:8000/static/img/logo1.png" alt="Alito's" onerror="this.style.display='none'">
   <div class="login-brand">Alito's</div>
   <div class="login-sub">Sistema de gestión</div>
 
@@ -406,11 +406,34 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════ CAMBIAR PIN -->
+<div id="pin-screen" style="display:none;min-height:100vh;background:linear-gradient(160deg,#f5e8d0 0%,#ede3d4 60%,#e0d0ba 100%);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+  <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:4px">Alito's</div>
+  <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:28px">Configurá tu PIN</div>
+  <div class="login-box">
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:32px;margin-bottom:8px">🔐</div>
+      <div style="font-weight:700;font-size:16px;margin-bottom:4px">Elegí tu PIN personal</div>
+      <div style="font-size:12px;color:var(--muted)">6 dígitos — solo vos lo sabés</div>
+    </div>
+    <label class="field-label">Nuevo PIN (6 dígitos)</label>
+    <div class="field-wrap">
+      <input class="field-input" type="password" inputmode="numeric" maxlength="6" id="inp-pin-nuevo" placeholder="••••••" style="letter-spacing:6px;font-size:20px;text-align:center">
+    </div>
+    <label class="field-label">Confirmá el PIN</label>
+    <div class="field-wrap">
+      <input class="field-input" type="password" inputmode="numeric" maxlength="6" id="inp-pin-confirm" placeholder="••••••" style="letter-spacing:6px;font-size:20px;text-align:center">
+    </div>
+    <button class="btn-primary" onclick="confirmarCambioPIN()">Guardar PIN</button>
+    <div class="login-err" id="pin-err"></div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════════════════ APP -->
 <div id="app-screen">
   <div class="topbar">
     <div class="topbar-left">
-      <img class="topbar-logo" id="topbar-logo-img" src="https://projecto-alitos-production.up.railway.app/static/img/logo1.png" alt="Alito's" onerror="this.style.display='none';document.getElementById('topbar-logo-txt').style.display='block'">
+      <img class="topbar-logo" id="topbar-logo-img" src="http://76.13.160.217:8000/static/img/logo1.png" alt="Alito's" onerror="this.style.display='none';document.getElementById('topbar-logo-txt').style.display='block'">
       <span id="topbar-logo-txt" style="display:none;font-weight:900;font-size:15px;color:#fff;letter-spacing:-0.5px">ALITO'S</span>
       <span class="role-badge" id="role-badge"></span>
     </div>
@@ -442,7 +465,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://projecto-alitos-production.up.railway.app';
+const API = 'http://76.13.160.217:8000';
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 let TOKEN = localStorage.getItem('pos_token') || '';
@@ -491,6 +514,37 @@ async function loginConDatos(username, password) {
   return d;
 }
 
+function mostrarPantallaPIN() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('pin-screen').style.display = 'flex';
+  document.getElementById('inp-pin-nuevo').focus();
+}
+
+async function confirmarCambioPIN() {
+  const p1 = document.getElementById('inp-pin-nuevo').value;
+  const p2 = document.getElementById('inp-pin-confirm').value;
+  const err = document.getElementById('pin-err');
+  err.style.display = 'none';
+  if (!/^\d{6}$/.test(p1)) { err.textContent = 'El PIN debe tener exactamente 6 números'; err.style.display = 'block'; return; }
+  if (p1 !== p2) { err.textContent = 'Los PINs no coinciden'; err.style.display = 'block'; return; }
+  try {
+    const r = await fetch(`${API}/api/mobile/cambiar_pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+      body: JSON.stringify({ nuevo_pin: p1 })
+    });
+    if (!r.ok) throw new Error();
+    // Actualizar saved_user con el nuevo PIN
+    const saved = JSON.parse(localStorage.getItem('pos_saved_user') || 'null');
+    if (saved) {
+      saved.password = btoa(p1);
+      localStorage.setItem('pos_saved_user', JSON.stringify(saved));
+    }
+    document.getElementById('pin-screen').style.display = 'none';
+    iniciarApp();
+  } catch { err.textContent = 'Error al guardar el PIN. Intentá de nuevo.'; err.style.display = 'block'; }
+}
+
 async function doLogin() {
   const u = document.getElementById('inp-user').value.trim();
   const p = document.getElementById('inp-pass').value;
@@ -498,12 +552,13 @@ async function doLogin() {
   err.style.display = 'none';
   if (!u || !p) { err.textContent = 'Completá usuario y contraseña'; err.style.display = 'block'; return; }
   try {
-    await loginConDatos(u, p);
+    const d = await loginConDatos(u, p);
     const recordar = document.getElementById('chk-remember').checked;
     if (recordar) {
       localStorage.setItem('pos_saved_user', JSON.stringify({ username: u, password: btoa(p), nombre: USER.nombre, rol: USER.rol }));
       await intentarRegistrarBiometria();
     }
+    if (d.must_change_password) { mostrarPantallaPIN(); return; }
     iniciarApp();
   } catch { err.textContent = 'Usuario o contraseña incorrectos'; err.style.display = 'block'; }
 }
@@ -514,7 +569,8 @@ async function doLoginGuardado() {
   const err = document.getElementById('login-err-saved');
   err.style.display = 'none';
   try {
-    await loginConDatos(saved.username, atob(saved.password));
+    const d = await loginConDatos(saved.username, atob(saved.password));
+    if (d.must_change_password) { mostrarPantallaPIN(); return; }
     iniciarApp();
   } catch { err.textContent = 'Error de conexión. Intentá de nuevo.'; err.style.display = 'block'; err.style.color = 'var(--danger)'; }
 }

@@ -115,6 +115,8 @@ class Usuario(Base):
     ultima_actividad: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     permisos: Mapped[str | None] = mapped_column(String(4000), nullable=True)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    pin_temporal: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # ── Contraseña ─────────────────────────────────────────────────────────────
 

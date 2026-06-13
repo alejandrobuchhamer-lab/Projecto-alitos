@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.usuario import Usuario
 from app.config import settings
+import re
 
 router = APIRouter(prefix="/api/mobile", tags=["mobile"])
 
@@ -30,6 +31,16 @@ class TokenResponse(BaseModel):
     username: str
     nombre: str
     rol: str
+    must_change_password: bool = False
+
+
+class CambiarPinRequest(BaseModel):
+    nuevo_pin: str
+
+
+class ResetPinRequest(BaseModel):
+    user_id: int
+    nuevo_pin: str
 
 
 def crear_token(user: Usuario) -> str:
@@ -67,6 +78,7 @@ def mobile_login(data: LoginRequest, db: Session = Depends(get_db)):
         username=user.username,
         nombre=user.nombre,
         rol=user.rol,
+        must_change_password=bool(user.must_change_password),
     )
 
 
@@ -107,3 +119,118 @@ def mobile_me(token: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(401, "Usuario no encontrado")
     return {"id": user.id, "username": user.username, "nombre": user.nombre, "rol": user.rol}
+
+
+@router.post("/cambiar_pin")
+def cambiar_pin(data: CambiarPinRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Token requerido")
+    payload = verificar_token(authorization.split(" ", 1)[1])
+    if not payload:
+        raise HTTPException(401, "Token inválido")
+    if not re.fullmatch(r"\d{6}", data.nuevo_pin):
+        raise HTTPException(400, "El PIN debe tener exactamente 6 dígitos")
+    user = db.query(Usuario).filter(Usuario.id == int(payload["sub"]), Usuario.activo == True).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    user.set_password(data.nuevo_pin)
+    user.must_change_password = False
+    user.pin_temporal = None
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/admin/usuarios_pins")
+def admin_listar_pins(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Token requerido")
+    payload = verificar_token(authorization.split(" ", 1)[1])
+    if not payload or payload.get("rol") != "admin":
+        raise HTTPException(403, "Solo administradores")
+    users = db.query(Usuario).filter(Usuario.activo == True).order_by(Usuario.nombre).all()
+    return [{
+        "id": u.id,
+        "username": u.username,
+        "nombre": u.nombre,
+        "rol": u.rol,
+        "must_change_password": bool(u.must_change_password),
+        "pin_temporal": u.pin_temporal or "",
+    } for u in users]
+
+
+@router.post("/admin/reset_pin")
+def admin_reset_pin(data: ResetPinRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Token requerido")
+    payload = verificar_token(authorization.split(" ", 1)[1])
+    if not payload or payload.get("rol") != "admin":
+        raise HTTPException(403, "Solo administradores")
+    if not re.fullmatch(r"\d{6}", data.nuevo_pin):
+        raise HTTPException(400, "El PIN debe tener exactamente 6 dígitos")
+    user = db.query(Usuario).filter(Usuario.id == data.user_id, Usuario.activo == True).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    user.set_password(data.nuevo_pin)
+    user.must_change_password = True
+    user.pin_temporal = data.nuevo_pin
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/cambiar_pin")
+def cambiar_pin(data: CambiarPinRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Vendedora cambia su propio PIN. Requiere token válido."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Token requerido")
+    payload = verificar_token(authorization.split(" ", 1)[1])
+    if not payload:
+        raise HTTPException(401, "Token inválido")
+    if not re.fullmatch(r"\d{6}", data.nuevo_pin):
+        raise HTTPException(400, "El PIN debe tener exactamente 6 dígitos")
+    user = db.query(Usuario).filter(Usuario.id == int(payload["sub"]), Usuario.activo == True).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    user.set_password(data.nuevo_pin)
+    user.must_change_password = False
+    user.pin_temporal = None
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/admin/usuarios_pins")
+def admin_listar_pins(authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Solo admin — lista usuarios con pin_temporal visible."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Token requerido")
+    payload = verificar_token(authorization.split(" ", 1)[1])
+    if not payload or payload.get("rol") != "admin":
+        raise HTTPException(403, "Solo administradores")
+    users = db.query(Usuario).filter(Usuario.activo == True).order_by(Usuario.nombre).all()
+    return [{
+        "id": u.id,
+        "username": u.username,
+        "nombre": u.nombre,
+        "rol": u.rol,
+        "must_change_password": bool(u.must_change_password),
+        "pin_temporal": u.pin_temporal or "",
+    } for u in users]
+
+
+@router.post("/admin/reset_pin")
+def admin_reset_pin(data: ResetPinRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Solo admin — resetea el PIN de un usuario y lo obliga a cambiarlo."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Token requerido")
+    payload = verificar_token(authorization.split(" ", 1)[1])
+    if not payload or payload.get("rol") != "admin":
+        raise HTTPException(403, "Solo administradores")
+    if not re.fullmatch(r"\d{6}", data.nuevo_pin):
+        raise HTTPException(400, "El PIN debe tener exactamente 6 dígitos")
+    user = db.query(Usuario).filter(Usuario.id == data.user_id, Usuario.activo == True).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    user.set_password(data.nuevo_pin)
+    user.must_change_password = True
+    user.pin_temporal = data.nuevo_pin
+    db.commit()
+    return {"ok": True}

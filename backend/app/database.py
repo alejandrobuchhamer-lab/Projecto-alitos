@@ -131,6 +131,9 @@ def _run_migrations():
         "ALTER TABLE ventas_vendedor ADD COLUMN costo_unitario_calculado FLOAT DEFAULT 0",
         "ALTER TABLE ventas_vendedor ADD COLUMN ganancia_bruta FLOAT DEFAULT 0",
         "ALTER TABLE ventas_vendedor ADD COLUMN ganancia_neta FLOAT DEFAULT 0",
+        # PIN de 6 dígitos para app móvil
+        "ALTER TABLE usuarios ADD COLUMN must_change_password BOOLEAN DEFAULT 0",
+        "ALTER TABLE usuarios ADD COLUMN pin_temporal TEXT",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -150,6 +153,18 @@ def _seed_admin():
             u.set_password("alitos2025")
             db.add(u)
             db.commit()
+        # Vendedoras
+        vendedoras = [
+            ("larissa", "Zally Larissa Aquino Sanchez", "123456"),
+            ("claudia",  "Claudia Del Carmen Chacon",   "123456"),
+        ]
+        for username, nombre, pin in vendedoras:
+            if not db.query(Usuario).filter(Usuario.username == username).first():
+                u = Usuario(username=username, nombre=nombre, rol="vendedor",
+                            must_change_password=True, pin_temporal=pin)
+                u.set_password(pin)
+                db.add(u)
+        db.commit()
     finally:
         db.close()
 

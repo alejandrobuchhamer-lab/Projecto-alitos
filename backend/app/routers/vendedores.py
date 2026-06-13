@@ -638,3 +638,9 @@ def listar_vendedores(db: Session = Depends(get_db), user: Usuario = Depends(req
             "ultima_actividad": u.ultima_actividad.strftime("%d/%m %H:%M") if u.ultima_actividad else None,
         })
     return result
+
+
+@router.get("/pins", response_class=HTMLResponse)
+def pins_page(request: Request, _u: Usuario = Depends(require_admin)):
+    users = []
+    return templates.TemplateResponse("vendedores/pins.html", {"request": request})

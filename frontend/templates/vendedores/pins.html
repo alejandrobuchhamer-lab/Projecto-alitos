@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Claves Vendedoras{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;margin:0 auto;padding:24px 16px">
+  <h2 style="font-size:20px;font-weight:700;margin-bottom:4px">Claves de Acceso</h2>
+  <p style="color:var(--color-text-muted);font-size:13px;margin-bottom:20px">Gestioná los PINs de las vendedoras. El PIN temporal es visible hasta que la vendedora lo cambie.</p>
+
+  <div id="users-list">
+    <div style="text-align:center;padding:40px;color:var(--color-text-muted)">Cargando...</div>
+  </div>
+</div>
+
+<!-- Modal reset PIN -->
+<div id="modal-reset" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:16px;padding:28px 24px;width:100%;max-width:360px;margin:0 16px">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:4px" id="modal-nombre"></h3>
+    <p style="font-size:12px;color:var(--color-text-muted);margin-bottom:18px">La vendedora deberá cambiar este PIN al ingresar.</p>
+    <label style="font-size:11px;font-weight:600;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Nuevo PIN (6 dígitos)</label>
+    <input type="text" inputmode="numeric" maxlength="6" id="inp-nuevo-pin"
+      style="width:100%;padding:12px;background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:8px;font-size:24px;letter-spacing:8px;text-align:center;color:var(--color-text);outline:none;margin-bottom:16px"
+      placeholder="000000">
+    <div style="display:flex;gap:8px">
+      <button onclick="cerrarModal()" style="flex:1;padding:10px;background:none;border:1px solid var(--color-border);border-radius:8px;color:var(--color-text-muted);cursor:pointer;font-size:13px">Cancelar</button>
+      <button onclick="guardarPin()" style="flex:1;padding:10px;background:var(--color-primary);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:13px">Guardar</button>
+    </div>
+    <div id="modal-err" style="color:#ef4444;font-size:12px;text-align:center;margin-top:10px;display:none"></div>
+  </div>
+</div>
+
+<script>
+let _userId = null;
+
+async function cargarUsuarios() {
+  try {
+    const r = await fetch('/api/mobile/admin/usuarios_pins');
+    const users = await r.json();
+    const el = document.getElementById('users-list');
+    el.innerHTML = users.map(u => `
+      <div style="background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#c47820,#8a5510);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:16px;flex-shrink:0">
+          ${u.nombre.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:14px">${u.nombre}</div>
+          <div style="font-size:12px;color:var(--color-text-muted)">@${u.username} · ${u.rol}</div>
+          ${u.pin_temporal ? `
+            <div style="margin-top:4px;display:inline-flex;align-items:center;gap:6px;background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.3);border-radius:6px;padding:3px 10px">
+              <span style="font-size:11px;color:#92670a;font-weight:600">PIN temporal:</span>
+              <span style="font-family:monospace;font-size:15px;font-weight:800;letter-spacing:3px;color:#92670a">${u.pin_temporal}</span>
+              <span style="font-size:10px;color:#92670a">(no cambiado aún)</span>
+            </div>
+          ` : `
+            <div style="margin-top:4px;display:inline-flex;align-items:center;gap:5px">
+              <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+              <span style="font-size:11px;color:#15803d;font-weight:600">PIN personal activo</span>
+            </div>
+          `}
+        </div>
+        <button onclick="abrirModal(${u.id}, '${u.nombre}')"
+          style="padding:8px 14px;background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:var(--color-text);white-space:nowrap">
+          Resetear PIN
+        </button>
+      </div>
+    `).join('');
+  } catch { document.getElementById('users-list').innerHTML = '<div style="color:#ef4444;padding:20px;text-align:center">Error cargando usuarios</div>'; }
+}
+
+function abrirModal(id, nombre) {
+  _userId = id;
+  document.getElementById('modal-nombre').textContent = nombre;
+  document.getElementById('inp-nuevo-pin').value = '';
+  document.getElementById('modal-err').style.display = 'none';
+  document.getElementById('modal-reset').style.display = 'flex';
+  setTimeout(() => document.getElementById('inp-nuevo-pin').focus(), 100);
+}
+
+function cerrarModal() {
+  document.getElementById('modal-reset').style.display = 'none';
+  _userId = null;
+}
+
+async function guardarPin() {
+  const pin = document.getElementById('inp-nuevo-pin').value;
+  const err = document.getElementById('modal-err');
+  err.style.display = 'none';
+  if (!/^\d{6}$/.test(pin)) { err.textContent = 'El PIN debe tener exactamente 6 dígitos'; err.style.display = 'block'; return; }
+  try {
+    const r = await fetch('/api/mobile/admin/reset_pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: _userId, nuevo_pin: pin })
+    });
+    if (!r.ok) throw new Error();
+    cerrarModal();
+    cargarUsuarios();
+  } catch { err.textContent = 'Error al guardar. Intentá de nuevo.'; err.style.display = 'block'; }
+}
+
+document.getElementById('modal-reset').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModal(); });
+document.getElementById('inp-nuevo-pin').addEventListener('keydown', e => { if (e.key === 'Enter') guardarPin(); });
+
+cargarUsuarios();
+</script>
+{% endblock %}
