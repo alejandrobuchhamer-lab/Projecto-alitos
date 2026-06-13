@@ -147,7 +147,10 @@ body {
   flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 0;
   width: var(--sidebar-width);
 }
-.sidebar-nav::-webkit-scrollbar { width: 0; }
+.sidebar-nav::-webkit-scrollbar { width: 3px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background: var(--color-border-glow); }
 
 .nav-section-label {
   font-size: 0.57rem; font-weight: 700;
@@ -1135,148 +1138,6 @@ body.light .page-tab:hover:not(.active) {
   filter: drop-shadow(0 2px 10px rgba(255,255,255,0.15));
 }
 
-/* ====== HOVER SIDEBAR (auto-expand) ====== */
-
-/* El main siempre tiene margen del ancho collapsed */
-/* Mismo delay que el sidebar al cerrar para que cierren juntos */
-.main-wrapper,
-.main-wrapper.sidebar-collapsed {
-  margin-left: var(--sidebar-collapsed) !important;
-  transition: margin-left 0.4s 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* Al abrir: el contenido se mueve primero (sin delay) para que el sidebar nunca tape */
-.sidebar:hover ~ .main-wrapper {
-  margin-left: var(--sidebar-width) !important;
-  transition: margin-left 0.4s 0s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-
-/* Sidebar siempre en modo colapsado por defecto */
-/* delay 0.2s antes de cerrar */
-.sidebar,
-.sidebar.collapsed {
-  width: var(--sidebar-collapsed) !important;
-  overflow: hidden;
-  transition: width 0.4s 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.4s 0.2s ease !important;
-}
-
-/* Expande al hacer hover — con delay para no ser tan sensible */
-.sidebar:hover {
-  width: var(--sidebar-width) !important;
-  box-shadow: 8px 0 32px rgba(0,0,0,0.6), inset -1px 0 0 rgba(196,120,32,0.15);
-  overflow: hidden;
-  transition: width 0.5s 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              box-shadow 0.5s 0.1s ease !important;
-}
-
-
-/* Transiciones suaves en todos los elementos internos */
-.sidebar .sidebar-logo {
-  transition: padding 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              gap 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-}
-.sidebar .sidebar-logo-text {
-  transition: opacity 0.35s ease,
-              max-width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-}
-.sidebar .nav-section-label {
-  transition: opacity 0.3s ease,
-              max-height 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              padding 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-}
-.sidebar .nav-item {
-  transition: background 0.15s ease, color 0.15s ease,
-              padding 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              gap 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-}
-.sidebar .nav-item .label {
-  transition: opacity 0.3s ease,
-              max-width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-}
-
-/* ── Todos los contenedores internos al 100% del sidebar ── */
-.sidebar .sidebar-logo,
-.sidebar .sidebar-nav,
-.sidebar .sidebar-toggle { width: 100% !important; }
-
-/* ──────────────────────────────────────────
-   COLAPSADO (default)
-   Padding-left calculado = (56px - 20px ícono) / 2 = 18px
-   Logo = (56px - 32px imagen) / 2 = 12px
-────────────────────────────────────────── */
-.sidebar .sidebar-logo {
-  padding: 0 0 0 12px !important;
-  justify-content: flex-start !important;
-  gap: 0 !important;
-  height: var(--topbar-height) !important;
-  min-height: var(--topbar-height) !important;
-}
-.sidebar .sidebar-logo-text {
-  opacity: 0 !important;
-  max-width: 0 !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
-}
-.sidebar .nav-section-label {
-  opacity: 0 !important;
-  max-height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  overflow: hidden !important;
-}
-.sidebar .nav-item {
-  padding: 9px 0 9px 18px !important;
-  justify-content: flex-start !important;
-  gap: 0 !important;
-  width: 100% !important;
-  margin: 1px 0 !important;
-}
-.sidebar .nav-item .label {
-  opacity: 0 !important;
-  max-width: 0 !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
-}
-.sidebar .nav-badge { opacity: 0 !important; pointer-events: none !important; }
-.sidebar .sidebar-toggle { display: none !important; }
-
-/* ──────────────────────────────────────────
-   EXPANDIDO (hover)
-────────────────────────────────────────── */
-.sidebar:hover .sidebar-logo {
-  padding: 0 12px !important;
-  justify-content: flex-start !important;
-  gap: 10px !important;
-  height: var(--topbar-height) !important;
-  min-height: var(--topbar-height) !important;
-}
-.sidebar:hover .sidebar-logo-text {
-  opacity: 1 !important;
-  max-width: 160px !important;
-}
-.sidebar:hover .nav-section-label {
-  opacity: 1 !important;
-  max-height: 40px !important;
-  padding: 12px 14px 3px !important;
-}
-.sidebar:hover .nav-item {
-  padding: 7px 12px !important;
-  justify-content: flex-start !important;
-  gap: 10px !important;
-  width: calc(100% - 12px) !important;
-  margin: 1px 6px !important;
-}
-.sidebar:hover .nav-item .label {
-  opacity: 1 !important;
-  max-width: 140px !important;
-}
-.sidebar:hover .nav-badge { opacity: 1 !important; pointer-events: auto !important; }
-
-/* Ocultar tooltip JS (no se necesita con hover) */
-.sidebar-tooltip { display: none !important; }
 
 /* ====== SKELETON LOADERS ====== */
 .skeleton {

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -123,62 +123,6 @@ def mobile_me(token: str, db: Session = Depends(get_db)):
 
 @router.post("/cambiar_pin")
 def cambiar_pin(data: CambiarPinRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Token requerido")
-    payload = verificar_token(authorization.split(" ", 1)[1])
-    if not payload:
-        raise HTTPException(401, "Token inválido")
-    if not re.fullmatch(r"\d{6}", data.nuevo_pin):
-        raise HTTPException(400, "El PIN debe tener exactamente 6 dígitos")
-    user = db.query(Usuario).filter(Usuario.id == int(payload["sub"]), Usuario.activo == True).first()
-    if not user:
-        raise HTTPException(404, "Usuario no encontrado")
-    user.set_password(data.nuevo_pin)
-    user.must_change_password = False
-    user.pin_temporal = None
-    db.commit()
-    return {"ok": True}
-
-
-@router.get("/admin/usuarios_pins")
-def admin_listar_pins(authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Token requerido")
-    payload = verificar_token(authorization.split(" ", 1)[1])
-    if not payload or payload.get("rol") != "admin":
-        raise HTTPException(403, "Solo administradores")
-    users = db.query(Usuario).filter(Usuario.activo == True).order_by(Usuario.nombre).all()
-    return [{
-        "id": u.id,
-        "username": u.username,
-        "nombre": u.nombre,
-        "rol": u.rol,
-        "must_change_password": bool(u.must_change_password),
-        "pin_temporal": u.pin_temporal or "",
-    } for u in users]
-
-
-@router.post("/admin/reset_pin")
-def admin_reset_pin(data: ResetPinRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Token requerido")
-    payload = verificar_token(authorization.split(" ", 1)[1])
-    if not payload or payload.get("rol") != "admin":
-        raise HTTPException(403, "Solo administradores")
-    if not re.fullmatch(r"\d{6}", data.nuevo_pin):
-        raise HTTPException(400, "El PIN debe tener exactamente 6 dígitos")
-    user = db.query(Usuario).filter(Usuario.id == data.user_id, Usuario.activo == True).first()
-    if not user:
-        raise HTTPException(404, "Usuario no encontrado")
-    user.set_password(data.nuevo_pin)
-    user.must_change_password = True
-    user.pin_temporal = data.nuevo_pin
-    db.commit()
-    return {"ok": True}
-
-
-@router.post("/cambiar_pin")
-def cambiar_pin(data: CambiarPinRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
     """Vendedora cambia su propio PIN. Requiere token válido."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Token requerido")
@@ -197,14 +141,25 @@ def cambiar_pin(data: CambiarPinRequest, authorization: str = Header(None), db: 
     return {"ok": True}
 
 
-@router.get("/admin/usuarios_pins")
-def admin_listar_pins(authorization: str = Header(None), db: Session = Depends(get_db)):
-    """Solo admin — lista usuarios con pin_temporal visible."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Token requerido")
-    payload = verificar_token(authorization.split(" ", 1)[1])
-    if not payload or payload.get("rol") != "admin":
+def _require_admin(request: Request, authorization: str, db: Session) -> None:
+    """Acepta Bearer token (app móvil) O cookie de sesión (web). Solo admin."""
+    # Bearer token (móvil)
+    if authorization and authorization.startswith("Bearer "):
+        payload = verificar_token(authorization.split(" ", 1)[1])
+        if payload and payload.get("rol") == "admin":
+            return
         raise HTTPException(403, "Solo administradores")
+    # Cookie de sesión (navegador web — AuthMiddleware inyecta request.state.user como ORM)
+    web_user = getattr(request.state, "user", None)
+    if web_user and getattr(web_user, "rol", None) == "admin":
+        return
+    raise HTTPException(401, "Autenticación requerida")
+
+
+@router.get("/admin/usuarios_pins")
+def admin_listar_pins(request: Request, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Solo admin — lista usuarios con pin_temporal visible."""
+    _require_admin(request, authorization, db)
     users = db.query(Usuario).filter(Usuario.activo == True).order_by(Usuario.nombre).all()
     return [{
         "id": u.id,
@@ -217,13 +172,9 @@ def admin_listar_pins(authorization: str = Header(None), db: Session = Depends(g
 
 
 @router.post("/admin/reset_pin")
-def admin_reset_pin(data: ResetPinRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+def admin_reset_pin(request: Request, data: ResetPinRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
     """Solo admin — resetea el PIN de un usuario y lo obliga a cambiarlo."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Token requerido")
-    payload = verificar_token(authorization.split(" ", 1)[1])
-    if not payload or payload.get("rol") != "admin":
-        raise HTTPException(403, "Solo administradores")
+    _require_admin(request, authorization, db)
     if not re.fullmatch(r"\d{6}", data.nuevo_pin):
         raise HTTPException(400, "El PIN debe tener exactamente 6 dígitos")
     user = db.query(Usuario).filter(Usuario.id == data.user_id, Usuario.activo == True).first()
