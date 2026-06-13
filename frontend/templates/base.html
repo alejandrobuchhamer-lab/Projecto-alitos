@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="/static/css/main.css?v=37" />
+  <link rel="stylesheet" href="/static/css/main.css?v=39" />
 
   {% block extra_css %}{% endblock %}
 
@@ -496,23 +496,40 @@
     document.querySelectorAll('.nav-item').forEach(el => {
       const href = el.getAttribute('href');
       if (!href || href === '#') return;
-      // Match exacto o prefijo (excepto "/" que solo matchea dashboard)
       const isActive = href === '/' ? path === '/' : path.startsWith(href);
       if (isActive) el.classList.add('active');
     });
   })();
 
   (function() {
-    const saved = localStorage.getItem('sidebar-collapsed');
     const sidebar = document.getElementById('sidebar');
     const main    = document.getElementById('main-wrapper');
+    // Siempre arrancar expandido
+    localStorage.removeItem('sidebar-collapsed');
     [sidebar, main].forEach(el => { if (el) el.classList.add('no-transition'); });
-    setSidebarState(saved === 'true');
+    setSidebarState(false);
     requestAnimationFrame(() => requestAnimationFrame(() => {
       [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
     }));
-    // Limpia estado viejo que forzaba collapse
-    if (saved !== null && saved !== 'true') localStorage.removeItem('sidebar-collapsed');
+
+    // Hover: expandir al entrar, colapsar al salir
+    let _hoverTimeout;
+    sidebar?.addEventListener('mouseenter', () => {
+      clearTimeout(_hoverTimeout);
+      if (sidebar.classList.contains('collapsed')) setSidebarState(false);
+    });
+    sidebar?.addEventListener('mouseleave', () => {
+      clearTimeout(_hoverTimeout);
+      _hoverTimeout = setTimeout(() => setSidebarState(true), 300);
+    });
+
+    // Scroll con rueda del mouse en sidebar-nav
+    const nav = sidebar?.querySelector('.sidebar-nav');
+    nav?.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.scrollTop += e.deltaY;
+    }, { passive: false });
   })();
 
   // ===== LIGHT / DARK =====
