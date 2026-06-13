@@ -163,7 +163,7 @@
 {% set _is_vend = _rol in ['admin', 'vendedor'] %}
 
 <!-- ====== SIDEBAR ====== -->
-<nav class="sidebar collapsed" id="sidebar">
+<nav class="sidebar" id="sidebar">
 
   <div class="sidebar-logo">
     <img src="/static/img/logo1.png" alt="ALITOS" class="sidebar-logo-img">
@@ -322,7 +322,7 @@
 </style>
 
 <!-- ====== MAIN ====== -->
-<div class="main-wrapper sidebar-collapsed" id="main-wrapper">
+<div class="main-wrapper" id="main-wrapper">
 
   <!-- ===== TOPBAR ===== -->
   <header class="topbar">
@@ -503,7 +503,7 @@
     const sidebar = document.getElementById('sidebar');
     const main    = document.getElementById('main-wrapper');
     [sidebar, main].forEach(el => { if (el) el.classList.add('no-transition'); });
-    setSidebarState(saved !== 'false');
+    setSidebarState(saved === 'true');
     requestAnimationFrame(() => requestAnimationFrame(() => {
       [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
     }));
