@@ -4,14 +4,14 @@
    Auth: JWT Bearer token guardado en localStorage.
 ================================================================ */
 
-// URL de producción en Railway (se actualiza una vez al hacer deploy)
+// URL del VPS de producción
 const RAILWAY_URL = "http://76.13.160.217:8000";
 
-// Capacitor sirve con protocolo capacitor:// → siempre usar Railway
-// En red local (dev) → usar el host actual en puerto 8000
+// Capacitor 6 en Android usa http://localhost (sin puerto) — detectar con window.Capacitor
+const _isNative = typeof window !== "undefined" && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
 const _proto = window.location.protocol;
 const _host  = window.location.hostname;
-const API_BASE = (_proto === "capacitor:" || _proto === "ionic:")
+const API_BASE = (_isNative || _proto === "capacitor:" || _proto === "ionic:")
   ? RAILWAY_URL
   : (_host === "localhost" || _host === "127.0.0.1")
     ? "http://localhost:8000"
@@ -64,9 +64,27 @@ async function loginUser(username, password) {
   return data;
 }
 
-function logoutUser() { clearToken(); }
+const REMEMBER_KEY = "alitos_remember";
+function saveRememberedUser(userData) { localStorage.setItem(REMEMBER_KEY, JSON.stringify(userData)); }
+function getRememberedUser() { try { return JSON.parse(localStorage.getItem(REMEMBER_KEY)); } catch { return null; } }
+function clearRememberedUser() { localStorage.removeItem(REMEMBER_KEY); }
+
+function logoutUser() { clearToken(); clearRememberedUser(); }
 
 function isLoggedIn() { return !!getToken(); }
+
+async function triggerBiometric(reason) {
+  const plugin = window?.Capacitor?.Plugins?.BiometricAuth;
+  if (!plugin) throw new Error("no-plugin");
+  const check = await plugin.checkBiometry();
+  if (!check.isAvailable) throw new Error("no-biometry");
+  await plugin.authenticate({
+    reason: reason || "Verificá tu identidad para ingresar",
+    cancelTitle: "Cancelar",
+    allowDeviceCredential: false,
+    androidMaxAttempts: 3,
+  });
+}
 
 // ── Vendedores ────────────────────────────────────────────────
 async function fetchVendedores() {
@@ -418,3 +436,11 @@ async function loginAndSetupPush(username, password) {
   return data;
 }
 
+Object.assign(window, {
+  saveRememberedUser, getRememberedUser, clearRememberedUser, triggerBiometric,
+  loginUser, logoutUser, isLoggedIn, loginAndSetupPush, apiPost,
+  fetchUsuarios, fetchVendedores, fetchMiStock, fetchMisVentas,
+  fetchNegocios, fetchVentasPendientes, fetchCuentas, registrarVenta,
+  cobrarEntrega, crearPedido, fetchPedidosAdmin, actualizarPedido,
+  fetchResumen, agregarMovimiento, fetchEventos, fetchEtapasProduccion, pingOnline,
+});
