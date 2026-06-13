@@ -95,7 +95,8 @@ body {
   flex-direction: column;
   z-index: 200;
   transition: width 0.38s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .sidebar.collapsed { width: var(--sidebar-collapsed); }
