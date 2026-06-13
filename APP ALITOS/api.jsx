@@ -5,7 +5,7 @@
 ================================================================ */
 
 // URL de producción en Railway (se actualiza una vez al hacer deploy)
-const RAILWAY_URL = "https://projecto-alitos-production-297e.up.railway.app";
+const RAILWAY_URL = "http://76.13.160.217:8000";
 
 // Capacitor sirve con protocolo capacitor:// → siempre usar Railway
 // En red local (dev) → usar el host actual en puerto 8000
