@@ -383,6 +383,11 @@ async function actualizarPedidoEstado(pedidoId, estado) {
   return apiPut("/pedidos/api/" + pedidoId + "/estado", { estado });
 }
 
+// Aliases usados por admin.jsx y orders.jsx
+const fetchPedidosAdmin = fetchPedidos;
+const actualizarPedido  = actualizarPedidoEstado;
+const fetchEventos      = () => Promise.resolve([]);
+
 // ── Productos terminados (fábrica) ────────────────────────────
 async function fetchProductos() {
   return apiGet("/productos/api");
