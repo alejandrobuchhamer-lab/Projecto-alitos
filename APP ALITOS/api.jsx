@@ -96,7 +96,7 @@ async function fetchVendedores() {
     role:       v.rol,
     roleTag:    v.rol === "admin" ? "Admin" : "Repartidor",
     online:     v.online || false,
-    stockUnits: 0,
+    stockUnits: v.stock_total || 0,
     sales:      0,
     pending:    0,
     visited:    0,
@@ -436,6 +436,15 @@ async function loginAndSetupPush(username, password) {
   return data;
 }
 
+// ── Perfil de usuario ─────────────────────────────────────────
+async function fetchPerfil() {
+  return apiFetch("/api/mobile/perfil");
+}
+
+async function actualizarPerfil(data) {
+  return apiFetch("/api/mobile/perfil", { method: "PATCH", body: JSON.stringify(data) });
+}
+
 Object.assign(window, {
   saveRememberedUser, getRememberedUser, clearRememberedUser, triggerBiometric,
   loginUser, logoutUser, isLoggedIn, loginAndSetupPush, apiPost,
@@ -443,4 +452,6 @@ Object.assign(window, {
   fetchNegocios, fetchVentasPendientes, fetchCuentas, registrarVenta,
   cobrarEntrega, crearPedido, fetchPedidosAdmin, actualizarPedido,
   fetchResumen, agregarMovimiento, fetchEventos, fetchEtapasProduccion, pingOnline,
+  fetchProductos, avanzarEtapaProduccion,
+  fetchPerfil, actualizarPerfil,
 });

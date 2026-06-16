@@ -107,6 +107,7 @@ def listar_usuarios_mobile(db: Session = Depends(get_db)):
         "rol":       u.rol,
         "roleLabel": ROL_LABEL.get(u.rol, u.rol),
         "view":      ROL_VIEW.get(u.rol, "vendedor"),
+        "foto":      u.foto or None,
     } for u in users]
 
 
@@ -185,3 +186,58 @@ def admin_reset_pin(request: Request, data: ResetPinRequest, authorization: str 
     user.pin_temporal = data.nuevo_pin
     db.commit()
     return {"ok": True}
+
+
+class ActualizarPerfilRequest(BaseModel):
+    nombre: str | None = None
+    telefono: str | None = None
+    bio: str | None = None
+    foto: str | None = None
+
+
+@router.get("/perfil")
+def get_perfil(authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Devuelve el perfil del usuario autenticado."""
+    payload = get_mobile_user(authorization)
+    user = db.query(Usuario).filter(Usuario.id == int(payload["sub"]), Usuario.activo == True).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    return {
+        "id":       user.id,
+        "username": user.username,
+        "nombre":   user.nombre,
+        "rol":      user.rol,
+        "telefono": user.telefono or "",
+        "bio":      user.bio or "",
+        "foto":     user.foto or None,
+    }
+
+
+@router.patch("/perfil")
+def actualizar_perfil(data: ActualizarPerfilRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """El usuario actualiza su propio perfil (nombre, foto, teléfono, bio)."""
+    payload = get_mobile_user(authorization)
+    user = db.query(Usuario).filter(Usuario.id == int(payload["sub"]), Usuario.activo == True).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    if data.nombre is not None:
+        nombre = data.nombre.strip()
+        if not nombre:
+            raise HTTPException(400, "El nombre no puede estar vacío")
+        user.nombre = nombre
+    if data.telefono is not None:
+        user.telefono = data.telefono.strip() or None
+    if data.bio is not None:
+        user.bio = data.bio.strip()[:200] or None
+    if data.foto is not None:
+        user.foto = data.foto or None
+    db.commit()
+    return {
+        "id":       user.id,
+        "username": user.username,
+        "nombre":   user.nombre,
+        "rol":      user.rol,
+        "telefono": user.telefono or "",
+        "bio":      user.bio or "",
+        "foto":     user.foto or None,
+    }

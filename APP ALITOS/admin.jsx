@@ -19,6 +19,7 @@ function AdminApp({ onLogout, user }) {
   const [notifOpen, setNotifOpen] = aUseState(false);
   const [adminSellOpen, setAdminSellOpen] = aUseState(false);
   const [adminStock, setAdminStock] = aUseState([]);
+  const [profileOpen, setProfileOpen] = aUseState(false);
 
   const adminName = user?.nombre || user?.name || "Administrador";
   const adminInitials = adminName.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
@@ -185,7 +186,7 @@ function AdminApp({ onLogout, user }) {
     <div className="screen-wrap">
       <AppBar leftLogo title="Administrador" userName={adminName}
         right={<NotifBell unread={unread} onClick={openNotifs} />}
-        avatar={{ color: "var(--amber)", txt: adminInitials, onClick: onLogout }} />
+        avatar={{ color: "var(--amber)", txt: adminInitials, onClick: () => setProfileOpen(true) }} />
 
       <div className="scroll" key={tab}>
         {tab === "inicio" && <AdminHome accounts={accounts} total={total} vendors={vendors} movements={movements} places={places} entregas={entregas} adminName={adminName}
@@ -211,6 +212,7 @@ function AdminApp({ onLogout, user }) {
       <SellSheet open={adminSellOpen} onClose={() => setAdminSellOpen(false)}
         stock={adminStock} places={places}
         onSaved={() => { setAdminSellOpen(false); toast("Venta registrada", "ok"); recargarCuentas(); }} />
+      <ProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} onLogout={onLogout} user={user} />
     </div>
   );
 }

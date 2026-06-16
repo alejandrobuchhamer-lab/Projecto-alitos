@@ -260,6 +260,45 @@
   </div>
 </div>
 
+<!-- Modal detalle negocio -->
+<div id="modal-detalle-negocio" class="modal-backdrop" style="display:none" onclick="if(event.target===this)cerrarDetalleNegocio()">
+  <div class="modal" style="max-width:480px;width:100%">
+    <div class="modal-header">
+      <h3 class="modal-title" id="det-neg-titulo">Detalle del negocio</h3>
+      <button class="modal-close" onclick="cerrarDetalleNegocio()">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <div id="det-neg-foto" style="width:100%;height:160px;border-radius:10px;border:1px solid var(--color-border);
+           background:var(--color-bg-elevated);display:flex;align-items:center;justify-content:center;
+           font-size:3rem;overflow:hidden;flex-shrink:0"></div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:1rem">📍</span>
+          <span id="det-neg-direccion" style="font-size:0.85rem;color:var(--color-text-muted)">—</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:1rem">👤</span>
+          <span id="det-neg-contacto" style="font-size:0.85rem;color:var(--color-text-muted)">—</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:1rem">📞</span>
+          <span id="det-neg-telefono" style="font-size:0.85rem;color:var(--color-text-muted)">—</span>
+        </div>
+        <div id="det-neg-notas-wrap" style="display:none;margin-top:4px;padding:10px;background:var(--color-bg-elevated);
+             border-radius:8px;border:1px solid var(--color-border);font-size:0.82rem;color:var(--color-text-muted)"></div>
+        <div id="det-neg-coords" style="font-size:0.72rem;color:var(--color-text-muted);opacity:.65"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="gap:8px">
+      <button class="btn btn-secondary" style="color:#ef4444;border-color:#ef4444" onclick="eliminarNegocioDetalle()">Eliminar</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-secondary" onclick="cerrarDetalleNegocio()">Cerrar</button>
+      <button class="btn btn-primary" onclick="editarNegocioDesdeDetalle()">Editar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal cobrar -->
 <div id="modal-cobrar" class="modal-backdrop" style="display:none" onclick="if(event.target===this)this.style.display='none'">
   <div class="modal" style="max-width:380px;width:100%">
@@ -514,14 +553,12 @@ async function cargarNegocios() {
                        display:flex;align-items:center;justify-content:center;
                        font-size:2rem;border:1px solid var(--color-border)">🏪</div>`;
       return `
-      <div class="entrega-card" style="padding:12px">
+      <div class="entrega-card" style="padding:12px;cursor:pointer;transition:box-shadow .15s"
+           onclick='abrirDetalleNegocioPorId(${n.id})'
+           onmouseenter="this.style.boxShadow='0 0 0 2px var(--color-primary)'"
+           onmouseleave="this.style.boxShadow=''">
         ${fotoHtml}
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div style="font-weight:600;color:var(--color-text);font-size:0.9rem">${n.nombre}</div>
-          <button onclick='abrirEditarNegocio(${JSON.stringify(n).replace(/'/g,"&#39;")})'
-            style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:0.75rem;padding:2px 6px;
-                   border-radius:4px;border:1px solid var(--color-border)" title="Editar">✏</button>
-        </div>
+        <div style="font-weight:600;color:var(--color-text);font-size:0.9rem">${n.nombre}</div>
         ${n.direccion ? `<div style="font-size:0.76rem;color:var(--color-text-muted);margin-top:3px">📍 ${n.direccion}</div>` : ''}
         ${n.contacto  ? `<div style="font-size:0.76rem;color:var(--color-text-muted)">👤 ${n.contacto}${n.telefono ? ' · ' + n.telefono : ''}</div>` : ''}
         ${n.lat ? `<div style="font-size:0.7rem;color:var(--color-text-muted);opacity:.6;margin-top:2px">📌 ${n.lat.toFixed(4)}, ${n.lng.toFixed(4)}</div>` : '<div style="font-size:0.7rem;color:#f59e0b;margin-top:2px">⚠ Sin ubicación</div>'}
@@ -917,6 +954,65 @@ async function guardarVentaDirecta() {
     document.getElementById('modal-venta-directa').style.display = 'none';
     await cargarVentasDirectas();
     await cargarStock();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Detalle negocio ──────────────────────────────────────────────────────────
+let _negocioDetalle = null;
+
+function abrirDetalleNegocioPorId(id) {
+  const n = _negocios.find(x => x.id === id);
+  if (n) abrirDetalleNegocio(n);
+}
+
+function abrirDetalleNegocio(n) {
+  _negocioDetalle = n;
+  document.getElementById('det-neg-titulo').textContent = n.nombre;
+
+  const fotoEl = document.getElementById('det-neg-foto');
+  if (n.foto) {
+    fotoEl.style.backgroundImage = `url('${n.foto}')`;
+    fotoEl.style.backgroundSize = 'cover';
+    fotoEl.style.backgroundPosition = 'center';
+    fotoEl.textContent = '';
+  } else {
+    fotoEl.style.backgroundImage = '';
+    fotoEl.textContent = '🏪';
+  }
+
+  document.getElementById('det-neg-direccion').textContent = n.direccion || 'Sin dirección';
+  document.getElementById('det-neg-contacto').textContent  = n.contacto  || 'Sin contacto';
+  document.getElementById('det-neg-telefono').textContent  = n.telefono  || 'Sin teléfono';
+
+  const notasEl = document.getElementById('det-neg-notas-wrap');
+  if (n.notas) { notasEl.textContent = n.notas; notasEl.style.display = 'block'; }
+  else notasEl.style.display = 'none';
+
+  const coordsEl = document.getElementById('det-neg-coords');
+  coordsEl.textContent = n.lat ? `📌 ${n.lat.toFixed(5)}, ${n.lng.toFixed(5)}` : '⚠ Sin ubicación en mapa';
+
+  document.getElementById('modal-detalle-negocio').style.display = 'flex';
+}
+
+function cerrarDetalleNegocio() {
+  document.getElementById('modal-detalle-negocio').style.display = 'none';
+  _negocioDetalle = null;
+}
+
+function editarNegocioDesdeDetalle() {
+  cerrarDetalleNegocio();
+  if (_negocioDetalle) setTimeout(() => abrirEditarNegocio(_negocioDetalle), 80);
+}
+
+async function eliminarNegocioDetalle() {
+  if (!_negocioDetalle) return;
+  if (!confirm(`¿Eliminar "${_negocioDetalle.nombre}"? Esta acción no se puede deshacer.`)) return;
+  try {
+    await apiDelete(`/vendedores/api/negocios/${_negocioDetalle.id}`);
+    toast('Negocio eliminado', 'success');
+    cerrarDetalleNegocio();
+    _negocios = await apiGet('/vendedores/api/negocios');
+    await cargarNegocios();
   } catch(e) { toast(e.message, 'error'); }
 }
 

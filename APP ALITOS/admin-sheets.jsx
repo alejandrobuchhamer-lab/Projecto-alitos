@@ -112,6 +112,12 @@ function AssignSheet({ vendor, onClose, onConfirm }) {
     const avail = Math.max(0, Math.round(prod ? prod.stock_actual || 0 : 9999));
     setQty(q => ({ ...q, [id]: Math.max(0, Math.min(avail || 9999, (q[id] || 0) + d)) }));
   };
+  const setDirect = (id, val) => {
+    const prod = prodList.find(p => String(p.id) === String(id));
+    const avail = Math.max(0, Math.round(prod ? prod.stock_actual || 0 : 9999));
+    const n = parseInt(val, 10);
+    setQty(q => ({ ...q, [id]: isNaN(n) ? 0 : Math.max(0, Math.min(avail || 9999, n)) }));
+  };
   const total = Object.values(qty).reduce((a, b) => a + b, 0);
 
   function handleConfirm() {
@@ -148,14 +154,19 @@ function AssignSheet({ vendor, onClose, onConfirm }) {
                   <div className="pmeta">Disponible: <b>{avail} u.</b></div>
                 </div>
                 <div className="qty">
-                  <button onClick={() => bump(String(p.id), -10)}>−</button>
-                  <input value={qty[String(p.id)] || 0} readOnly />
-                  <button onClick={() => bump(String(p.id), 10)}>+</button>
+                  <button onClick={() => bump(String(p.id), -1)}>−</button>
+                  <input
+                    type="number" inputMode="numeric" min={0}
+                    value={qty[String(p.id)] || 0}
+                    onChange={e => setDirect(String(p.id), e.target.value)}
+                    style={{ textAlign: "center", width: 56 }}
+                  />
+                  <button onClick={() => bump(String(p.id), 1)}>+</button>
                 </div>
               </div>
             );
           })}
-          <div className="note"><Icon name="info" size={16} />Cada toque suma o resta 10 unidades. El vendedor recibe la carga en su app.</div>
+          <div className="note"><Icon name="info" size={16} />Podés escribir la cantidad o usar los botones + / −.</div>
         </div>
       ) : (
         <div className="receipt">

@@ -134,6 +134,9 @@ def _run_migrations():
         # PIN de 6 dígitos para app móvil
         "ALTER TABLE usuarios ADD COLUMN must_change_password BOOLEAN DEFAULT 0",
         "ALTER TABLE usuarios ADD COLUMN pin_temporal TEXT",
+        "ALTER TABLE usuarios ADD COLUMN foto TEXT",
+        "ALTER TABLE usuarios ADD COLUMN telefono VARCHAR(30)",
+        "ALTER TABLE usuarios ADD COLUMN bio VARCHAR(200)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

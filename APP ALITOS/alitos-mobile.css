@@ -72,6 +72,7 @@ body {
 .row { display: flex; align-items: center; }
 .between { justify-content: space-between; }
 .spacer { flex: 1; }
+.grow { flex: 1; min-width: 0; }
 
 /* ===================== TOP APP BAR ===================== */
 .appbar {

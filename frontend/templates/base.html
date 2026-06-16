@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="/static/css/main.css?v=39" />
+  <link rel="stylesheet" href="/static/css/main.css?v=40" />
 
   {% block extra_css %}{% endblock %}
 
@@ -217,26 +217,20 @@
 
     {% if _u.puede('ventas') or _u.puede('pedidos') or _u.puede('clientes') or _u.puede('finanzas') %}
     <div class="nav-section-label">Comercial</div>
-    {% if _u.puede('ventas') %}
-    <a href="/ventas/" class="nav-item" data-tip="Ventas">
-      <span class="icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>
-      <span class="label">Ventas</span>
+    <a href="/productos/" class="nav-item" data-tip="Productos">
+      <span class="icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+      <span class="label">Productos</span>
     </a>
-    {% endif %}
-    {% if _u.puede('pedidos') %}
-    <a href="/ventas/pedidos" class="nav-item" data-tip="Pedidos">
-      <span class="icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.99-1.77l1.38-9.23H6"/></svg></span>
+    {% if _u.puede('pedidos') or _u.puede('ventas') %}
+    <a href="/pedidos/" class="nav-item" data-tip="Pedidos">
+      <span class="icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg></span>
       <span class="label">Pedidos</span>
     </a>
     {% endif %}
     {% if _u.puede('ventas') %}
-    <a href="/pedidos/" class="nav-item" data-tip="Pedidos App">
-      <span class="icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg></span>
-      <span class="label">Pedidos App</span>
-    </a>
-    <a href="/vendedores/ventas" class="nav-item" data-tip="Ventas App">
-      <span class="icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8l3 3 2-2 3 3"/></svg></span>
-      <span class="label">Ventas App</span>
+    <a href="/vendedores/ventas" class="nav-item" data-tip="Ventas">
+      <span class="icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>
+      <span class="label">Ventas</span>
     </a>
     {% endif %}
     {% if _u.puede('clientes') %}
@@ -447,7 +441,7 @@
 
 </div>
 
-<script src="/static/js/main.js"></script>
+<script src="/static/js/main.js?v=2"></script>
 
 <script>
   // ===== SIDEBAR TOOLTIP =====
@@ -504,10 +498,9 @@
   (function() {
     const sidebar = document.getElementById('sidebar');
     const main    = document.getElementById('main-wrapper');
-    // Siempre arrancar expandido
-    localStorage.removeItem('sidebar-collapsed');
+    // Arrancar colapsado, expandir solo al hover
     [sidebar, main].forEach(el => { if (el) el.classList.add('no-transition'); });
-    setSidebarState(false);
+    setSidebarState(true);
     requestAnimationFrame(() => requestAnimationFrame(() => {
       [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
     }));
@@ -520,7 +513,7 @@
     });
     sidebar?.addEventListener('mouseleave', () => {
       clearTimeout(_hoverTimeout);
-      _hoverTimeout = setTimeout(() => setSidebarState(true), 300);
+      _hoverTimeout = setTimeout(() => setSidebarState(true), 400);
     });
 
     // Scroll con rueda del mouse en sidebar-nav

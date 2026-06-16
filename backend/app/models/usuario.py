@@ -117,6 +117,9 @@ class Usuario(Base):
     permisos: Mapped[str | None] = mapped_column(String(4000), nullable=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     pin_temporal: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    foto: Mapped[str | None] = mapped_column(Text, nullable=True)
+    telefono: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    bio: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # ── Contraseña ─────────────────────────────────────────────────────────────
 

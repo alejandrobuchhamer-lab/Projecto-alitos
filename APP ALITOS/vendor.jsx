@@ -17,6 +17,7 @@ function VendorApp({ onLogout, user }) {
   const [placeDetail, setPlaceDetail]   = vUseState(null);
   const [pendingVenta, setPendingVenta] = vUseState(null);
   const [pendientes, setPendientes]     = vUseState([]);
+  const [profileOpen, setProfileOpen]   = vUseState(false);
 
   function reloadData() {
     fetchMiStock().then(setStock).catch(() => {});
@@ -95,7 +96,7 @@ function VendorApp({ onLogout, user }) {
     <div className="screen-wrap">
       <AppBar leftLogo title="Vendedor · reparto" userName={ME.name}
         right={<NotifBell unread={0} onClick={() => toast("3 negocios con mercadería por vencer", "warn")} />}
-        avatar={{ color: ME.color, txt: ME.avatar, onClick: onLogout }} />
+        avatar={{ color: ME.color, txt: ME.avatar, onClick: () => setProfileOpen(true) }} />
 
       <div className="scroll" key={tab}>
         {tab === "inicio" && <VendorHome me={ME} soldToday={soldToday} cashToday={cashToday} myDebt={myDebt} totalLoaded={totalLoaded}
@@ -124,6 +125,8 @@ function VendorApp({ onLogout, user }) {
       {/* COMPLETAR PAGO sheet */}
       <CompletarPagoSheet venta={pendingVenta} onClose={() => setPendingVenta(null)}
         onSaved={() => { setPendingVenta(null); reloadData(); toast("Pago completado", "ok"); }} />
+      {/* PERFIL sheet */}
+      <ProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} onLogout={onLogout} user={user} />
     </div>
   );
 }

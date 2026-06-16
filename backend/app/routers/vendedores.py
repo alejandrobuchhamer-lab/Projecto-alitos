@@ -96,6 +96,16 @@ def actualizar_negocio(nid: int, data: dict, db: Session = Depends(get_db), _u: 
     return {"ok": True}
 
 
+@router.delete("/api/negocios/{nid}")
+def eliminar_negocio(nid: int, db: Session = Depends(get_db), _u: Usuario = Depends(permiso("vendedores"))):
+    n = db.query(Negocio).filter(Negocio.id == nid).first()
+    if not n:
+        raise HTTPException(404, "Negocio no encontrado")
+    n.activo = False
+    db.commit()
+    return {"ok": True}
+
+
 # ── API: Stock vendedor ───────────────────────────────────────────────────────
 
 @router.get("/api/stock")
@@ -629,12 +639,18 @@ def listar_vendedores(db: Session = Depends(get_db), user: Usuario = Depends(req
         Usuario.activo == True,
         Usuario.rol.in_(["vendedor", "admin"])
     ).order_by(Usuario.nombre).all()
+    # Agregar stock disponible por vendedor
+    stocks = db.query(StockVendedor).filter(StockVendedor.activo == True).all()
+    stock_por_vendedor = {}
+    for s in stocks:
+        stock_por_vendedor[s.vendedor_id] = stock_por_vendedor.get(s.vendedor_id, 0) + (s.cantidad_disponible or 0)
     result = []
     for u in users:
         online = bool(u.online and u.ultima_actividad and u.ultima_actividad > cutoff)
         result.append({
             "id": u.id, "nombre": u.nombre, "username": u.username, "rol": u.rol,
             "online": online,
+            "stock_total": int(stock_por_vendedor.get(u.id, 0)),
             "ultima_actividad": u.ultima_actividad.strftime("%d/%m %H:%M") if u.ultima_actividad else None,
         })
     return result

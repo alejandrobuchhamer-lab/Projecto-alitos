@@ -1,24 +1,12 @@
 /* ===================== ALITO'S · Sheets del vendedor ===================== */
 const { useState: shUseState, useEffect: shUseEffect } = React;
 
-// ── Constantes de precios (igual que en orders.jsx) ──────────────────────────
-const SELL_PRECIOS_CF  = { docena: 20, media: 12 };
-const SELL_PRECIOS_NEG = { docena: 24, media: 14 };
 const SELL_PAGO_OPTS = [
   { id: "efectivo",      l: "Efectivo",      e: "💵", pct: 10 },
   { id: "transferencia", l: "Transferencia", e: "🏦", pct: 5  },
   { id: "qr",            l: "QR / MP",       e: "📱", pct: 0  },
   { id: "consignacion",  l: "Consignación",  e: "📦", pct: 0  },
 ];
-
-function sellCalcPrecio(units, tipo) {
-  const p = tipo === "negocio" ? SELL_PRECIOS_NEG : SELL_PRECIOS_CF;
-  const docenas = Math.floor(units / 12);
-  const rest    = units % 12;
-  const medias  = Math.floor(rest / 6);
-  const sueltas = rest % 6;
-  return Math.round((docenas * p.docena + medias * p.media + sueltas * (p.docena / 12)) * 100) / 100;
-}
 
 /* ---------- SELL sheet ─────────────────────────────────────────────────────── */
 function SellSheet({ open, onClose, stock, places, onSaved }) {
@@ -41,6 +29,7 @@ function SellSheet({ open, onClose, stock, places, onSaved }) {
   const [estadoPago, setEstPago]  = shUseState("completo");
   const [saving, setSaving]       = shUseState(false);
   const [receipt, setReceipt]     = shUseState(null);
+  const [preciosMap, setPreciosMap] = shUseState({});
 
   shUseEffect(() => {
     if (!open) return;
@@ -48,11 +37,24 @@ function SellSheet({ open, onClose, stock, places, onSaved }) {
     setQty({}); setNotas(""); setDescPct(""); setDescMonto(""); setLDE("pct");
     setPagosSel({}); setEstPago("completo"); setSaving(false); setReceipt(null); setNCA(false);
     fetchClientes().then(setClientes).catch(() => setClientes([]));
+    fetchProductos().then(data => {
+      const m = {};
+      data.forEach(p => { m[String(p.id)] = p.precio_venta_base || 0; });
+      setPreciosMap(m);
+    }).catch(() => {});
   }, [open]);
+
+  // Precio por unidad de un ítem (usa precio_venta_base del producto)
+  const getPrecioUnit = (id) => {
+    const sid = String(id);
+    if (preciosMap[sid]) return preciosMap[sid];
+    const s = stock.find(x => String(x.id) === sid || String(x.productoId) === sid);
+    return s?.precio || 0;
+  };
 
   // Calcular totales
   const totalUnits = Object.values(qty).reduce((a, b) => a + b, 0);
-  const precioBase = sellCalcPrecio(totalUnits, tipoCliente);
+  const precioBase = Object.entries(qty).reduce((sum, [id, n]) => sum + n * getPrecioUnit(id), 0);
   const descPctVal   = parseFloat(lastDescEdit === "pct" ? descPct : (precioBase > 0 ? (parseFloat(descMonto || 0) / precioBase * 100).toFixed(2) : 0)) || 0;
   const descMontoVal = parseFloat(lastDescEdit === "monto" ? descMonto : (precioBase * descPctVal / 100).toFixed(2)) || 0;
   const totalFinal   = Math.max(0, Math.round((precioBase - descMontoVal) * 100) / 100);
@@ -91,7 +93,7 @@ function SellSheet({ open, onClose, stock, places, onSaved }) {
         svId:          stockItem.svId || null,
         productoId:    stockItem.productoId,
         cantidad:      totalUnits,
-        precio:        precioBase / (totalUnits || 1),
+        precio:        totalUnits > 0 ? precioBase / totalUnits : 0,
         lugar,
         tipoCliente,
         clienteId:     clienteSel?.id || null,
@@ -170,7 +172,6 @@ function SellSheet({ open, onClose, stock, places, onSaved }) {
     </div>
   );
 
-  const p = tipoCliente === "negocio" ? SELL_PRECIOS_NEG : SELL_PRECIOS_CF;
   const docenas = Math.floor(totalUnits / 12);
   const medias  = Math.floor((totalUnits % 12) / 6);
   const sueltas = totalUnits % 6;
@@ -279,8 +280,7 @@ function SellSheet({ open, onClose, stock, places, onSaved }) {
           {totalUnits > 0 && (
             <div className="note" style={{ margin: 0 }}>
               <Icon name="info" size={14} />
-              {totalUnits} u. = {docenas > 0 ? docenas + " doc." : ""}{medias > 0 ? " " + medias + " med." : ""}{sueltas > 0 ? " " + sueltas + " suel." : ""}
-              {" · "}<b>{ARS(precioBase)}</b>
+              {totalUnits} u. · <b>{ARS(precioBase)}</b>
             </div>
           )}
 
@@ -294,90 +294,69 @@ function SellSheet({ open, onClose, stock, places, onSaved }) {
 
       {/* ── Paso 2: Precio + Descuento ── */}
       {step === 2 && (
-        <div className="stack gap-12">
-          {/* Desglose */}
-          <div className="card-2" style={{ padding: 14 }}>
-            <div className="lab" style={{ marginBottom: 10 }}>
-              Precio — {tipoCliente === "negocio" ? "Negocio" : tipoCliente === "cliente" ? "Cliente" : "Consumidor Final"}
-            </div>
+        <div className="stack gap-10">
+          {/* Desglose de productos */}
+          <div className="card-2" style={{ padding: "12px 14px" }}>
             <div className="stack gap-6" style={{ fontSize: 13 }}>
-              {docenas > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--txt-2)" }}>{docenas} docena{docenas > 1 ? "s" : ""} × {ARS(p.docena)}</span>
-                  <span style={{ fontWeight: 600 }}>{ARS(docenas * p.docena)}</span>
-                </div>
-              )}
-              {medias > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--txt-2)" }}>{medias} media{medias > 1 ? "s" : ""} × {ARS(p.media)}</span>
-                  <span style={{ fontWeight: 600 }}>{ARS(medias * p.media)}</span>
-                </div>
-              )}
-              {sueltas > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--txt-2)" }}>{sueltas} suelta{sueltas > 1 ? "s" : ""}</span>
-                  <span style={{ fontWeight: 600 }}>{ARS(sueltas * (p.docena / 12))}</span>
-                </div>
-              )}
-              <div style={{ borderTop: "1px solid var(--card-border)", margin: "4px 0" }} />
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontWeight: 600 }}>Precio de lista</span>
-                <span style={{ fontWeight: 700, fontSize: 16 }}>{ARS(precioBase)}</span>
+              {Object.entries(qty).filter(([, n]) => n > 0).map(([id, n]) => {
+                const s = stock.find(x => String(x.id) === id || String(x.productoId) === id);
+                const pu = getPrecioUnit(id);
+                return (
+                  <div key={id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "var(--txt-2)" }}>{n} × {s?.name || "Producto"}</span>
+                    <span style={{ fontWeight: 600 }}>{ARS(n * pu)}</span>
+                  </div>
+                );
+              })}
+              <div style={{ borderTop: "1px solid var(--card-border)", margin: "2px 0", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Subtotal</span>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>{ARS(precioBase)}</span>
               </div>
             </div>
           </div>
 
-          {/* Descuento bidireccional */}
-          <div className="card-2" style={{ padding: 14 }}>
-            <div className="lab" style={{ marginBottom: 10 }}>Descuento (opcional)</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label className="lab" style={{ fontSize: 11 }}>Porcentaje %</label>
-                <div className="money" style={{ fontSize: 14 }}>
-                  <input className="input" inputMode="decimal" placeholder="0"
-                    value={descPct}
-                    onChange={e => {
-                      setDescPct(e.target.value);
-                      setLDE("pct");
-                      const pct = parseFloat(e.target.value) || 0;
-                      setDescMonto(pct > 0 ? (precioBase * pct / 100).toFixed(2) : "");
-                    }} />
-                  <span style={{ paddingRight: 10, color: "var(--txt-3)", fontSize: 14 }}>%</span>
-                </div>
+          {/* Descuento — fila compacta */}
+          <div className="card-2" style={{ padding: "12px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: descMontoVal > 0 ? 10 : 0 }}>
+              <span style={{ fontSize: 13, color: "var(--txt-2)", flex: 1 }}>Descuento</span>
+              {/* % */}
+              <div style={{ display: "flex", alignItems: "center", background: "var(--bg)", border: "1px solid var(--card-border)", borderRadius: 8, overflow: "hidden", width: 80 }}>
+                <input inputMode="decimal" placeholder="0"
+                  value={descPct}
+                  onChange={e => {
+                    setDescPct(e.target.value); setLDE("pct");
+                    const pct = parseFloat(e.target.value) || 0;
+                    setDescMonto(pct > 0 ? (precioBase * pct / 100).toFixed(0) : "");
+                  }}
+                  style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: "#fff", fontSize: 14, padding: "8px 6px", textAlign: "right" }} />
+                <span style={{ paddingRight: 8, color: "var(--txt-3)", fontSize: 13 }}>%</span>
               </div>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label className="lab" style={{ fontSize: 11 }}>Monto $</label>
-                <div className="money" style={{ fontSize: 14 }}>
-                  <span style={{ paddingLeft: 10, color: "var(--txt-3)", fontSize: 14 }}>$</span>
-                  <input className="input" inputMode="decimal" placeholder="0"
-                    value={descMonto}
-                    onChange={e => {
-                      setDescMonto(e.target.value);
-                      setLDE("monto");
-                      const m = parseFloat(e.target.value) || 0;
-                      setDescPct(precioBase > 0 ? (m / precioBase * 100).toFixed(1) : "");
-                    }} />
-                </div>
+              <span style={{ color: "var(--txt-3)", fontSize: 12 }}>ó</span>
+              {/* $ */}
+              <div style={{ display: "flex", alignItems: "center", background: "var(--bg)", border: "1px solid var(--card-border)", borderRadius: 8, overflow: "hidden", width: 90 }}>
+                <span style={{ paddingLeft: 8, color: "var(--txt-3)", fontSize: 13 }}>$</span>
+                <input inputMode="decimal" placeholder="0"
+                  value={descMonto}
+                  onChange={e => {
+                    setDescMonto(e.target.value); setLDE("monto");
+                    const m = parseFloat(e.target.value) || 0;
+                    setDescPct(precioBase > 0 ? (m / precioBase * 100).toFixed(1) : "");
+                  }}
+                  style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: "#fff", fontSize: 14, padding: "8px 6px" }} />
               </div>
             </div>
             {descMontoVal > 0 && (
-              <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--card-border)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                  <span style={{ color: "var(--green)" }}>Descuento {descPctVal.toFixed(1)}%</span>
-                  <span style={{ color: "var(--green)", fontWeight: 600 }}>−{ARS(descMontoVal)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>Total final</span>
-                  <span style={{ fontWeight: 800, fontSize: 20, color: "var(--amber-bright)" }}>{ARS(totalFinal)}</span>
-                </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--green)", paddingTop: 8, borderTop: "1px solid var(--card-border)" }}>
+                <span>Descuento aplicado {descPctVal.toFixed(1)}%</span>
+                <span style={{ fontWeight: 600 }}>−{ARS(descMontoVal)}</span>
               </div>
             )}
-            {descMontoVal === 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
-                <span style={{ fontWeight: 700 }}>Total</span>
-                <span style={{ fontWeight: 800, fontSize: 20, color: "var(--amber-bright)" }}>{ARS(totalFinal)}</span>
-              </div>
-            )}
+          </div>
+
+          {/* Total grande */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 2px" }}>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>Total</span>
+            <span style={{ fontWeight: 800, fontSize: 26, color: "var(--amber-bright)" }}>{ARS(totalFinal)}</span>
           </div>
         </div>
       )}
