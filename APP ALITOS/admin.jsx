@@ -32,8 +32,11 @@ function AdminApp({ onLogout, user }) {
       evtSrc.onmessage = (e) => {
         try {
           const d = JSON.parse(e.data);
+          if (d.tipo === "connected") return;
           if (d.tipo === "venta" || d.tipo === "pago") recargarCuentas();
           if (d.tipo === "stock") fetchVendedores().then(data => { if (data.length) setVendors(data); }).catch(() => {});
+          const notif = sseEventToNotif(d);
+          if (notif) pushNotif(notif);
         } catch(_) {}
       };
       evtSrc.onerror = () => { evtSrc.close(); setTimeout(conectarSSE, 4000); };

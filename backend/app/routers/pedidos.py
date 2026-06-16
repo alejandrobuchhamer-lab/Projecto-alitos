@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.events import broadcast_event
 from app.models.pedido import PedidoVendedor
 from app.models.usuario import Usuario
 from app.routers.auth import require_user, permiso
@@ -179,6 +180,14 @@ def crear_pedido(
     db.add(p)
     db.commit()
     db.refresh(p)
+    broadcast_event("pedido", {
+        "vendedor_nombre": user.nombre,
+        "vendedor_id": user.id,
+        "lugar": data["place"],
+        "unidades": unidades,
+        "monto": float(monto),
+        "cliente": data.get("cliente_nombre") or data["place"],
+    })
     return _fmt(p)
 
 

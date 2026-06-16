@@ -38,7 +38,10 @@ function VendorApp({ onLogout, user }) {
       evtSrc.onmessage = (e) => {
         try {
           const d = JSON.parse(e.data);
-          if (d.tipo !== "connected") reloadData();
+          if (d.tipo === "connected") return;
+          reloadData();
+          const notif = sseEventToNotif(d);
+          if (notif) pushNotif(notif);
         } catch(_) {}
       };
       evtSrc.onerror = () => {

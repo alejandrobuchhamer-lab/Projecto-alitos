@@ -1,15 +1,9 @@
 /* ===================== ALITO'S · Notificaciones (resto → admin) ===================== */
 const { useState: nUseState } = React;
 
-/* Store en memoria: el resto de los roles avisan al admin */
-let _NOTIFS = [
-  { id: 1, kind: "venta",  who: "Lucía F.",  color: "#c47820", title: "Lucía registró una venta", sub: "Maxikiosco El Trébol · 24 u.", amount: 14400, dir: "in",  time: "11:20", read: false },
-  { id: 2, kind: "pedido", who: "Diego Q.",  color: "#9173e0", title: "Diego tomó un pedido",      sub: "Kiosco Don Pedro · 60 u.",    amount: 51000, dir: "info", time: "10:30", read: false },
-  { id: 3, kind: "cobro",  who: "Lucía F.",  color: "#c47820", title: "Lucía cobró una deuda",     sub: "Bar El Fortín · efectivo",    amount: 8400,  dir: "in",  time: "10:05", read: false },
-  { id: 4, kind: "prod",   who: "Producción", color: "#46b97a", title: "Lote terminado",            sub: "Alfajor Triple · 120 u.",     dir: "info", time: "09:40", read: true  },
-  { id: 5, kind: "negocio",who: "Lucía F.",  color: "#c47820", title: "Nuevo negocio cargado",     sub: "Almacén La Esquina, Castelar", dir: "info", time: "09:12", read: true  },
-];
-let _nid = 100;
+/* Store en memoria — se llena desde SSE en tiempo real */
+let _NOTIFS = [];
+let _nid = 1;
 const NOTIF_LISTENERS = new Set();
 function getNotifs() { return _NOTIFS; }
 function notifUnread() { return _NOTIFS.filter(n => !n.read).length; }
@@ -76,4 +70,45 @@ function NotifSheet({ open, onClose }) {
   );
 }
 
-Object.assign(window, { getNotifs, notifUnread, pushNotif, markNotifsRead, NOTIF_META, useNotifs, NotifBell, NotifSheet });
+/* Convierte un evento SSE del backend en una notificación */
+function sseEventToNotif(e) {
+  const now = new Date();
+  const time = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+  const who = e.vendedor_nombre || "Sistema";
+  const color = "#c47820";
+
+  if (e.tipo === "venta") {
+    return {
+      kind: "venta", who, color, dir: "in",
+      title: `${who} registró una venta`,
+      sub: `${e.cliente || "CF"} · ${e.cantidad || ""} u.`,
+      amount: e.monto || 0, time,
+    };
+  }
+  if (e.tipo === "pago") {
+    return {
+      kind: "cobro", who, color, dir: "in",
+      title: `${who} completó un cobro`,
+      sub: `${e.cliente || "CF"} · ${e.forma_pago || "efectivo"}`,
+      amount: e.monto || 0, time,
+    };
+  }
+  if (e.tipo === "pedido") {
+    return {
+      kind: "pedido", who, color, dir: "info",
+      title: `${who} tomó un pedido`,
+      sub: `${e.cliente || e.lugar || "CF"} · ${e.unidades || 0} u.`,
+      amount: e.monto || 0, time,
+    };
+  }
+  if (e.tipo === "stock") {
+    return {
+      kind: "prod", who, color: "#46b97a", dir: "info",
+      title: "Stock asignado",
+      sub: `Actualización de inventario`, time,
+    };
+  }
+  return null;
+}
+
+Object.assign(window, { getNotifs, notifUnread, pushNotif, markNotifsRead, NOTIF_META, useNotifs, NotifBell, NotifSheet, sseEventToNotif });

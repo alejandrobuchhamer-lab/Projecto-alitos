@@ -497,7 +497,14 @@ def registrar_venta_directa(data: dict, db: Session = Depends(get_db), user: Usu
         user_id=user.id,
     )
     db.commit()
-    broadcast_event("venta", {"vendedor_id": user.id})
+    broadcast_event("venta", {
+        "vendedor_id": user.id,
+        "vendedor_nombre": user.nombre,
+        "monto": float(monto_total),
+        "cantidad": int(cantidad),
+        "cliente": cliente_str,
+        "forma_pago": forma_pago,
+    })
 
     try:
         from app.routers.push import enviar_push
@@ -576,7 +583,13 @@ def completar_pago(vid: int, data: dict, db: Session = Depends(get_db), user: Us
         user_id=user.id,
     )
     db.commit()
-    broadcast_event("pago", {"venta_id": vid})
+    broadcast_event("pago", {
+        "venta_id": vid,
+        "vendedor_nombre": user.nombre,
+        "monto": float(monto_pagado),
+        "cliente": v.cliente_nombre or v.lugar or "CF",
+        "forma_pago": forma_pago,
+    })
     return {"ok": True}
 
 
