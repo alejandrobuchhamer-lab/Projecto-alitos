@@ -17,14 +17,24 @@ function AppEnter({ children }) {
 
 /* ---------- 1º · Elegí tu usuario (cuentas creadas por el admin) ---------- */
 function UserPicker({ onPick }) {
-  const [users, setUsers] = rUseState(USERS);
+  const [users, setUsers] = rUseState([]);
   const [loading, setLoading] = rUseState(true);
-  rUseEffect(() => {
-    fetchUsuarios()
-      .then(data => { if (data && data.length) setUsers(data); })
-      .catch(() => {}) // fallback a USERS mock si el servidor no está
-      .finally(() => setLoading(false));
-  }, []);
+  const [error, setError] = rUseState(false);
+
+  function cargar() {
+    setLoading(true);
+    setError(false);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    fetch(API_BASE + "/api/mobile/usuarios", { signal: ctrl.signal })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => { setUsers(data || []); setLoading(false); })
+      .catch(() => { setError(true); setLoading(false); })
+      .finally(() => clearTimeout(timer));
+  }
+
+  rUseEffect(() => { cargar(); }, []);
+
   return (
     <div className="up">
       <div className="up-head">
@@ -32,28 +42,40 @@ function UserPicker({ onPick }) {
         <div className="up-tag">Gestión de fábrica</div>
       </div>
       <div className="up-prompt">Elegí tu usuario para ingresar</div>
-      {loading
-        ? <div style={{textAlign:"center",color:"var(--txt-3)",padding:"24px",fontSize:"0.82rem"}}>Cargando…</div>
-        : <div className="up-list">
-            {users.map((u) =>
+      {loading && (
+        <div style={{ textAlign: "center", padding: "40px 0", color: "var(--txt-3)" }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+          <div>Conectando…</div>
+        </div>
+      )}
+      {!loading && error && (
+        <div style={{ textAlign: "center", padding: "40px 16px", color: "var(--txt-3)" }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📡</div>
+          <div style={{ marginBottom: 16 }}>No se pudo conectar al servidor</div>
+          <button onClick={cargar} style={{ background: "var(--accent,#c47820)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 24px", fontSize: "0.9rem", cursor: "pointer" }}>Reintentar</button>
+        </div>
+      )}
+      {!loading && !error && (
+        <div className="up-list">
+          {users.map((u) =>
             <div className="ucard" key={u.id} onClick={() => onPick(u)}>
-                <div className="uc-ava" style={{
-                  background: u.foto ? `url(${u.foto}) center/cover no-repeat` : (u.color || "#c47820"),
-                }}>
-                  {!u.foto && (u.avatar || u.first?.[0] || u.nombre?.[0] || "?")}
-                  <span className="uc-badge" style={{ background: u.iconColor || "#c47820" }}>
-                    <Icon name={u.icon || "user"} size={11} sw={2.4} />
-                  </span>
-                </div>
-                <div className="grow">
-                  <div className="uc-name">{u.name || u.nombre}</div>
-                  <div className="uc-role">{u.roleLabel || u.rol}</div>
-                </div>
-                <Icon name="chevR" size={20} style={{ color: "var(--txt-3)" }} />
+              <div className="uc-ava" style={{
+                background: u.foto ? `url(${u.foto}) center/cover no-repeat` : (u.color || "#c47820"),
+              }}>
+                {!u.foto && (u.avatar || u.first?.[0] || u.nombre?.[0] || "?")}
+                <span className="uc-badge" style={{ background: u.iconColor || "#c47820" }}>
+                  <Icon name={u.icon || "user"} size={11} sw={2.4} />
+                </span>
               </div>
-            )}
-          </div>
-      }
+              <div className="grow">
+                <div className="uc-name">{u.name || u.nombre}</div>
+                <div className="uc-role">{u.roleLabel || u.rol}</div>
+              </div>
+              <Icon name="chevR" size={20} style={{ color: "var(--txt-3)" }} />
+            </div>
+          )}
+        </div>
+      )}
       <div className="up-note">Las cuentas y sus permisos se crean desde el panel del <b>Administrador</b>.<br />Cada usuario entra directo a su vista asignada.</div>
     </div>);
 }
