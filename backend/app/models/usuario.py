@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 import hashlib
 import secrets
-from sqlalchemy import String, DateTime, Boolean, Integer
+from sqlalchemy import String, DateTime, Boolean, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
