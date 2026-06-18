@@ -13,30 +13,42 @@ def _extraer_iniciales(nombre: str) -> str:
     return "".join(iniciales) or "XX"
 
 
+# ── Numeración de lotes legible ─────────────────────────────────────────────
+# Formato: MASA-2026-001 → TAPAS-2026-001 → ALF-2026-001
+# El número secuencial se hereda a lo largo de la cadena masa→tapas→alfajor
+# para mantener trazabilidad inmediata leyendo el código.
+
+def _seq_produccion(db: Session, tipo: str, año: int) -> int:
+    """Cuenta producciones de ese tipo en el año para asignar número correlativo."""
+    return db.query(Produccion).filter(
+        Produccion.tipo_produccion == tipo,
+        Produccion.fecha_inicio >= datetime(año, 1, 1),
+        Produccion.fecha_inicio < datetime(año + 1, 1, 1),
+    ).count() + 1
+
+
+def _numero_lote_masa(db: Session, fecha: datetime) -> str:
+    n = _seq_produccion(db, "masa", fecha.year)
+    return f"MASA-{fecha.year}-{n:03d}"
+
+
+def _numero_lote_tapas(numero_masa: str) -> str:
+    """Hereda el número de la masa: MASA-2026-001 → TAPAS-2026-001."""
+    return numero_masa.replace("MASA-", "TAPAS-", 1)
+
+
+def _numero_lote_armado(numero_tapas: str, iniciales_producto: str) -> str:
+    """Hereda el número de las tapas: TAPAS-2026-001 → ALF-2026-001-CH."""
+    base = numero_tapas.replace("TAPAS-", "ALF-", 1)
+    return f"{base}-{iniciales_producto}" if iniciales_producto else base
+
+
+# Mantener compatibilidad con llamadas antiguas que usan _julian/_yymmdd
 def _yymmdd(fecha: datetime) -> str:
     return fecha.strftime("%y%m%d")
 
-
 def _julian(fecha: datetime) -> int:
     return fecha.timetuple().tm_yday
-
-
-def _numero_lote_masa(producto_nombre: str, fecha: datetime) -> str:
-    iniciales = _extraer_iniciales(producto_nombre)
-    return f"MASA-{iniciales}-{_yymmdd(fecha)}-L{_julian(fecha)}"
-
-
-def _numero_lote_tapas(producto_nombre: str, fecha_hoy: datetime, julian_masa: int) -> str:
-    iniciales = _extraer_iniciales(producto_nombre)
-    return f"TAPA-{iniciales}-{_yymmdd(fecha_hoy)}-L{julian_masa}"
-
-
-def _numero_lote_armado(producto_nombre: str, fecha_hoy: datetime, julian_masa: int) -> str:
-    nombre = producto_nombre.strip()
-    if nombre.lower().startswith("alfajor"):
-        nombre = nombre[7:].strip()
-    nombre_safe = nombre.upper().replace(" ", "_") if nombre else "XX"
-    return f"ALFAJOR-{nombre_safe}-{_yymmdd(fecha_hoy)}-L{julian_masa}"
 
 
 def generar_numero_lote_producto(db: Session, producto_id: int) -> str:
@@ -111,9 +123,21 @@ def iniciar_produccion(
                 if lote_masa and lote_masa.produccion:
                     julian = _julian(lote_masa.produccion.fecha_inicio)
 
+        # Número de lote: hereda de tapas → ALF-2026-001-XX
+        numero_tapas = None
+        if lote_origen_id:
+            lt = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id == lote_origen_id).first()
+            if lt and lt.produccion:
+                numero_tapas = lt.produccion.numero_lote_produccion
+        iniciales = _extraer_iniciales(receta.producto.nombre)
+        if numero_tapas and numero_tapas.startswith("TAPAS-"):
+            numero_lote_arm = _numero_lote_armado(numero_tapas, iniciales)
+        else:
+            numero_lote_arm = f"ALF-{ahora.year}-{_seq_produccion(db, 'armado', ahora.year):03d}-{iniciales}"
+
         produccion = Produccion(
             receta_version_id=receta_version_id,
-            numero_lote_produccion=_numero_lote_armado(receta.producto.nombre, ahora, julian),
+            numero_lote_produccion=numero_lote_arm,
             estado=EstadoProduccion.en_proceso,
             operario=operario,
             notas=notas,
@@ -172,16 +196,19 @@ def iniciar_produccion(
         else:
             tapas_teoricas = calcular_tapas_teoricas(receta)
 
-    # Número de lote: masa usa fecha de hoy, tapas hereda la fecha de la masa origen
+    # Número de lote: secuencial legible, trazabilidad por herencia
     ahora = datetime.utcnow()
     if tipo_produccion == "masa":
-        numero_lote = _numero_lote_masa(receta.producto.nombre, ahora)
+        numero_lote = _numero_lote_masa(db, ahora)
     elif tipo_produccion == "tapas" and lote_origen_id:
         lote_masa = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id == lote_origen_id).first()
-        fecha_masa = lote_masa.produccion.fecha_inicio if lote_masa and lote_masa.produccion else ahora
-        numero_lote = _numero_lote_tapas(receta.producto.nombre, ahora, _julian(fecha_masa))
+        numero_masa = lote_masa.produccion.numero_lote_produccion if lote_masa and lote_masa.produccion else None
+        if numero_masa and numero_masa.startswith("MASA-"):
+            numero_lote = _numero_lote_tapas(numero_masa)
+        else:
+            numero_lote = f"TAPAS-{ahora.year}-{_seq_produccion(db, 'tapas', ahora.year):03d}"
     else:
-        numero_lote = f"PROD-{ahora.strftime('%y%m%d')}-L{_julian(ahora)}"
+        numero_lote = f"PROD-{ahora.year}-{_seq_produccion(db, tipo_produccion, ahora.year):03d}"
 
     produccion = Produccion(
         receta_version_id=receta_version_id,
@@ -244,6 +271,10 @@ def finalizar_armado(
     cantidad_producida: float,
     notas: str | None = None,
     dias_vencimiento: int | None = None,
+    horas_mano_obra: float | None = None,
+    alfajores_rotos_bano: int | None = None,
+    alfajores_rotos_empaque: int | None = None,
+    chocolate_no_recuperado_g: float | None = None,
 ) -> LoteProductoTerminado:
     """Consume insumos y tapas registrados, cierra la producción y crea el lote de alfajores."""
     from app.models.produccion import ProduccionTacho
@@ -345,6 +376,19 @@ def finalizar_armado(
     produccion.estado = EstadoProduccion.finalizada
     if notas:
         produccion.notas = notas
+    if horas_mano_obra is not None:
+        produccion.horas_mano_obra = horas_mano_obra
+    if alfajores_rotos_bano is not None:
+        produccion.alfajores_rotos_bano = alfajores_rotos_bano
+    if alfajores_rotos_empaque is not None:
+        produccion.alfajores_rotos_empaque = alfajores_rotos_empaque
+    if chocolate_no_recuperado_g is not None:
+        produccion.chocolate_no_recuperado_g = chocolate_no_recuperado_g
+
+    # Costos extra (mano de obra; electricidad no aplica en armado normalmente)
+    _, costo_mo = _calcular_costos_extra(db, produccion, horas_mano_obra)
+    produccion.costo_mano_obra = costo_mo
+    produccion.costo_total_real = round(costo_total + costo_mo, 4)
 
     db.flush()
 
@@ -370,6 +414,25 @@ def finalizar_armado(
     return lote_alfajor
 
 
+def _calcular_costos_extra(db: Session, produccion: "Produccion", horas_mano_obra: float | None) -> tuple[float, float]:
+    """Calcula costo electricidad y mano de obra. Retorna (elec, mo)."""
+    from app.models.produccion import ConfiguracionProduccion, Horno
+    cfg = db.query(ConfiguracionProduccion).filter(ConfiguracionProduccion.id == 1).first()
+    costo_elec = 0.0
+    costo_mo = 0.0
+    if cfg:
+        # Electricidad: solo si hay horno asignado y horas de horno registradas
+        if cfg.horno_activo_id and produccion.horas_horno_total:
+            horno = db.query(Horno).filter(Horno.id == cfg.horno_activo_id).first()
+            if horno and horno.potencia_kw and horno.precio_kwh:
+                costo_elec = round(produccion.horas_horno_total * horno.potencia_kw * horno.precio_kwh, 4)
+        # Mano de obra
+        horas = horas_mano_obra or produccion.horas_mano_obra or 0
+        if horas and cfg.precio_hora_mano_obra:
+            costo_mo = round(horas * cfg.precio_hora_mano_obra, 4)
+    return costo_elec, costo_mo
+
+
 def finalizar_produccion(
     db: Session,
     produccion_id: int,
@@ -385,6 +448,8 @@ def finalizar_produccion(
     tapas_por_hornada: int | None = None,
     minutos_por_hornada: int | None = None,
     horas_horno_total: float | None = None,
+    horas_mano_obra: float | None = None,
+    tapas_crudas_rotas: int | None = None,
 ) -> LoteProductoTerminado:
     produccion = db.query(Produccion).filter(Produccion.id == produccion_id).first()
     if not produccion:
@@ -413,6 +478,14 @@ def finalizar_produccion(
     if tapas_por_hornada is not None: produccion.tapas_por_hornada = tapas_por_hornada
     if minutos_por_hornada is not None: produccion.minutos_por_hornada = minutos_por_hornada
     if horas_horno_total is not None: produccion.horas_horno_total = horas_horno_total
+    if horas_mano_obra is not None: produccion.horas_mano_obra = horas_mano_obra
+    if tapas_crudas_rotas is not None: produccion.tapas_crudas_rotas = tapas_crudas_rotas
+
+    # Calcular costos extra (electricidad y mano de obra)
+    costo_elec, costo_mo = _calcular_costos_extra(db, produccion, horas_mano_obra)
+    produccion.costo_electricidad = costo_elec
+    produccion.costo_mano_obra = costo_mo
+    produccion.costo_total_real = round((produccion.costo_total_insumos or 0) + costo_elec + costo_mo, 4)
 
     costo_unitario = produccion.costo_unitario
     producto = produccion.receta_version.producto

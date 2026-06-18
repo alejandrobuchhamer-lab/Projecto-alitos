@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
-from app.models.produccion import Produccion, ProduccionInsumo, ProduccionTacho
+from app.models.produccion import Produccion, ProduccionInsumo, ProduccionTacho, Horno, ConfiguracionProduccion
 from app.models.registro_tapas import RegistroTapas
 from app.models.receta import RecetaVersion
 from app.models.insumo import LoteInsumo, Insumo
@@ -665,6 +665,11 @@ class EnvasadoFinalizarBody(BaseModel):
     # Chocolate / baño
     insumo_chocolate_id: int | None = None
     chocolate_gramos: float | None = None
+    # Costos extra y desperdicios
+    horas_mano_obra: float | None = None
+    alfajores_rotos_bano: int | None = None
+    alfajores_rotos_empaque: int | None = None
+    chocolate_no_recuperado_g: float | None = None
 
 
 @router.post("/api/{produccion_id}/envasar-y-finalizar", response_model=ProduccionOut)
@@ -740,7 +745,13 @@ def envasar_y_finalizar(produccion_id: int, data: EnvasadoFinalizarBody, db: Ses
 
     # ── Finalizar → crea lote de alfajores en stock ─────────────────────
     try:
-        finalizar_armado(db, produccion_id, data.unidades, data.notas, data.dias_vencimiento)
+        finalizar_armado(
+            db, produccion_id, data.unidades, data.notas, data.dias_vencimiento,
+            horas_mano_obra=data.horas_mano_obra,
+            alfajores_rotos_bano=data.alfajores_rotos_bano,
+            alfajores_rotos_empaque=data.alfajores_rotos_empaque,
+            chocolate_no_recuperado_g=data.chocolate_no_recuperado_g,
+        )
         db.commit()
         db.refresh(prod)
         return ProduccionOut.model_validate(prod)
@@ -1056,6 +1067,142 @@ def etapas_activas(db: Session = Depends(get_db)):
             "operario":        p.operario or "Sin asignar",
         })
     return result
+
+
+# ── Configuración de producción (horno + mano de obra) ───────────────────────
+
+class ConfigProduccionBody(BaseModel):
+    precio_hora_mano_obra: float | None = None
+    horno_nombre: str | None = None
+    horno_potencia_kw: float | None = None
+    horno_precio_kwh: float | None = None
+
+
+@router.get("/api/config")
+def get_config(db: Session = Depends(get_db)):
+    """Devuelve configuración actual: horno activo y precio mano de obra."""
+    cfg = db.query(ConfiguracionProduccion).filter(ConfiguracionProduccion.id == 1).first()
+    horno = None
+    if cfg and cfg.horno_activo_id:
+        h = db.query(Horno).filter(Horno.id == cfg.horno_activo_id).first()
+        if h:
+            horno = {"id": h.id, "nombre": h.nombre, "potencia_kw": h.potencia_kw, "precio_kwh": h.precio_kwh}
+    return {
+        "precio_hora_mano_obra": cfg.precio_hora_mano_obra if cfg else 0.0,
+        "horno": horno,
+    }
+
+
+@router.put("/api/config")
+def set_config(data: ConfigProduccionBody, db: Session = Depends(get_db)):
+    """Actualiza configuración de producción."""
+    cfg = db.query(ConfiguracionProduccion).filter(ConfiguracionProduccion.id == 1).first()
+    if not cfg:
+        cfg = ConfiguracionProduccion(id=1, precio_hora_mano_obra=0.0)
+        db.add(cfg)
+        db.flush()
+
+    if data.precio_hora_mano_obra is not None:
+        cfg.precio_hora_mano_obra = data.precio_hora_mano_obra
+
+    # Crear o actualizar horno si se pasaron datos
+    if data.horno_nombre or data.horno_potencia_kw is not None:
+        horno = db.query(Horno).filter(Horno.id == cfg.horno_activo_id).first() if cfg.horno_activo_id else None
+        if not horno:
+            horno = Horno(nombre=data.horno_nombre or "Horno", activo=True)
+            db.add(horno)
+            db.flush()
+            cfg.horno_activo_id = horno.id
+        if data.horno_nombre:
+            horno.nombre = data.horno_nombre
+        if data.horno_potencia_kw is not None:
+            horno.potencia_kw = data.horno_potencia_kw
+        if data.horno_precio_kwh is not None:
+            horno.precio_kwh = data.horno_precio_kwh
+
+    db.commit()
+    return {"ok": True}
+
+
+# ── Resumen de costos por producción ─────────────────────────────────────────
+
+@router.get("/api/{produccion_id}/costo-resumen")
+def costo_resumen(produccion_id: int, db: Session = Depends(get_db)):
+    """Desglose completo de costos: MP, electricidad, mano de obra, por unidad y docena."""
+    prod = db.query(Produccion).filter(Produccion.id == produccion_id).first()
+    if not prod:
+        raise HTTPException(404, "Producción no encontrada")
+
+    unidades = prod.unidades_envasadas or prod.cantidad_producida or 0
+    docenas = unidades / 12 if unidades else 0
+
+    # Desglose de MP
+    usos = db.query(ProduccionInsumo).filter(ProduccionInsumo.produccion_id == produccion_id).all()
+    desglose_mp = []
+    for u in usos:
+        nombre = costo_comp = None
+        if u.lote_insumo:
+            nombre = u.lote_insumo.insumo.nombre
+        elif u.lote_producto:
+            nombre = u.lote_producto.producto.nombre
+        if nombre:
+            subtotal = round(u.cantidad_usada * u.costo_unitario, 2)
+            desglose_mp.append({"nombre": nombre, "costo": subtotal})
+
+    # Calcular electricidad teórica si hay horno configurado
+    electricidad_teorica = None
+    cfg = db.query(ConfiguracionProduccion).filter(ConfiguracionProduccion.id == 1).first()
+    if cfg and cfg.horno_activo_id and prod.horas_horno_total:
+        horno = db.query(Horno).filter(Horno.id == cfg.horno_activo_id).first()
+        if horno and horno.potencia_kw and horno.precio_kwh:
+            electricidad_teorica = round(prod.horas_horno_total * horno.potencia_kw * horno.precio_kwh, 2)
+
+    costo_mp = round(prod.costo_total_insumos or 0, 2)
+    costo_elec = round(prod.costo_electricidad or electricidad_teorica or 0, 2)
+    costo_mo = round(prod.costo_mano_obra or 0, 2)
+    costo_total = round(costo_mp + costo_elec + costo_mo, 2)
+
+    costo_por_unidad = round(costo_total / unidades, 4) if unidades else 0
+    costo_por_docena = round(costo_total / docenas, 2) if docenas else 0
+
+    # Margen vs precio de venta del producto
+    precio_venta = None
+    margen_pct = None
+    if prod.receta_version and prod.receta_version.producto:
+        p = prod.receta_version.producto
+        precio_venta = getattr(p, "precio_venta", None)
+        if precio_venta and costo_por_unidad:
+            margen_pct = round((1 - costo_por_unidad / precio_venta) * 100, 1)
+
+    # Desperdicios
+    desperdicios = {
+        "masa_desperdiciada_g": prod.masa_desperdiciada_g,
+        "tapas_crudas_rotas": prod.tapas_crudas_rotas,
+        "tapas_rotas": prod.tapas_rotas,
+        "alfajores_rotos_bano": prod.alfajores_rotos_bano,
+        "alfajores_rotos_empaque": prod.alfajores_rotos_empaque,
+        "chocolate_no_recuperado_g": prod.chocolate_no_recuperado_g,
+    }
+
+    return {
+        "lote": prod.numero_lote_produccion,
+        "tipo": prod.tipo_produccion,
+        "estado": prod.estado,
+        "unidades": unidades,
+        "costo_mp": costo_mp,
+        "costo_electricidad": costo_elec,
+        "electricidad_teorica": electricidad_teorica,
+        "costo_mano_obra": costo_mo,
+        "costo_total": costo_total,
+        "costo_por_unidad": costo_por_unidad,
+        "costo_por_docena": costo_por_docena,
+        "precio_venta": precio_venta,
+        "margen_pct": margen_pct,
+        "desglose_mp": desglose_mp,
+        "horas_horno": prod.horas_horno_total,
+        "horas_mano_obra": prod.horas_mano_obra,
+        "desperdicios": desperdicios,
+    }
 
 
 @router.delete("/api/{produccion_id}/registros-tapas/{registro_id}")

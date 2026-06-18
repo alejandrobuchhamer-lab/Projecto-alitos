@@ -34,7 +34,7 @@ def init_db():
         insumo, receta, produccion, producto, cliente, venta, costo, sensorial, alerta, configuracion, usuario, conversacion_ia, gasto, ajuste_stock, registro_tapas, capital  # noqa: F401
     )
     from app.models.venta import PedidoReserva  # noqa: F401
-    from app.models.produccion import ProduccionTacho  # noqa: F401
+    from app.models.produccion import ProduccionTacho, Horno, ConfiguracionProduccion  # noqa: F401
     from app.models import negocio, vendedor, cuenta, push_subscription  # noqa: F401
     from app.models.vendedor import VentaVendedor, StockVendedorLote  # noqa: F401
     from app.models import pedido  # noqa: F401
@@ -149,6 +149,17 @@ def _run_migrations():
         "ALTER TABLE pedidos_vendedor ADD COLUMN entregado_at DATETIME",
         # Listas de precio configurables
         "CREATE TABLE IF NOT EXISTS listas_precio (id INTEGER PRIMARY KEY, nombre VARCHAR(50) NOT NULL, slug VARCHAR(30) NOT NULL UNIQUE, precio_docena FLOAT NOT NULL DEFAULT 0, precio_media FLOAT NOT NULL DEFAULT 0, activo BOOLEAN DEFAULT 1, orden INTEGER DEFAULT 0)",
+        # Circuito producción: desperdicios + costos extra + config
+        "ALTER TABLE producciones ADD COLUMN tapas_crudas_rotas INTEGER",
+        "ALTER TABLE producciones ADD COLUMN alfajores_rotos_bano INTEGER",
+        "ALTER TABLE producciones ADD COLUMN alfajores_rotos_empaque INTEGER",
+        "ALTER TABLE producciones ADD COLUMN chocolate_no_recuperado_g FLOAT",
+        "ALTER TABLE producciones ADD COLUMN horas_mano_obra FLOAT",
+        "ALTER TABLE producciones ADD COLUMN costo_mano_obra FLOAT DEFAULT 0",
+        "ALTER TABLE producciones ADD COLUMN costo_electricidad FLOAT DEFAULT 0",
+        "ALTER TABLE producciones ADD COLUMN costo_total_real FLOAT DEFAULT 0",
+        "ALTER TABLE hornos ADD COLUMN precio_kwh FLOAT",
+        "CREATE TABLE IF NOT EXISTS configuracion_produccion (id INTEGER PRIMARY KEY, precio_hora_mano_obra FLOAT DEFAULT 0, horno_activo_id INTEGER)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

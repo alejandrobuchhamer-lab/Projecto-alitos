@@ -61,6 +61,18 @@ class Produccion(Base):
     pesos_con_bano_json: Mapped[str | None] = mapped_column(Text)
     unidades_envasadas: Mapped[int | None] = mapped_column(Integer)
 
+    # ── Desperdicios por etapa ────────────────────────────────────────────────
+    tapas_crudas_rotas: Mapped[int | None] = mapped_column(Integer)        # tapas crudas rotas/contaminadas antes del horno
+    alfajores_rotos_bano: Mapped[int | None] = mapped_column(Integer)      # rotos durante/después del baño
+    alfajores_rotos_empaque: Mapped[int | None] = mapped_column(Integer)   # rotos al empaquetar
+    chocolate_no_recuperado_g: Mapped[float | None] = mapped_column(Float) # chocolate perdido en bowl
+
+    # ── Costos de producción (además de MP) ──────────────────────────────────
+    horas_mano_obra: Mapped[float | None] = mapped_column(Float)   # horas trabajadas en esta producción
+    costo_mano_obra: Mapped[float] = mapped_column(Float, default=0.0)
+    costo_electricidad: Mapped[float] = mapped_column(Float, default=0.0)
+    costo_total_real: Mapped[float] = mapped_column(Float, default=0.0)    # MP + electricidad + mano de obra
+
     receta_version: Mapped["RecetaVersion"] = relationship("RecetaVersion", back_populates="producciones")
     insumos_usados: Mapped[list["ProduccionInsumo"]] = relationship(
         "ProduccionInsumo", back_populates="produccion", cascade="all, delete-orphan"
@@ -87,6 +99,14 @@ class Produccion(Base):
     def costo_unitario(self) -> float:
         if self.cantidad_producida and self.cantidad_producida > 0:
             return self.costo_total_insumos / self.cantidad_producida
+        return 0.0
+
+    @property
+    def costo_unitario_total(self) -> float:
+        """Costo por unidad incluyendo MP + electricidad + mano de obra."""
+        unidades = self.unidades_envasadas or self.cantidad_producida
+        if unidades and unidades > 0:
+            return self.costo_total_real / unidades
         return 0.0
 
     @property
@@ -170,5 +190,15 @@ class Horno(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     nombre: Mapped[str] = mapped_column(String(100), nullable=False)
     potencia_kw: Mapped[float | None] = mapped_column(Float)
+    precio_kwh: Mapped[float | None] = mapped_column(Float)   # $/kWh de tu cooperativa
     notas: Mapped[str | None] = mapped_column(Text)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class ConfiguracionProduccion(Base):
+    """Configuración global de producción: precio mano de obra, horno activo."""
+    __tablename__ = "configuracion_produccion"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    precio_hora_mano_obra: Mapped[float] = mapped_column(Float, default=0.0)
+    horno_activo_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
