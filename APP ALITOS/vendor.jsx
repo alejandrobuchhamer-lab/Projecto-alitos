@@ -101,7 +101,7 @@ function VendorApp({ onLogout, user }) {
         right={<NotifBell unread={0} onClick={() => toast("3 negocios con mercadería por vencer", "warn")} />}
         avatar={{ color: ME.color, txt: ME.avatar, onClick: () => setProfileOpen(true) }} />
 
-      <div className="scroll" key={tab}>
+      <PullToRefresh key={tab} onRefresh={reloadData}>
         {tab === "inicio" && <VendorHome me={ME} soldToday={soldToday} cashToday={cashToday} myDebt={myDebt} totalLoaded={totalLoaded}
           sales={sales} myPlaces={myPlaces} onSell={() => setSellOpen(true)} onCollect={setCollectPlace} onNewBiz={() => setNewBizOpen(true)}
           onPedido={() => setTab("pedidos")} />}
@@ -110,7 +110,7 @@ function VendorApp({ onLogout, user }) {
           pendientes={pendientes} onCompletarPago={setPendingVenta} />}
         {tab === "pedidos" && <OrdersView heroTitle="Mis pedidos" heroSub="Tomá pedidos para entregar después" />}
         {tab === "stock" && <VendorStock stock={stock} totalLoaded={totalLoaded} />}
-      </div>
+      </PullToRefresh>
 
       <BotNav items={nav} value={tab} onChange={setTab} />
 

@@ -1,5 +1,5 @@
 /* ===================== ALITO'S · Perfil de usuario ===================== */
-const { useState: pUseState, useEffect: pUseEffect, useRef: pUseRef } = React;
+const { useState: pUseState, useEffect: pUseEffect, useRef: pUseRef, useCallback: pUseCallback } = React;
 
 const ROL_LABEL = { admin: "Administrador", vendedor: "Vendedora", produccion: "Producción" };
 
@@ -59,6 +59,49 @@ function ProfileSheet({ open, onClose, onLogout, user }) {
       setSaving(false);
     }
   }
+
+  // ── Biometría ──────────────────────────────────────────────────
+  const [bioState, setBioState] = pUseState("idle"); // idle | scanning | ok | err
+  const [bioMsg, setBioMsg] = pUseState("");
+
+  function bioStatus() {
+    const asked = localStorage.getItem("alitos_bio_asked");
+    if (asked === "yes")    return "activa";
+    if (asked === "unavail") return "no disponible";
+    return "no activada";
+  }
+
+  async function activarHuella() {
+    setBioState("scanning"); setBioMsg("");
+    try {
+      await triggerBiometric("Registrá tu huella para ingresar sin contraseña");
+      localStorage.setItem("alitos_bio_asked", "yes");
+      saveRememberedUser({ ...(getRememberedUser() || {}), ...(perfil || {}), ...(user || {}) });
+      setBioState("ok"); setBioMsg("Huella activada ✓");
+      setTimeout(() => { setBioState("idle"); setBioMsg(""); }, 2000);
+      toast("Huella activada. La próxima vez entrás sin contraseña", "ok");
+    } catch(e) {
+      const msg = e?.message || "";
+      if (msg === "no-plugin" || msg === "no-biometry") {
+        localStorage.setItem("alitos_bio_asked", "unavail");
+        setBioMsg("Dispositivo sin huella configurada. Activala en Ajustes → Seguridad.");
+      } else {
+        setBioMsg("No se pudo registrar la huella. Intentá de nuevo.");
+      }
+      setBioState("err");
+      setTimeout(() => { setBioState("idle"); setBioMsg(""); }, 3000);
+    }
+  }
+
+  function desactivarHuella() {
+    localStorage.removeItem("alitos_bio_asked");
+    clearRememberedUser();
+    setBioMsg("Huella desactivada");
+    setTimeout(() => setBioMsg(""), 2000);
+    toast("Huella desactivada", "ok");
+  }
+
+  const bStatus = bioStatus();
 
   const initials = (perfil?.nombre || user?.name || "U")
     .split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
@@ -135,6 +178,45 @@ function ProfileSheet({ open, onClose, onLogout, user }) {
             placeholder="Algo sobre vos (max 200 caracteres)"
           />
           <div style={{ fontSize: 11, color: "var(--text3)", textAlign: "right", marginTop: 2 }}>{bio.length}/200</div>
+        </div>
+      </div>
+
+      {/* Seguridad — Huella */}
+      <div style={{ marginTop: 24, borderTop: "1px solid var(--border-2,#2a2a2a)", paddingTop: 18 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--txt-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
+          Seguridad
+        </div>
+        <div style={{
+          background: "var(--card-2,#1c1c1c)", borderRadius: 14, padding: "14px 16px",
+          display: "flex", alignItems: "center", gap: 14,
+        }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+            background: bStatus === "activa" ? "var(--green-soft)" : "rgba(255,255,255,0.05)",
+            color: bStatus === "activa" ? "var(--green)" : "var(--txt-3)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Icon name="fingerprint" size={20} />
+          </div>
+          <div className="grow">
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--txt)" }}>Reconocimiento de huella</div>
+            <div style={{ fontSize: 12, color: bStatus === "activa" ? "var(--green)" : "var(--txt-3)", marginTop: 2 }}>
+              {bioMsg || (bStatus === "activa" ? "Activa — entrás sin contraseña" : bStatus === "no disponible" ? "No disponible en este dispositivo" : "No activada")}
+            </div>
+          </div>
+          {bStatus !== "no disponible" && (
+            bStatus === "activa"
+              ? <button onClick={desactivarHuella} style={{
+                  padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                  background: "transparent", color: "var(--txt-3)", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0,
+                }}>Desactivar</button>
+              : <button onClick={activarHuella} disabled={bioState === "scanning"} style={{
+                  padding: "6px 12px", borderRadius: 8, border: "none",
+                  background: "var(--amber-bright)", color: "#1a0f00", fontSize: 12, fontWeight: 700,
+                  cursor: bioState === "scanning" ? "default" : "pointer", flexShrink: 0,
+                  opacity: bioState === "scanning" ? 0.7 : 1,
+                }}>{bioState === "scanning" ? "Escaneando…" : "Activar"}</button>
+          )}
         </div>
       </div>
 

@@ -1,27 +1,80 @@
 /* ===================== ALITO'S · API client =====================
    Todas las llamadas al backend FastAPI (http://localhost:8000).
    Transforma campos del backend al formato que espera la app.
-   Auth: JWT Bearer token guardado en localStorage.
+   Auth: JWT Bearer token — cifrado en Android Keystore (SecureStoragePlugin)
+         con fallback a localStorage en el navegador.
 ================================================================ */
 
 // URL del VPS de producción
-const RAILWAY_URL = "http://76.13.160.217:8000";
+const RAILWAY_URL = "http://76.13.160.217";
 
-// Capacitor 6 en Android usa http://localhost (sin puerto) — detectar con window.Capacitor
-const _isNative = typeof window !== "undefined" && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+// Capacitor 6 Android: sirve desde http://localhost sin puerto (puerto vacío = 80)
+// Desarrollo local: http://localhost:5500
+const _isNative = typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.();
 const _proto = window.location.protocol;
 const _host  = window.location.hostname;
-const API_BASE = (_isNative || _proto === "capacitor:" || _proto === "ionic:")
+const _port  = window.location.port;
+const API_BASE = (_isNative || _proto === "capacitor:" || _proto === "ionic:" || (_host === "localhost" && !_port))
   ? RAILWAY_URL
   : (_host === "localhost" || _host === "127.0.0.1")
     ? "http://localhost:8000"
     : "http://" + _host + ":8000";
-const TOKEN_KEY = "alitos_token";
+const TOKEN_KEY   = "alitos_token";
 
-// ── Token helpers ─────────────────────────────────────────────
-function getToken()    { return localStorage.getItem(TOKEN_KEY); }
-function setToken(t)   { localStorage.setItem(TOKEN_KEY, t); }
-function clearToken()  { localStorage.removeItem(TOKEN_KEY); }
+// ── Secure storage (Android Keystore en nativo, localStorage en web) ──
+// El plugin "capacitor-secure-storage-plugin" cifra con Android Keystore.
+// Si no está disponible (web / APK sin plugin), usa localStorage como fallback.
+const _SSP = () => _isNative && window?.Capacitor?.Plugins?.SecureStoragePlugin;
+
+// Cache en memoria — evita llamadas async en cada render
+let _memToken = null;
+let _memUser  = null;
+
+// Llama una vez al arrancar la app para cargar token/usuario desde storage seguro.
+async function _initStorage() {
+  const ssp = _SSP();
+  if (ssp) {
+    // Migrar valores viejos de localStorage a Keystore (una sola vez)
+    const oldTok = localStorage.getItem(TOKEN_KEY);
+    const oldUsr = localStorage.getItem("alitos_remember");
+    if (oldTok) {
+      await ssp.set({ key: TOKEN_KEY, value: oldTok }).catch(() => {});
+      localStorage.removeItem(TOKEN_KEY);
+      _memToken = oldTok;
+    } else {
+      _memToken = await ssp.get({ key: TOKEN_KEY }).then(r => r.value).catch(() => null);
+    }
+    if (oldUsr) {
+      await ssp.set({ key: "alitos_remember", value: oldUsr }).catch(() => {});
+      localStorage.removeItem("alitos_remember");
+      try { _memUser = JSON.parse(oldUsr); } catch { _memUser = null; }
+    } else {
+      const raw = await ssp.get({ key: "alitos_remember" }).then(r => r.value).catch(() => null);
+      try { _memUser = raw ? JSON.parse(raw) : null; } catch { _memUser = null; }
+    }
+  } else {
+    _memToken = localStorage.getItem(TOKEN_KEY);
+    try { _memUser = JSON.parse(localStorage.getItem("alitos_remember")); } catch { _memUser = null; }
+  }
+}
+
+// Promise que Root espera antes de renderizar
+window._storageReady = _initStorage();
+
+// ── Token helpers (sincrónicos — usan cache en memoria) ───────────
+function getToken()   { return _memToken; }
+function setToken(t)  {
+  _memToken = t;
+  const ssp = _SSP();
+  if (ssp) { ssp.set({ key: TOKEN_KEY, value: t }).catch(() => {}); localStorage.removeItem(TOKEN_KEY); }
+  else      { localStorage.setItem(TOKEN_KEY, t); }
+}
+function clearToken() {
+  _memToken = null;
+  const ssp = _SSP();
+  if (ssp) { ssp.remove({ key: TOKEN_KEY }).catch(() => {}); }
+  localStorage.removeItem(TOKEN_KEY);
+}
 
 // ── Fetch base ────────────────────────────────────────────────
 async function apiFetch(path, opts = {}) {
@@ -61,17 +114,36 @@ async function fetchUsuarios() {
 async function loginUser(username, password) {
   const data = await apiPost("/api/mobile/login", { username, password });
   setToken(data.access_token);
-  return data;
+  return data; // incluye must_change_password
 }
 
-const REMEMBER_KEY = "alitos_remember";
-function saveRememberedUser(userData) { localStorage.setItem(REMEMBER_KEY, JSON.stringify(userData)); }
-function getRememberedUser() { try { return JSON.parse(localStorage.getItem(REMEMBER_KEY)); } catch { return null; } }
-function clearRememberedUser() { localStorage.removeItem(REMEMBER_KEY); }
+function saveRememberedUser(userData) {
+  _memUser = userData;
+  const val = JSON.stringify(userData);
+  const ssp = _SSP();
+  if (ssp) { ssp.set({ key: "alitos_remember", value: val }).catch(() => {}); localStorage.removeItem("alitos_remember"); }
+  else      { localStorage.setItem("alitos_remember", val); }
+}
+function getRememberedUser()  { return _memUser; }
+function clearRememberedUser() {
+  _memUser = null;
+  const ssp = _SSP();
+  if (ssp) { ssp.remove({ key: "alitos_remember" }).catch(() => {}); }
+  localStorage.removeItem("alitos_remember");
+}
 
 function logoutUser() { clearToken(); clearRememberedUser(); }
 
 function isLoggedIn() { return !!getToken(); }
+
+async function checkBiometricAvailable() {
+  const plugin = window?.Capacitor?.Plugins?.BiometricAuth;
+  if (!plugin) return false;
+  try {
+    const check = await plugin.checkBiometry();
+    return !!check.isAvailable;
+  } catch { return false; }
+}
 
 async function triggerBiometric(reason) {
   const plugin = window?.Capacitor?.Plugins?.BiometricAuth;
@@ -79,10 +151,11 @@ async function triggerBiometric(reason) {
   const check = await plugin.checkBiometry();
   if (!check.isAvailable) throw new Error("no-biometry");
   await plugin.authenticate({
-    reason: reason || "Verificá tu identidad para ingresar",
+    reason: reason || "Verificá tu identidad para ingresar a Alito's",
     cancelTitle: "Cancelar",
-    allowDeviceCredential: false,
-    androidMaxAttempts: 3,
+    androidTitle: "Alito's",
+    androidSubtitle: "Confirmá tu identidad",
+    allowDeviceCredential: true,
   });
 }
 
@@ -359,8 +432,8 @@ async function fetchPedidos(estado) {
 
 async function crearPedido({
   place, negocioId, units, amount, productos, notas,
-  tipoCliente, clienteNombre, clienteLocalidad,
-  fechaEntrega, formaPago, descuentoPct, montoLista,
+  tipoCliente, clienteId, clienteNombre, clienteLocalidad,
+  fechaEntrega, formaPago, descuentoPct, montoLista, listaPrecio,
 }) {
   return apiPost("/pedidos/api", {
     place,
@@ -369,18 +442,47 @@ async function crearPedido({
     amount:            amount || 0,
     productos:         productos || [],
     notas:             notas || "",
-    tipo_cliente:      tipoCliente || "consumidor_final",
+    tipo_cliente:      tipoCliente || "cliente",
+    cliente_id:        clienteId || null,
     cliente_nombre:    clienteNombre || "",
     cliente_localidad: clienteLocalidad || "",
     fecha_entrega:     fechaEntrega || null,
     forma_pago:        formaPago || null,
     descuento_pct:     descuentoPct || 0,
     monto_lista:       montoLista || amount || 0,
+    lista_precio:      listaPrecio || "cliente",
   });
 }
 
 async function actualizarPedidoEstado(pedidoId, estado) {
   return apiPut("/pedidos/api/" + pedidoId + "/estado", { estado });
+}
+
+async function fetchListasPrecio() {
+  return apiGet("/pedidos/api/precios");
+}
+
+async function actualizarListaPrecio(slug, { precioDocena, precioMedia }) {
+  return apiPut("/pedidos/api/precios/" + slug, { precio_docena: precioDocena, precio_media: precioMedia });
+}
+
+async function buscarClientesPedido(q) {
+  return apiGet("/pedidos/api/clientes" + (q ? "?q=" + encodeURIComponent(q) : ""));
+}
+
+async function asignarPedido(pedidoId, { vendedorId, vendedorNombre }) {
+  return apiPut("/pedidos/api/" + pedidoId + "/asignar", {
+    vendedor_id: vendedorId || null,
+    vendedor_nombre: vendedorNombre || "",
+  });
+}
+
+async function entregarPedido(pedidoId, { formaCobro, montoCobrado, montoDeuda }) {
+  return apiPut("/pedidos/api/" + pedidoId + "/entregar", {
+    forma_cobro:   formaCobro || "efectivo",
+    monto_cobrado: montoCobrado || 0,
+    monto_deuda:   montoDeuda || 0,
+  });
 }
 
 // Aliases usados por admin.jsx y orders.jsx
@@ -441,6 +543,63 @@ async function loginAndSetupPush(username, password) {
   return data;
 }
 
+// ── Insumos (materias primas) ─────────────────────────────────────
+async function fetchInsumos() {
+  return apiGet("/insumos/api");
+}
+
+// ── Recetas activas ────────────────────────────────────────────────
+async function fetchRecetasActivas() {
+  return apiGet("/recetas/api");
+}
+
+// ── Lotes disponibles para producción ─────────────────────────────
+async function fetchLotesMasaDisp() {
+  return apiGet("/produccion/api/lotes/masa");
+}
+
+async function fetchLotesTapasDisp() {
+  return apiGet("/produccion/api/lotes/tapas");
+}
+
+// ── Iniciar producción desde móvil ────────────────────────────────
+async function iniciarProduccion({ tipo, recetaId, cantidadRecetas, operario, notas, pesoMasaG, pesoTapaObjetivoG, loteOrigenId, cantidadTapasAUsar }) {
+  return apiPost("/produccion/api/iniciar", {
+    tipo_produccion:       tipo,
+    receta_version_id:     recetaId || null,
+    cantidad_recetas:      cantidadRecetas || 1,
+    operario:              operario || null,
+    notas:                 notas || null,
+    peso_masa_total_g:     pesoMasaG || null,
+    peso_tapa_objetivo_g:  pesoTapaObjetivoG || null,
+    lote_origen_id:        loteOrigenId || null,
+    cantidad_tapas_a_usar: cantidadTapasAUsar || null,
+  });
+}
+
+// ── Registrar ingreso de compra ────────────────────────────────────
+async function registrarCompraInsumo(insumoId, { cantidad, costoUnitario, proveedor, fechaVencimiento, notas }) {
+  const numLote = "MOB-" + new Date().toISOString().slice(0,10).replace(/-/g,"") + "-" + (Math.random()*1000|0);
+  return apiPost("/insumos/" + insumoId + "/lotes", {
+    insumo_id:         insumoId,
+    numero_lote:       numLote,
+    cantidad_inicial:  cantidad,
+    costo_unitario:    costoUnitario || 0,
+    proveedor:         proveedor || null,
+    fecha_vencimiento: fechaVencimiento || null,
+    notas:             notas || null,
+    tipo_presentacion: "unidad",
+  });
+}
+
+// ── Cambiar contraseña ────────────────────────────────────────────
+async function cambiarPassword(passwordActual, passwordNueva) {
+  return apiFetch("/api/mobile/cambiar-password", {
+    method: "POST",
+    body: JSON.stringify({ password_actual: passwordActual, password_nueva: passwordNueva }),
+  });
+}
+
 // ── Perfil de usuario ─────────────────────────────────────────
 async function fetchPerfil() {
   return apiFetch("/api/mobile/perfil");
@@ -450,8 +609,8 @@ async function actualizarPerfil(data) {
   return apiFetch("/api/mobile/perfil", { method: "PATCH", body: JSON.stringify(data) });
 }
 
-Object.assign(window, {
-  saveRememberedUser, getRememberedUser, clearRememberedUser, triggerBiometric,
+Object.assign(window, { cambiarPassword,
+  saveRememberedUser, getRememberedUser, clearRememberedUser, triggerBiometric, checkBiometricAvailable,
   loginUser, logoutUser, isLoggedIn, loginAndSetupPush, apiPost,
   fetchUsuarios, fetchVendedores, fetchMiStock, fetchMisVentas,
   fetchNegocios, fetchVentasPendientes, fetchCuentas, registrarVenta,
@@ -459,4 +618,10 @@ Object.assign(window, {
   fetchResumen, agregarMovimiento, fetchEventos, fetchEtapasProduccion, pingOnline,
   fetchProductos, avanzarEtapaProduccion,
   fetchPerfil, actualizarPerfil,
+  fetchInsumos, fetchRecetasActivas,
+  fetchLotesMasaDisp, fetchLotesTapasDisp,
+  iniciarProduccion, registrarCompraInsumo,
+  fetchListasPrecio, actualizarListaPrecio,
+  buscarClientesPedido, asignarPedido, entregarPedido,
+  fetchClientes, crearCliente,
 });

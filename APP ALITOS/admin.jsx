@@ -79,6 +79,13 @@ function AdminApp({ onLogout, user }) {
     }).catch(() => {});
   }, []);
 
+  async function recargarAdmin() {
+    recargarCuentas();
+    fetchVendedores().then(data => { if (data.length) setVendors(data); }).catch(() => {});
+    fetchEntregas().then(data => { if (data.length) setEntregas(data); }).catch(() => {});
+    await new Promise(r => setTimeout(r, 600));
+  }
+
   function recargarCuentas() {
     fetchCuentas().then(ctas => {
       if (!ctas) return;
@@ -177,12 +184,13 @@ function AdminApp({ onLogout, user }) {
   }
 
   const nav = [
-    { id: "inicio",    icon: "home",    label: "Inicio" },
-    { id: "mapa",      icon: "map",     label: "Mapa" },
-    { id: "cuentas",   icon: "wallet",  label: "Cuentas" },
-    { id: "pedidos",   icon: "list",    label: "Pedidos" },
-    { id: "analytics", icon: "chart",   label: "BI" },
-    { id: "equipo",    icon: "users",   label: "Equipo" },
+    { id: "inicio",    icon: "home",    label: "Inicio"   },
+    { id: "mapa",      icon: "map",     label: "Mapa"     },
+    { id: "cuentas",   icon: "wallet",  label: "Cuentas"  },
+    { id: "pedidos",   icon: "list",    label: "Pedidos"  },
+    { id: "analytics", icon: "chart",   label: "BI"       },
+    { id: "equipo",    icon: "users",   label: "Equipo"   },
+    { id: "fabrica",   icon: "factory", label: "Fábrica"  },
   ];
 
   return (
@@ -191,7 +199,7 @@ function AdminApp({ onLogout, user }) {
         right={<NotifBell unread={unread} onClick={openNotifs} />}
         avatar={{ color: "var(--amber)", txt: adminInitials, onClick: () => setProfileOpen(true) }} />
 
-      <div className="scroll" key={tab}>
+      <PullToRefresh key={tab} onRefresh={recargarAdmin}>
         {tab === "inicio" && <AdminHome accounts={accounts} total={total} vendors={vendors} movements={movements} places={places} entregas={entregas} adminName={adminName}
           onAssign={() => setTab("equipo")} onTransfer={() => setTransferOpen(true)} onNewMov={() => setMovOpen(true)}
           onMap={() => setTab("mapa")} onCuentas={() => setTab("cuentas")} onPedidos={() => setTab("pedidos")}
@@ -201,7 +209,8 @@ function AdminApp({ onLogout, user }) {
         {tab === "pedidos"   && <OrdersView heroTitle="Pedidos del equipo" heroSub="Todo lo que toma tu equipo" showBy adminMode />}
         {tab === "analytics" && <AnalyticsView />}
         {tab === "equipo"    && <AdminEquipo vendors={vendors} onAssign={setAssignVendor} onDetail={setVendorDetail} />}
-      </div>
+        {tab === "fabrica"   && <FabricaPanel user={user} toast={toast} />}
+      </PullToRefresh>
 
       <BotNav items={nav} value={tab} onChange={setTab} />
 

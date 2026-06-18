@@ -65,6 +65,10 @@ body {
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+@keyframes ptr_spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
 .pad { padding: 16px; }
 .pad-x { padding-left: 16px; padding-right: 16px; }
 .stack { display: flex; flex-direction: column; }
@@ -448,7 +452,7 @@ body {
 .up::-webkit-scrollbar { width: 0; }
 .up-head { padding: 30px 26px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .up-logo { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 10px 22px rgba(0,0,0,0.5)); margin-bottom: 12px; }
-.up-word { font-family: var(--script); color: var(--cream); font-size: 48px; line-height: 0.76; view-transition-name: alitos-word; }
+.up-word { font-family: var(--script); color: var(--cream); font-size: 56px; line-height: 1; }
 .up-tag { font-size: 10.5px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--txt-3); font-weight: 700; margin-top: 13px; }
 .up-prompt { font-size: 13px; color: var(--txt-2); font-weight: 600; padding: 6px 28px 12px; }
 .up-list { padding: 0 22px 18px; display: flex; flex-direction: column; gap: 10px; }

@@ -42,6 +42,7 @@ def init_db():
     _run_migrations()
     _seed_admin()
     _seed_cuentas()
+    seed_listas_precio()
 
 
 def _run_migrations():
@@ -137,6 +138,17 @@ def _run_migrations():
         "ALTER TABLE usuarios ADD COLUMN foto TEXT",
         "ALTER TABLE usuarios ADD COLUMN telefono VARCHAR(30)",
         "ALTER TABLE usuarios ADD COLUMN bio VARCHAR(200)",
+        # Circuito pedidos completo
+        "ALTER TABLE pedidos_vendedor ADD COLUMN lista_precio VARCHAR(30)",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN asignado_a_id INTEGER",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN asignado_a_nombre VARCHAR(200)",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN estado_cobro VARCHAR(20) DEFAULT 'pendiente'",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN forma_cobro VARCHAR(30)",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN monto_cobrado FLOAT DEFAULT 0",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN monto_deuda FLOAT DEFAULT 0",
+        "ALTER TABLE pedidos_vendedor ADD COLUMN entregado_at DATETIME",
+        # Listas de precio configurables
+        "CREATE TABLE IF NOT EXISTS listas_precio (id INTEGER PRIMARY KEY, nombre VARCHAR(50) NOT NULL, slug VARCHAR(30) NOT NULL UNIQUE, precio_docena FLOAT NOT NULL DEFAULT 0, precio_media FLOAT NOT NULL DEFAULT 0, activo BOOLEAN DEFAULT 1, orden INTEGER DEFAULT 0)",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -187,3 +199,24 @@ def _seed_cuentas():
             db.commit()
     finally:
         db.close()
+
+
+def seed_listas_precio():
+    """Crea las listas de precio por defecto si no existen."""
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        count = conn.execute(text("SELECT COUNT(*) FROM listas_precio")).scalar()
+        if count == 0:
+            defaults = [
+                ("Cliente",      "cliente",      20.0, 12.0, 1),
+                ("Negocio",      "negocio",      24.0, 14.0, 2),
+                ("A costo",      "costo",         8.0,  5.0, 3),
+                ("Regalo",       "regalo",        0.0,  0.0, 4),
+                ("Personalizado","personalizado", 20.0, 12.0, 5),
+            ]
+            for i, (nombre, slug, docena, media, orden) in enumerate(defaults, 1):
+                conn.execute(text(
+                    "INSERT INTO listas_precio (id, nombre, slug, precio_docena, precio_media, activo, orden) "
+                    "VALUES (:id, :nombre, :slug, :docena, :media, 1, :orden)"
+                ), {"id": i, "nombre": nombre, "slug": slug, "docena": docena, "media": media, "orden": orden})
+            conn.commit()

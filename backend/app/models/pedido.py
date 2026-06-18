@@ -20,7 +20,7 @@ class PedidoVendedor(Base):
     created_at       = Column(DateTime, default=datetime.utcnow)
     updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     # Cliente
-    tipo_cliente     = Column(String(30), default="consumidor_final")
+    tipo_cliente     = Column(String(30), default="cliente")
     cliente_id       = Column(Integer, nullable=True)
     cliente_nombre   = Column(String(200), nullable=True)
     cliente_localidad = Column(String(100), nullable=True)
@@ -29,3 +29,14 @@ class PedidoVendedor(Base):
     forma_pago       = Column(String(30), nullable=True)
     descuento_pct    = Column(Float, default=0)
     monto_lista      = Column(Float, default=0)
+    # Lista de precio aplicada
+    lista_precio     = Column(String(30), nullable=True)  # cliente|negocio|costo|regalo|personalizado
+    # Asignación de repartidor
+    asignado_a_id    = Column(Integer, nullable=True)
+    asignado_a_nombre = Column(String(200), nullable=True)
+    # Cobro al entregar
+    estado_cobro     = Column(String(20), default="pendiente")  # pendiente|cobrado|deuda
+    forma_cobro      = Column(String(30), nullable=True)
+    monto_cobrado    = Column(Float, default=0)
+    monto_deuda      = Column(Float, default=0)
+    entregado_at     = Column(DateTime, nullable=True)

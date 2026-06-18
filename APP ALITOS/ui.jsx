@@ -36,20 +36,22 @@ function AppBar({ title, sub, onBack, leftLogo, right, avatar, userName }) {
 
 /* ---------- Bottom nav ---------- */
 function BotNav({ items, value, onChange }) {
+  const scroll = items.length > 6;
   return (
-    <div className="botnav">
+    <div className="botnav" style={scroll ? { overflowX: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } : {}}>
       {items.map((it) =>
-      <button key={it.id} className={"botnav-item" + (value === it.id ? " active" : "")}
-      onClick={() => onChange(it.id)}>
+      <button key={it.id}
+        className={"botnav-item" + (value === it.id ? " active" : "")}
+        style={scroll ? { flex: "none", minWidth: 68 } : {}}
+        onClick={() => onChange(it.id)}>
           <div className="ni-ico">
-            <Icon name={it.icon} size={22} sw={value === it.id ? 2.3 : 2} />
+            <Icon name={it.icon} size={scroll ? 20 : 22} sw={value === it.id ? 2.3 : 2} />
             {it.badge ? <span className="ni-badge">{it.badge}</span> : null}
           </div>
-          <span className="ni-label">{it.label}</span>
+          <span className="ni-label" style={scroll ? { fontSize: 9.5 } : {}}>{it.label}</span>
         </button>
       )}
     </div>);
-
 }
 
 /* ---------- Bottom sheet ---------- */
@@ -148,6 +150,74 @@ function MiniMap({ places, drivers, selected, onSelect, onSelectDriver, legend =
 
 }
 
+/* ---------- Pull to refresh ---------- */
+function PullToRefresh({ onRefresh, children }) {
+  const [pullPx, setPullPx] = useState(0);
+  const [busy, setBusy]     = useState(false);
+  const startY  = useRef(0);
+  const pulling = useRef(false);
+  const ref     = useRef(null);
+  const THRESHOLD = 72;
+
+  function onTouchStart(e) {
+    if ((ref.current?.scrollTop || 0) > 2) return;
+    startY.current = e.touches[0].clientY;
+    pulling.current = true;
+  }
+  function onTouchMove(e) {
+    if (!pulling.current || busy) return;
+    if ((ref.current?.scrollTop || 0) > 2) { pulling.current = false; setPullPx(0); return; }
+    const d = e.touches[0].clientY - startY.current;
+    if (d <= 0) { setPullPx(0); return; }
+    setPullPx(Math.min(d * 0.44, THRESHOLD + 18));
+  }
+  async function onTouchEnd() {
+    if (!pulling.current) return;
+    pulling.current = false;
+    if (pullPx >= THRESHOLD * 0.78 && onRefresh) {
+      setBusy(true); setPullPx(52);
+      try { await onRefresh(); } catch {}
+      setBusy(false);
+    }
+    setPullPx(0);
+  }
+
+  const pct = Math.min(pullPx / THRESHOLD, 1);
+  const indicatorVis = pullPx > 6 || busy;
+
+  return (
+    <div ref={ref} className="scroll"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* Indicador */}
+      <div style={{
+        height: pullPx, display: "flex", alignItems: "flex-end",
+        justifyContent: "center", paddingBottom: indicatorVis ? 8 : 0,
+        overflow: "hidden", pointerEvents: "none",
+        transition: (busy || pullPx === 0) ? "height 0.3s cubic-bezier(0.4,0,0.2,1)" : "none",
+      }}>
+        {indicatorVis && (
+          <div style={{
+            width: 34, height: 34, borderRadius: "50%",
+            background: "var(--card-2)", border: "1.5px solid var(--border)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "var(--amber-bright)",
+            opacity: Math.min(pct * 1.9, 1),
+            transform: busy ? "none" : `rotate(${pct * 290}deg)`,
+            animation: busy ? "ptr_spin 0.75s linear infinite" : "none",
+          }}>
+            <Icon name={busy ? "arrowRight" : "chevD"} size={15} sw={2.5}
+              style={busy ? { transform: "rotate(-90deg)" } : {}} />
+          </div>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 /* ---------- Money input hook helper ---------- */
 function fmtMoney(v) {
   const digits = String(v).replace(/\D/g, "");
@@ -168,4 +238,4 @@ function Ava({ v, size = 42, circ = true, badge }) {
 
 }
 
-Object.assign(window, { Phone, AppBar, BotNav, Sheet, ToastHost, ToastCtx, MiniMap, fmtMoney, parseMoney, Ava });
+Object.assign(window, { Phone, AppBar, BotNav, Sheet, ToastHost, ToastCtx, MiniMap, fmtMoney, parseMoney, Ava, PullToRefresh });
