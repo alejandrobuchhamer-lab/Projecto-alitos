@@ -22,8 +22,8 @@
 
   <!-- Flash prevention: sidebar empieza sin clase collapsed — JS la agrega con no-transition antes del primer paint -->
   <style>
-    /* Ocultar sidebar/wrapper hasta que JS aplique el estado correcto */
-    #sidebar, #main-wrapper { visibility: hidden; }
+    /* Ocultar solo el sidebar hasta que JS aplique el estado correcto */
+    #sidebar { visibility: hidden; }
   </style>
 
   <style>
@@ -507,7 +507,6 @@
     // Revelar sidebar con el estado ya aplicado, luego habilitar transiciones
     requestAnimationFrame(() => {
       if (sidebar) sidebar.style.visibility = '';
-      if (main)    main.style.visibility    = '';
       requestAnimationFrame(() => {
         [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
       });
