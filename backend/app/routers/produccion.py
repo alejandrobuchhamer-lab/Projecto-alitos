@@ -241,6 +241,8 @@ def finalizar(produccion_id: int, data: ProduccionFinalizar, db: Session = Depen
             data.peso_tapa_cruda_promedio_g, data.peso_tapa_cocida_promedio_g,
             data.masa_desperdiciada_g, data.tapas_por_hornada,
             data.minutos_por_hornada, data.horas_horno_total,
+            getattr(data, 'horas_mano_obra', None),
+            getattr(data, 'tapas_crudas_rotas', None),
         )
         db.commit()
         produccion = db.query(Produccion).filter(Produccion.id == produccion_id).first()

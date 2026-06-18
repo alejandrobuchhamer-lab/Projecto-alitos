@@ -73,6 +73,8 @@ class ProduccionFinalizar(BaseModel):
     tapas_por_hornada: int | None = None
     minutos_por_hornada: int | None = None
     horas_horno_total: float | None = None
+    tapas_crudas_rotas: int | None = None
+    horas_mano_obra: float | None = None
 
 
 class ProduccionTapaUpdate(BaseModel):

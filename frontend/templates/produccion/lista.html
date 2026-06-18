@@ -668,9 +668,20 @@
           </div>
         </div>
 
+        <div class="form-row" style="grid-template-columns:1fr 1fr">
+          <div class="form-group">
+            <label class="form-label">Horas horno total</label>
+            <input class="form-control" id="fin-horas-horno" type="number" step="0.1" placeholder="—">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tapas crudas rotas / desc.</label>
+            <input class="form-control" id="fin-tapas-crudas-rotas" type="number" placeholder="0">
+            <div class="text-xs text-muted mt-1">Antes del horno</div>
+          </div>
+        </div>
         <div class="form-group">
-          <label class="form-label">Horas horno total</label>
-          <input class="form-control" id="fin-horas-horno" type="number" step="0.1" placeholder="—" style="max-width:200px">
+          <label class="form-label">Horas mano de obra (tapas)</label>
+          <input class="form-control" id="fin-horas-mo-tapas" type="number" step="0.25" placeholder="ej. 4" style="max-width:180px">
         </div>
       </div>
 
@@ -1102,6 +1113,35 @@
           <span class="text-sm" id="env-fecha-vto-label" style="color:var(--color-accent)"></span>
         </div>
         <div class="text-xs text-muted mt-1">Precargado desde la receta — ajustá si hace falta.</div>
+      </div>
+
+      <!-- Desperdicios del armado -->
+      <div style="background:var(--color-bg-elevated);border-radius:8px;padding:14px;margin-bottom:10px">
+        <div class="fw-600 text-sm mb-3">🗑️ Desperdicios del armado <span class="text-muted text-xs fw-400">(opcional)</span></div>
+        <div class="form-row" style="grid-template-columns:1fr 1fr">
+          <div class="form-group mb-0">
+            <label class="form-label text-xs">Alfajores rotos en el baño</label>
+            <input class="form-control" id="env-rotos-bano" type="number" min="0" placeholder="0">
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label text-xs">Alfajores rotos al empaquetar</label>
+            <input class="form-control" id="env-rotos-empaque" type="number" min="0" placeholder="0">
+          </div>
+        </div>
+        <div class="form-group mt-2 mb-0">
+          <label class="form-label text-xs">Chocolate no recuperado (g)</label>
+          <input class="form-control" id="env-choco-perdido" type="number" min="0" step="10" placeholder="0" style="max-width:160px">
+          <div class="text-xs text-muted mt-1">El que quedó pegado en el bowl sin poder reutilizarse</div>
+        </div>
+      </div>
+
+      <!-- Mano de obra -->
+      <div style="background:var(--color-bg-elevated);border-radius:8px;padding:14px;margin-bottom:10px">
+        <div class="fw-600 text-sm mb-2">⏱️ Mano de obra <span class="text-muted text-xs fw-400">(opcional)</span></div>
+        <div class="form-group mb-0">
+          <label class="form-label text-xs">Horas trabajadas hoy (día de armado)</label>
+          <input class="form-control" id="env-horas-mo" type="number" step="0.25" min="0" placeholder="ej. 6" style="max-width:160px">
+        </div>
       </div>
 
       <div class="form-group mt-2">
@@ -1629,7 +1669,7 @@ async function abrirFinalizar(id, lote, tipo) {
   masaOrigenCtx = null;
   pesosMuestra = [];
   renderPesosMuestra();
-  ['fin-masa-real-kg','fin-tapas-reales','fin-tapas-rotas','fin-desperdicio','fin-horas-horno','fin-notas'].forEach(id => {
+  ['fin-masa-real-kg','fin-tapas-reales','fin-tapas-rotas','fin-desperdicio','fin-horas-horno','fin-tapas-crudas-rotas','fin-horas-mo-tapas','fin-notas'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -1774,9 +1814,13 @@ async function confirmarFinalizar() {
     const rotas = parseInt(document.getElementById('fin-tapas-rotas').value) || null;
     const desp = parseFloat(document.getElementById('fin-desperdicio').value) || null;
     const horno = parseFloat(document.getElementById('fin-horas-horno').value) || null;
+    const tapCrudasRotas = parseInt(document.getElementById('fin-tapas-crudas-rotas').value) || null;
+    const horasMoTapas = parseFloat(document.getElementById('fin-horas-mo-tapas').value) || null;
     if (rotas) payload.tapas_rotas = rotas;
     if (desp) payload.masa_desperdiciada_g = desp;
     if (horno) payload.horas_horno_total = horno;
+    if (tapCrudasRotas) payload.tapas_crudas_rotas = tapCrudasRotas;
+    if (horasMoTapas) payload.horas_mano_obra = horasMoTapas;
     if (pesosMuestra.length > 0) {
       const sum = pesosMuestra.reduce((a, b) => a + b, 0);
       payload.peso_tapa_cruda_promedio_g = parseFloat((sum / pesosMuestra.length).toFixed(2));
@@ -2561,6 +2605,10 @@ async function abrirEnvasado() {
   document.getElementById('env-notas').value = '';
   document.getElementById('env-mixto-simple').value = '0';
   document.getElementById('env-mixto-doble').value = '0';
+  document.getElementById('env-rotos-bano').value = '';
+  document.getElementById('env-rotos-empaque').value = '';
+  document.getElementById('env-choco-perdido').value = '';
+  document.getElementById('env-horas-mo').value = '';
   setTipoEtiqueta('simple');
 
   // Pre-cargar cantidad desde tapas_teoricas
@@ -2688,12 +2736,17 @@ async function confirmarEnvasado() {
     dulce_gramos: dulceG,
     insumo_chocolate_id: parseInt(document.getElementById('env-insumo-chocolate').value) || null,
     chocolate_gramos: chocoG,
+    alfajores_rotos_bano: parseInt(document.getElementById('env-rotos-bano').value) || null,
+    alfajores_rotos_empaque: parseInt(document.getElementById('env-rotos-empaque').value) || null,
+    chocolate_no_recuperado_g: parseFloat(document.getElementById('env-choco-perdido').value) || null,
+    horas_mano_obra: parseFloat(document.getElementById('env-horas-mo').value) || null,
   };
   try {
     const r = await apiPost(`/produccion/api/${armadoProdId}/envasar-y-finalizar`, payload);
-    toast(`✅ ${unidades} alfajores en stock — $${r.costo_unitario.toFixed(2)}/u`, 'success');
     closeModal('modal-envasado');
-    setTimeout(() => location.reload(), 800);
+    toast(`✅ ${unidades} alfajores en stock — $${r.costo_unitario.toFixed(2)}/u`, 'success');
+    // Mostrar resumen de costos
+    setTimeout(() => abrirCostoResumen(armadoProdId), 400);
   } catch(e) { toast(e.message, 'error'); }
 }
 
@@ -2883,5 +2936,102 @@ async function finalizarDesdRegistro() {
     setTimeout(() => location.reload(), 800);
   } catch(e) { toast(e.message, 'error'); }
 }
+
+// ── Resumen de costos ─────────────────────────────────────────────
+async function abrirCostoResumen(pid) {
+  try {
+    const d = await apiGet(`/produccion/api/${pid}/costo-resumen`);
+    const el = document.getElementById('cr-body');
+    const fmt = v => v != null ? '$' + Number(v).toFixed(2) : '—';
+    const fmtPct = v => v != null ? v.toFixed(1) + '%' : '—';
+    const margenColor = d.margen_pct >= 60 ? 'var(--color-success)' : d.margen_pct >= 40 ? 'var(--color-warning)' : 'var(--color-danger)';
+
+    let despHtml = '';
+    if (d.desperdicios) {
+      const items = [
+        ['Masa desperdiciada', d.desperdicios.masa_desperdiciada_g, 'g'],
+        ['Tapas crudas desc.', d.desperdicios.tapas_crudas_rotas, 'u'],
+        ['Tapas cocidas rotas', d.desperdicios.tapas_rotas, 'u'],
+        ['Alf. rotos (baño)', d.desperdicios.alfajores_rotos_bano, 'u'],
+        ['Alf. rotos (empaque)', d.desperdicios.alfajores_rotos_empaque, 'u'],
+        ['Choco no recuperado', d.desperdicios.chocolate_no_recuperado_g, 'g'],
+      ].filter(([,v]) => v != null && v > 0);
+      if (items.length) {
+        despHtml = `<div style="margin-top:16px">
+          <div class="fw-600 text-sm mb-2" style="color:var(--color-text-muted)">Desperdicios registrados</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${items.map(([label, val, unit]) => `<span style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:4px 10px;font-size:0.8rem"><span class="text-muted">${label}:</span> <strong>${val}${unit}</strong></span>`).join('')}
+          </div>
+        </div>`;
+      }
+    }
+
+    let mpHtml = '';
+    if (d.desglose_mp && d.desglose_mp.length) {
+      mpHtml = `<div style="margin-top:12px">
+        <div class="text-xs fw-600 text-muted mb-2">Desglose materia prima</div>
+        ${d.desglose_mp.map(mp => `<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:3px 0;border-bottom:1px solid var(--color-border)"><span>${mp.nombre}</span><span class="fw-600">${fmt(mp.costo)}</span></div>`).join('')}
+      </div>`;
+    }
+
+    el.innerHTML = `
+      <div style="text-align:center;margin-bottom:16px">
+        <div class="text-muted text-xs mb-1">${d.lote}</div>
+        <div style="font-size:2rem;font-weight:700;color:var(--color-accent)">${fmt(d.costo_por_unidad)}<span style="font-size:1rem;font-weight:400;color:var(--color-text-muted)">/u</span></div>
+        <div style="font-size:1.1rem;font-weight:600">${fmt(d.costo_por_docena)}<span style="font-size:0.85rem;font-weight:400;color:var(--color-text-muted)">/docena</span></div>
+        ${d.precio_venta ? `<div style="margin-top:8px;font-size:0.9rem">Precio venta: <strong>${fmt(d.precio_venta)}</strong> · Margen: <strong style="color:${margenColor}">${fmtPct(d.margen_pct)}</strong></div>` : ''}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:var(--color-bg-elevated);border-radius:8px;padding:10px;text-align:center">
+          <div class="text-xs text-muted">Materia prima</div>
+          <div class="fw-600">${fmt(d.costo_mp)}</div>
+          <div class="text-xs text-muted">${d.unidades ? ((d.costo_mp/d.costo_total*100).toFixed(0))+'%' : ''}</div>
+        </div>
+        <div style="background:var(--color-bg-elevated);border-radius:8px;padding:10px;text-align:center">
+          <div class="text-xs text-muted">Electricidad</div>
+          <div class="fw-600">${d.costo_electricidad > 0 ? fmt(d.costo_electricidad) : '—'}</div>
+          ${d.horas_horno ? `<div class="text-xs text-muted">${d.horas_horno}h horno</div>` : ''}
+        </div>
+        <div style="background:var(--color-bg-elevated);border-radius:8px;padding:10px;text-align:center">
+          <div class="text-xs text-muted">Mano de obra</div>
+          <div class="fw-600">${d.costo_mano_obra > 0 ? fmt(d.costo_mano_obra) : '—'}</div>
+          ${d.horas_mano_obra ? `<div class="text-xs text-muted">${d.horas_mano_obra}h</div>` : ''}
+        </div>
+      </div>
+
+      <div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center">
+        <span class="fw-600">Total producción</span>
+        <span class="fw-600" style="font-size:1.1rem;color:var(--color-accent)">${fmt(d.costo_total)}</span>
+      </div>
+
+      ${mpHtml}
+      ${despHtml}
+    `;
+    openModal('modal-costo-resumen');
+  } catch(e) {
+    toast('No se pudo cargar el resumen de costos', 'warning');
+    setTimeout(() => location.reload(), 600);
+  }
+}
 </script>
+
+<!-- MODAL RESUMEN DE COSTOS -->
+<div class="modal-overlay" id="modal-costo-resumen">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3>📊 Resumen de costos</h3>
+      <button class="btn-icon" onclick="closeModal('modal-costo-resumen');setTimeout(()=>location.reload(),200)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="cr-body">
+      <div class="text-center text-muted" style="padding:40px">Cargando...</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-costo-resumen');setTimeout(()=>location.reload(),200)">Listo</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
