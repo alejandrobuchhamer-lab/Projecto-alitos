@@ -80,6 +80,16 @@ def actualizar_lote(lote_id: int, data: LoteInsumoUpdate, db: Session = Depends(
     return LoteInsumoOut.model_validate(lote)
 
 
+@router.delete("/api/lotes/{lote_id}")
+def eliminar_lote(lote_id: int, db: Session = Depends(get_db)):
+    lote = db.query(LoteInsumo).filter(LoteInsumo.id == lote_id).first()
+    if not lote:
+        raise HTTPException(404, "Lote no encontrado")
+    lote.activo = False
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/api/resumen")
 def resumen_insumos(db: Session = Depends(get_db)):
     from datetime import timedelta

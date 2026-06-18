@@ -496,7 +496,23 @@
   </div>
 </div>
 
-<!-- Modal editar lote -->
+<!-- Modal ver lotes de un insumo -->
+<div class="modal-overlay" id="modal-ver-lotes">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3 id="lotes-titulo">Lotes del Insumo</h3>
+      <div style="display:flex;gap:8px;margin-left:auto;margin-right:8px">
+        <button class="btn btn-outline btn-sm" onclick="abrirNuevoLoteDesdeModal()">+ Nuevo Lote</button>
+      </div>
+      <button class="btn-icon" onclick="closeModal('modal-ver-lotes')">✕</button>
+    </div>
+    <div class="modal-body" id="lotes-body" style="padding:0">
+      <div class="empty-state"><p>Cargando...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar lote — va DESPUÉS de modal-ver-lotes para quedar encima en z-index -->
 <div class="modal-overlay" id="modal-editar-lote">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
@@ -533,19 +549,6 @@
     <div class="modal-footer">
       <button class="btn btn-primary" onclick="guardarEdicionLote()">Guardar</button>
       <button class="btn btn-outline" onclick="closeModal('modal-editar-lote')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal ver lotes de un insumo -->
-<div class="modal-overlay" id="modal-ver-lotes">
-  <div class="modal" style="max-width:700px">
-    <div class="modal-header">
-      <h3 id="lotes-titulo">Lotes del Insumo</h3>
-      <button class="btn-icon" onclick="closeModal('modal-ver-lotes')">✕</button>
-    </div>
-    <div class="modal-body" id="lotes-body" style="padding:0">
-      <div class="empty-state"><p>Cargando...</p></div>
     </div>
   </div>
 </div>
@@ -897,6 +900,7 @@ async function crearLote() {
 
 // ── Ver Lotes de un insumo ────────────────────────────────────
 async function verLotes(insumoId, nombre) {
+  _editLoteInsumoId = insumoId;
   document.getElementById('lotes-titulo').textContent = `Lotes — ${nombre}`;
   document.getElementById('lotes-body').innerHTML = '<div class="empty-state"><p>Cargando...</p></div>';
   openModal('modal-ver-lotes');
@@ -927,7 +931,10 @@ async function verLotes(insumoId, nombre) {
                     : l.dias_para_vencer != null && l.dias_para_vencer <= 7
                       ? `<span class="badge badge-warning">${l.dias_para_vencer}d</span>`
                       : '<span class="badge badge-success">OK</span>'}</td>
-                <td><button class="btn btn-outline btn-sm" onclick="editarLote(${l.id},${l.cantidad_actual},${l.costo_unitario},'${(l.proveedor||'').replace(/'/g,"\\'")}','${(l.notas||'').replace(/'/g,"\\'")}')">Editar</button></td>
+                <td style="white-space:nowrap">
+                  <button class="btn btn-outline btn-sm" onclick="editarLote(${l.id},${l.cantidad_actual},${l.costo_unitario},'${(l.proveedor||'').replace(/'/g,"\\'")}','${(l.notas||'').replace(/'/g,"\\'")}','${l.fecha_vencimiento ? l.fecha_vencimiento.substring(0,10) : ''}')">Editar</button>
+                  <button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#ef4444" onclick="eliminarLote(${l.id})">Eliminar</button>
+                </td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -936,29 +943,53 @@ async function verLotes(insumoId, nombre) {
 }
 
 // ── Editar Lote ───────────────────────────────────────────────
-function editarLote(id, cantidad, costo, proveedor, notas) {
-  document.getElementById('edit-lote-id').value        = id;
-  document.getElementById('edit-lote-cantidad').value  = cantidad;
-  document.getElementById('edit-lote-costo').value     = costo;
-  document.getElementById('edit-lote-proveedor').value = proveedor;
-  document.getElementById('edit-lote-notas').value     = notas;
+let _editLoteInsumoId = null;
+
+function editarLote(id, cantidad, costo, proveedor, notas, vencimiento) {
+  document.getElementById('edit-lote-id').value          = id;
+  document.getElementById('edit-lote-cantidad').value    = cantidad;
+  document.getElementById('edit-lote-costo').value       = costo;
+  document.getElementById('edit-lote-proveedor').value   = proveedor;
+  document.getElementById('edit-lote-notas').value       = notas;
+  document.getElementById('edit-lote-vencimiento').value = vencimiento || '';
   openModal('modal-editar-lote');
 }
 
 async function guardarEdicionLote() {
   const id = document.getElementById('edit-lote-id').value;
+  const venc = document.getElementById('edit-lote-vencimiento').value;
   try {
     await apiCall('PUT', `/insumos/api/lotes/${id}`, {
-      cantidad_actual: parseFloat(document.getElementById('edit-lote-cantidad').value),
-      costo_unitario:  parseFloat(document.getElementById('edit-lote-costo').value),
-      proveedor:       document.getElementById('edit-lote-proveedor').value || null,
-      notas:           document.getElementById('edit-lote-notas').value || null,
+      cantidad_actual:   parseFloat(document.getElementById('edit-lote-cantidad').value),
+      costo_unitario:    parseFloat(document.getElementById('edit-lote-costo').value),
+      proveedor:         document.getElementById('edit-lote-proveedor').value || null,
+      notas:             document.getElementById('edit-lote-notas').value || null,
+      fecha_vencimiento: venc || null,
     });
     toast('Lote actualizado', 'success');
     closeModal('modal-editar-lote');
     closeModal('modal-ver-lotes');
     setTimeout(() => location.reload(), 700);
   } catch(e) { toast(e.message, 'error'); }
+}
+
+async function eliminarLote(id) {
+  if (!confirm('¿Eliminar este lote? El stock quedará inactivo.')) return;
+  try {
+    await apiCall('DELETE', `/insumos/api/lotes/${id}`);
+    toast('Lote eliminado', 'success');
+    closeModal('modal-editar-lote');
+    closeModal('modal-ver-lotes');
+    setTimeout(() => location.reload(), 700);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function abrirNuevoLoteDesdeModal() {
+  if (_editLoteInsumoId) {
+    document.getElementById('lote-insumo-id').value = _editLoteInsumoId;
+  }
+  closeModal('modal-ver-lotes');
+  openModal('modal-lote');
 }
 
 // ═══════════════════════════════════════════════════════════
