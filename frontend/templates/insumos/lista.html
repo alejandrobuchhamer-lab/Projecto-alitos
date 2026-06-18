@@ -876,7 +876,7 @@ async function crearLote() {
   try {
     await apiPost(`/insumos/${insumoId}/lotes`, {
       insumo_id:          parseInt(insumoId),
-      numero_lote:        document.getElementById('lote-numero').value || '',
+      numero_lote:        document.getElementById('lote-numero').value || null,
       cantidad_inicial:   cantidad,
       costo_unitario:     costo,
       proveedor:          document.getElementById('lote-proveedor').value || null,

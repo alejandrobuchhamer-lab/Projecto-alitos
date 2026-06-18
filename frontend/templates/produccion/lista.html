@@ -2593,7 +2593,7 @@ async function confirmarCoccion() {
   const min = parseFloat(document.getElementById('coccion-minutos').value) || 0;
   const horas_total = hs + (min / 60);
   const pesoCocida = parseFloat(document.getElementById('coccion-peso-cocida').value) || null;
-  const notas = document.getElementById('coccion-notas').value;
+  const notas = document.getElementById('coccion-notas').value || null;
   try {
     const r = await apiPost(`/produccion/api/${_coccionProdId}/finalizar`, {
       tapas_reales: buenas,
