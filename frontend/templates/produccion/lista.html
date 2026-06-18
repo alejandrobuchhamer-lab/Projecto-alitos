@@ -16,7 +16,52 @@
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-right:6px"><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg>Alfajores
   </button>
   <div style="flex:1"></div>
-  <div id="tab-actions" style="display:flex;gap:8px;align-items:center"></div>
+  <div id="tab-actions" style="display:flex;gap:8px;align-items:center">
+    <button class="btn btn-outline btn-sm" onclick="toggleConfigPanel()" title="Configurar horno y mano de obra">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      ⚙️ Config
+    </button>
+  </div>
+</div>
+
+<!-- PANEL CONFIG COSTOS -->
+<div id="panel-config" style="display:none;background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:10px;padding:20px;margin:12px 0">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="fw-600">⚙️ Configuración de costos de producción</div>
+    <button class="btn-icon" onclick="toggleConfigPanel()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div>
+      <div class="fw-600 text-sm mb-3">🔥 Horno</div>
+      <div class="form-group">
+        <label class="form-label text-xs">Nombre del horno</label>
+        <input class="form-control" id="cfg-horno-nombre" placeholder="ej. Santini MC 600">
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr">
+        <div class="form-group">
+          <label class="form-label text-xs">Potencia (kW)</label>
+          <input class="form-control" id="cfg-horno-kw" type="number" step="0.1" placeholder="ej. 2.0">
+        </div>
+        <div class="form-group">
+          <label class="form-label text-xs">Precio kWh ($)</label>
+          <input class="form-control" id="cfg-precio-kwh" type="number" step="0.01" placeholder="ej. 45.50">
+          <div class="text-xs text-muted mt-1">Tarifa de tu cooperativa</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fw-600 text-sm mb-3">👷 Mano de obra</div>
+      <div class="form-group">
+        <label class="form-label text-xs">Precio por hora ($)</label>
+        <input class="form-control" id="cfg-precio-hora-mo" type="number" step="0.01" placeholder="ej. 800">
+        <div class="text-xs text-muted mt-1">Se multiplica por las horas ingresadas al finalizar</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="btn btn-primary btn-sm" onclick="guardarConfig()">Guardar configuración</button>
+    <div class="text-muted text-xs" id="cfg-estado" style="align-self:center"></div>
+  </div>
 </div>
 
 <!-- ── MASA PANEL ─────────────────────────────────────────────────────────── -->
@@ -1226,8 +1271,50 @@ function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-btn-' + name).classList.add('active');
   document.getElementById('panel-' + name).classList.add('active');
-  document.getElementById('tab-actions').innerHTML = TAB_ACTIONS[name] || '';
+  // Rebuild tab-actions preserving config button
+  const tabBtn = TAB_ACTIONS[name] || '';
+  document.getElementById('tab-actions').innerHTML = `${tabBtn}<button class="btn btn-outline btn-sm" onclick="toggleConfigPanel()" title="Configurar horno y mano de obra">⚙️ Config</button>`;
   localStorage.setItem('prod-tab', name);
+}
+
+// ── Config panel ──────────────────────────────────────────────────
+async function toggleConfigPanel() {
+  const p = document.getElementById('panel-config');
+  if (p.style.display === 'none' || !p.style.display) {
+    p.style.display = 'block';
+    await cargarConfig();
+  } else {
+    p.style.display = 'none';
+  }
+}
+
+async function cargarConfig() {
+  try {
+    const d = await apiGet('/produccion/api/config');
+    if (d.horno) {
+      document.getElementById('cfg-horno-nombre').value = d.horno.nombre || '';
+      document.getElementById('cfg-horno-kw').value = d.horno.potencia_kw || '';
+      document.getElementById('cfg-precio-kwh').value = d.horno.precio_kwh || '';
+    }
+    document.getElementById('cfg-precio-hora-mo').value = d.precio_hora_mano_obra || '';
+  } catch(e) {}
+}
+
+async function guardarConfig() {
+  const payload = {
+    precio_hora_mano_obra: parseFloat(document.getElementById('cfg-precio-hora-mo').value) || 0,
+    horno_nombre: document.getElementById('cfg-horno-nombre').value || null,
+    horno_potencia_kw: parseFloat(document.getElementById('cfg-horno-kw').value) || null,
+    horno_precio_kwh: parseFloat(document.getElementById('cfg-precio-kwh').value) || null,
+  };
+  try {
+    await apiCall('PUT', '/produccion/api/config', payload);
+    document.getElementById('cfg-estado').textContent = '✓ Guardado';
+    document.getElementById('cfg-estado').style.color = 'var(--color-success)';
+    setTimeout(() => { document.getElementById('cfg-estado').textContent = ''; }, 3000);
+  } catch(e) {
+    toast(e.message || 'Error al guardar', 'error');
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────────

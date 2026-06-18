@@ -43,6 +43,7 @@ def init_db():
     _seed_admin()
     _seed_cuentas()
     seed_listas_precio()
+    _seed_horno()
 
 
 def _run_migrations():
@@ -207,6 +208,31 @@ def _seed_cuentas():
                 Cuenta(nombre="MercadoPago", tipo="mercadopago", saldo_inicial=0, color="#8b5cf6"),
             ]
             db.add_all(defaults)
+            db.commit()
+    finally:
+        db.close()
+
+
+def _seed_horno():
+    """Crea el horno Santini MC 600 y configura producción si no existen."""
+    from app.models.produccion import Horno, ConfiguracionProduccion
+    db = SessionLocal()
+    try:
+        if db.query(Horno).count() == 0:
+            horno = Horno(
+                nombre="Santini MC 600",
+                potencia_kw=2.0,
+                precio_kwh=0.0,  # el usuario lo configura desde la UI
+                notas="Horno eléctrico — 2000W. Actualizar precio kWh desde Configuración.",
+                activo=True,
+            )
+            db.add(horno)
+            db.flush()
+            cfg = db.query(ConfiguracionProduccion).filter(ConfiguracionProduccion.id == 1).first()
+            if not cfg:
+                db.add(ConfiguracionProduccion(id=1, precio_hora_mano_obra=0.0, horno_activo_id=horno.id))
+            else:
+                cfg.horno_activo_id = horno.id
             db.commit()
     finally:
         db.close()
