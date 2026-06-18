@@ -623,6 +623,18 @@ def completar_pago(vid: int, data: dict, db: Session = Depends(get_db), user: Us
     return {"ok": True}
 
 
+@router.delete("/api/ventas/{vid}")
+def eliminar_venta(vid: int, db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
+    v = db.query(VentaVendedor).filter(VentaVendedor.id == vid).first()
+    if not v:
+        raise HTTPException(404, "Venta no encontrada")
+    if user.rol not in ("admin",) and v.vendedor_id != user.id:
+        raise HTTPException(403, "Sin permiso")
+    db.delete(v)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/api/resumen-vendedor")
 def resumen_vendedor(db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
     """Resumen del día: ventas, cobros, stock disponible."""

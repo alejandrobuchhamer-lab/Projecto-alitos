@@ -88,6 +88,7 @@
           <th>Pago</th>
           <th>Estado</th>
           <th>Fecha</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -156,10 +157,14 @@
             <td class="text-muted text-xs" style="white-space:nowrap">
               {{ v.fecha.strftime('%d/%m %H:%M') }}
             </td>
+            <td onclick="event.stopPropagation()">
+              <button class="btn btn-sm" style="color:#ef4444;border:1px solid #ef4444;padding:2px 8px;border-radius:6px;background:transparent;cursor:pointer"
+                      onclick="borrarVenta({{ v.id }})">✕</button>
+            </td>
           </tr>
           {% endfor %}
         {% else %}
-          <tr><td colspan="14">
+          <tr><td colspan="15">
             <div class="empty-state">
               <div class="icon">📱</div>
               <h3>Sin ventas registradas</h3>
@@ -301,8 +306,24 @@ function abrirDetalle(id) {
     btn.onclick = () => completarCobroWeb(v.id, v.monto_pendiente);
     footer.appendChild(btn);
   }
+  const btnDel = document.createElement('button');
+  btnDel.className = 'btn btn-outline';
+  btnDel.style.cssText = 'color:#ef4444;border-color:#ef4444;margin-left:auto';
+  btnDel.textContent = 'Borrar venta';
+  btnDel.onclick = () => { closeModal('modal-detalle'); borrarVenta(v.id); };
+  footer.appendChild(btnDel);
 
   openModal('modal-detalle');
+}
+
+async function borrarVenta(id) {
+  if (!confirm(`¿Eliminar la venta #${id}? Esta acción no se puede deshacer.`)) return;
+  try {
+    const res = await fetch(`/vendedores/api/ventas/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error();
+    toast('Venta eliminada', 'success');
+    setTimeout(() => location.reload(), 700);
+  } catch(e) { toast('Error al eliminar venta', 'error'); }
 }
 
 async function completarCobroWeb(id, montoPend) {
