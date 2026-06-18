@@ -20,21 +20,11 @@
 
   {% block extra_css %}{% endblock %}
 
-  <!-- Evita flash del sidebar al navegar: aplica estado antes del primer render -->
-  <script>
-    (function() {
-      var hovered = sessionStorage.getItem('sb-hover') === '1';
-      if (hovered) {
-        document.documentElement.style.setProperty('--sb-init', 'var(--sidebar-width)');
-        document.addEventListener('DOMContentLoaded', function() {
-          var s = document.getElementById('sidebar');
-          var m = document.getElementById('main-wrapper');
-          if (s) s.classList.remove('collapsed');
-          if (m) m.classList.remove('sidebar-collapsed');
-        });
-      }
-    })();
-  </script>
+  <!-- Flash prevention: sidebar empieza sin clase collapsed — JS la agrega con no-transition antes del primer paint -->
+  <style>
+    /* Ocultar sidebar/wrapper hasta que JS aplique el estado correcto */
+    #sidebar, #main-wrapper { visibility: hidden; }
+  </style>
 
   <style>
     /* ── Topbar user menu ── */
@@ -179,7 +169,7 @@
 {% set _is_vend = _rol in ['admin', 'vendedor'] %}
 
 <!-- ====== SIDEBAR ====== -->
-<nav class="sidebar collapsed" id="sidebar">
+<nav class="sidebar" id="sidebar">
 
   <div class="sidebar-logo">
     <img src="/static/img/logo1.png" alt="ALITOS" class="sidebar-logo-img">
@@ -330,7 +320,7 @@
 </style>
 
 <!-- ====== MAIN ====== -->
-<div class="main-wrapper sidebar-collapsed" id="main-wrapper">
+<div class="main-wrapper" id="main-wrapper">
 
   <!-- ===== TOPBAR ===== -->
   <header class="topbar">
@@ -508,34 +498,39 @@
   (function() {
     const sidebar = document.getElementById('sidebar');
     const main    = document.getElementById('main-wrapper');
-    // Arrancar colapsado, expandir solo al hover
+
+    // Aplicar estado correcto sin transición, luego revelar (evita cualquier flash)
+    const _hoverExpanded = sessionStorage.getItem('sb-hover') === '1';
     [sidebar, main].forEach(el => { if (el) el.classList.add('no-transition'); });
-    setSidebarState(true);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
-    }));
+    setSidebarState(!_hoverExpanded);  // una sola llamada — estado correcto directo
+
+    // Revelar sidebar con el estado ya aplicado, luego habilitar transiciones
+    requestAnimationFrame(() => {
+      if (sidebar) sidebar.style.visibility = '';
+      if (main)    main.style.visibility    = '';
+      requestAnimationFrame(() => {
+        [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
+      });
+    });
 
     // Hover: expandir solo cuando el cursor está dentro del ancho visible del sidebar
     const COLLAPSED_W = 56;
     let _hoverTimeout;
-    let _hoverExpanded = sessionStorage.getItem('sb-hover') === '1';
-
-    // Restaurar estado hover de la página anterior
-    if (_hoverExpanded) setSidebarState(false);
+    let _hoverActive = _hoverExpanded;  // alias mutable para el listener
 
     document.addEventListener('mousemove', (e) => {
       if (e.clientX <= COLLAPSED_W) {
         clearTimeout(_hoverTimeout);
-        if (!_hoverExpanded) {
-          _hoverExpanded = true;
+        if (!_hoverActive) {
+          _hoverActive = true;
           sessionStorage.setItem('sb-hover', '1');
           setSidebarState(false);
         }
       } else if (e.clientX > COLLAPSED_W + 20) {
-        if (_hoverExpanded) {
+        if (_hoverActive) {
           clearTimeout(_hoverTimeout);
           _hoverTimeout = setTimeout(() => {
-            _hoverExpanded = false;
+            _hoverActive = false;
             sessionStorage.removeItem('sb-hover');
             setSidebarState(true);
           }, 200);
