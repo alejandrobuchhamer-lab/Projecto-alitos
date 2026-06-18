@@ -39,7 +39,7 @@ class InsumoOut(InsumoBase):
 
 class LoteInsumoBase(BaseModel):
     insumo_id: int = Field(..., gt=0)
-    numero_lote: str = Field(..., min_length=1, max_length=100)
+    numero_lote: str | None = Field(None, max_length=100)
     cantidad_inicial: float = Field(..., gt=0, le=1_000_000)
     costo_unitario: float = Field(..., ge=0, le=100_000_000)
     moneda: str = Field("ARS", max_length=10)
