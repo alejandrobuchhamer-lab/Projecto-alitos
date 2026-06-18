@@ -18,37 +18,42 @@ def _extraer_iniciales(nombre: str) -> str:
 # El número secuencial se hereda a lo largo de la cadena masa→tapas→alfajor
 # para mantener trazabilidad inmediata leyendo el código.
 
-def _seq_produccion(db: Session, tipo: str, año: int) -> int:
-    """Cuenta producciones de ese tipo en el año para asignar número correlativo."""
-    return db.query(Produccion).filter(
-        Produccion.tipo_produccion == tipo,
-        Produccion.fecha_inicio >= datetime(año, 1, 1),
-        Produccion.fecha_inicio < datetime(año + 1, 1, 1),
-    ).count() + 1
-
-
-def _numero_lote_masa(db: Session, fecha: datetime) -> str:
-    n = _seq_produccion(db, "masa", fecha.year)
-    return f"MASA-{fecha.year}-{n:03d}"
-
-
-def _numero_lote_tapas(numero_masa: str) -> str:
-    """Hereda el número de la masa: MASA-2026-001 → TAPAS-2026-001."""
-    return numero_masa.replace("MASA-", "TAPAS-", 1)
-
-
-def _numero_lote_armado(numero_tapas: str, iniciales_producto: str) -> str:
-    """Hereda el número de las tapas: TAPAS-2026-001 → ALF-2026-001-CH."""
-    base = numero_tapas.replace("TAPAS-", "ALF-", 1)
-    return f"{base}-{iniciales_producto}" if iniciales_producto else base
-
-
-# Mantener compatibilidad con llamadas antiguas que usan _julian/_yymmdd
 def _yymmdd(fecha: datetime) -> str:
     return fecha.strftime("%y%m%d")
 
 def _julian(fecha: datetime) -> int:
     return fecha.timetuple().tm_yday
+
+def _sabor(producto_nombre: str) -> str:
+    """Extrae el sabor del nombre del producto eliminando la palabra 'alfajor'."""
+    nombre = producto_nombre.strip()
+    if nombre.lower().startswith("alfajor"):
+        nombre = nombre[7:].strip()
+    return nombre.upper().replace(" ", "_") if nombre else "CLASICO"
+
+
+# ── Numeración de lotes legible ─────────────────────────────────────────────
+# Formato: {Julian}-{yymmdd}-MASA-{SABOR}
+# Ejemplo: 169-260618-MASA-CHOCOLATE
+# Tapas y alfajor heredan la misma raíz para trazabilidad inmediata.
+
+def _numero_lote_masa(db: Session, producto_nombre: str, fecha: datetime) -> str:
+    return f"{_julian(fecha)}-{_yymmdd(fecha)}-MASA-{_sabor(producto_nombre)}"
+
+def _numero_lote_tapas(numero_masa: str) -> str:
+    """169-260618-MASA-CHOCOLATE → 169-260618-TAPAS-CHOCOLATE"""
+    return numero_masa.replace("-MASA-", "-TAPAS-", 1)
+
+def _numero_lote_armado(numero_tapas: str) -> str:
+    """169-260618-TAPAS-CHOCOLATE → 169-260618-ALF-CHOCOLATE"""
+    return numero_tapas.replace("-TAPAS-", "-ALF-", 1)
+
+def _seq_produccion(db: Session, tipo: str, año: int) -> int:
+    return db.query(Produccion).filter(
+        Produccion.tipo_produccion == tipo,
+        Produccion.fecha_inicio >= datetime(año, 1, 1),
+        Produccion.fecha_inicio < datetime(año + 1, 1, 1),
+    ).count() + 1
 
 
 def generar_numero_lote_producto(db: Session, producto_id: int) -> str:
@@ -123,17 +128,16 @@ def iniciar_produccion(
                 if lote_masa and lote_masa.produccion:
                     julian = _julian(lote_masa.produccion.fecha_inicio)
 
-        # Número de lote: hereda de tapas → ALF-2026-001-XX
+        # Número de lote: hereda de tapas → 169-260618-ALF-CHOCOLATE
         numero_tapas = None
         if lote_origen_id:
             lt = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id == lote_origen_id).first()
             if lt and lt.produccion:
                 numero_tapas = lt.produccion.numero_lote_produccion
-        iniciales = _extraer_iniciales(receta.producto.nombre)
-        if numero_tapas and numero_tapas.startswith("TAPAS-"):
-            numero_lote_arm = _numero_lote_armado(numero_tapas, iniciales)
+        if numero_tapas and "-TAPAS-" in numero_tapas:
+            numero_lote_arm = _numero_lote_armado(numero_tapas)
         else:
-            numero_lote_arm = f"ALF-{ahora.year}-{_seq_produccion(db, 'armado', ahora.year):03d}-{iniciales}"
+            numero_lote_arm = f"{_julian(ahora)}-{_yymmdd(ahora)}-ALF-{_sabor(receta.producto.nombre)}"
 
         produccion = Produccion(
             receta_version_id=receta_version_id,
@@ -196,19 +200,19 @@ def iniciar_produccion(
         else:
             tapas_teoricas = calcular_tapas_teoricas(receta)
 
-    # Número de lote: secuencial legible, trazabilidad por herencia
+    # Número de lote: {Julian}-{yymmdd}-{TIPO}-{SABOR}, herencia en cadena
     ahora = datetime.utcnow()
     if tipo_produccion == "masa":
-        numero_lote = _numero_lote_masa(db, ahora)
+        numero_lote = _numero_lote_masa(db, receta.producto.nombre, ahora)
     elif tipo_produccion == "tapas" and lote_origen_id:
         lote_masa = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id == lote_origen_id).first()
         numero_masa = lote_masa.produccion.numero_lote_produccion if lote_masa and lote_masa.produccion else None
-        if numero_masa and numero_masa.startswith("MASA-"):
+        if numero_masa and "-MASA-" in numero_masa:
             numero_lote = _numero_lote_tapas(numero_masa)
         else:
-            numero_lote = f"TAPAS-{ahora.year}-{_seq_produccion(db, 'tapas', ahora.year):03d}"
+            numero_lote = f"{_julian(ahora)}-{_yymmdd(ahora)}-TAPAS-{_sabor(receta.producto.nombre)}"
     else:
-        numero_lote = f"PROD-{ahora.year}-{_seq_produccion(db, tipo_produccion, ahora.year):03d}"
+        numero_lote = f"{_julian(ahora)}-{_yymmdd(ahora)}-PROD-{_sabor(receta.producto.nombre)}"
 
     produccion = Produccion(
         receta_version_id=receta_version_id,
