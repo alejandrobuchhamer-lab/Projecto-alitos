@@ -310,6 +310,40 @@ def get_config(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/api/stock-terminado")
+def stock_terminado(db: Session = Depends(get_db)):
+    """Lotes de alfajores terminados disponibles en la fábrica."""
+    from sqlalchemy.orm import joinedload as _jl2
+    from datetime import datetime as _dt2
+    lotes = (
+        db.query(LoteProductoTerminado)
+        .options(_jl2(LoteProductoTerminado.producto), _jl2(LoteProductoTerminado.produccion))
+        .filter(
+            LoteProductoTerminado.tipo == "alfajor",
+            LoteProductoTerminado.activo == True,
+            LoteProductoTerminado.cantidad_actual > 0,
+        )
+        .order_by(LoteProductoTerminado.fecha_produccion.desc())
+        .all()
+    )
+    return [{
+        "id":               l.id,
+        "numero_lote":      l.numero_lote,
+        "producto_id":      l.producto_id,
+        "producto":         l.producto.nombre if l.producto else f"Producto #{l.producto_id}",
+        "cantidad_actual":  l.cantidad_actual,
+        "cantidad_inicial": l.cantidad_inicial,
+        "costo_unitario":   l.costo_unitario_calculado or 0,
+        "fecha_produccion": l.fecha_produccion.strftime("%d/%m/%Y") if l.fecha_produccion else None,
+        "fecha_vencimiento": l.fecha_vencimiento.strftime("%d/%m/%Y") if l.fecha_vencimiento else None,
+        "dias_para_vencer": (
+            (l.fecha_vencimiento - _dt2.utcnow()).days if l.fecha_vencimiento else None
+        ),
+        "produccion_id":    l.produccion_id,
+        "operario":         l.produccion.operario if l.produccion else None,
+    } for l in lotes]
+
+
 @router.get("/api/analytics/tapas")
 def analytics_tapas(db: Session = Depends(get_db)):
     prods = (
@@ -1074,15 +1108,20 @@ def agregar_registro_tapas(produccion_id: int, data: RegistroTapasBody, db: Sess
     return {"ok": True, "registro_id": reg.id, "tapas_ok": reg.tapas_ok}
 
 
+class AvanzarEtapaMobileBody(BaseModel):
+    cantidad: float | None = None
+
+
 @router.post("/api/{produccion_id}/avanzar-etapa-mobile")
 def avanzar_etapa_mobile(
     produccion_id: int,
+    body: AvanzarEtapaMobileBody = None,
     db: Session = Depends(get_db),
 ):
-    """Avance rápido desde la app móvil. Marca la producción como finalizada
-    con los datos mínimos necesarios. El operario puede completar detalles
-    desde el sistema web."""
+    """Avance rápido desde la app móvil. Marca la producción como finalizada.
+    Para armado, acepta 'cantidad' de alfajores producidos en el body."""
     from datetime import datetime, timedelta
+    from sqlalchemy.orm import joinedload as _jl
     prod = db.query(Produccion).filter(
         Produccion.id == produccion_id,
         Produccion.estado == "en_proceso",
@@ -1093,15 +1132,52 @@ def avanzar_etapa_mobile(
     prod.estado = "finalizada"
     prod.fecha_fin = datetime.utcnow()
 
-    # Para producciones de tipo armado, crear lote de producto terminado
-    if prod.tipo_produccion == "armado" and prod.receta_version_id:
-        from sqlalchemy.orm import joinedload
+    # Para producciones de masa: crear lote de masa si no existe
+    if prod.tipo_produccion == "masa" and prod.receta_version_id:
         prod_full = db.query(Produccion).options(
-            joinedload(Produccion.receta_version).joinedload(RecetaVersion.producto)
+            _jl(Produccion.receta_version).joinedload(RecetaVersion.producto)
         ).filter(Produccion.id == produccion_id).first()
         if prod_full and prod_full.receta_version and prod_full.receta_version.producto:
-            cant = float(prod_full.cantidad_producida or 0)
-            numero = (prod_full.numero_lote_produccion or f"ALF-MOB-{produccion_id}")
+            cant = body.cantidad if body and body.cantidad and body.cantidad > 0 else float(prod_full.cantidad_producida or 0)
+            if cant > 0:
+                lote_exist = db.query(LoteProductoTerminado).filter(
+                    LoteProductoTerminado.produccion_id == produccion_id,
+                    LoteProductoTerminado.tipo == "masa",
+                ).first()
+                if not lote_exist:
+                    lote = LoteProductoTerminado(
+                        producto_id=prod_full.receta_version.producto.id,
+                        produccion_id=prod_full.id,
+                        numero_lote=prod_full.numero_lote_produccion or f"MASA-MOB-{produccion_id}",
+                        cantidad_inicial=cant,
+                        cantidad_actual=cant,
+                        fecha_produccion=datetime.utcnow(),
+                        fecha_vencimiento=datetime.utcnow() + timedelta(days=7),
+                        tipo="masa",
+                        activo=True,
+                    )
+                    db.add(lote)
+                    prod.cantidad_producida = cant
+
+    # Para producciones de armado: crear lote de alfajores
+    elif prod.tipo_produccion == "armado" and prod.receta_version_id:
+        prod_full = db.query(Produccion).options(
+            _jl(Produccion.receta_version).joinedload(RecetaVersion.producto)
+        ).filter(Produccion.id == produccion_id).first()
+        if prod_full and prod_full.receta_version and prod_full.receta_version.producto:
+            # Prioridad: quantity from mobile → cantidad_producida → tapas_teoricas
+            cant = body.cantidad if body and body.cantidad and body.cantidad > 0 else None
+            if not cant:
+                cant = float(prod_full.cantidad_producida or 0)
+            if not cant and prod_full.lote_origen_id:
+                lote_tapas = db.query(LoteProductoTerminado).filter(
+                    LoteProductoTerminado.id == prod_full.lote_origen_id
+                ).first()
+                if lote_tapas:
+                    # Estimación: 1 alfajor por tapa (ajustar si la receta usa 2)
+                    cant = float(prod_full.tapas_teoricas or lote_tapas.cantidad_actual or 0)
+            cant = cant or 1.0
+            numero = prod_full.numero_lote_produccion or f"ALF-MOB-{produccion_id}"
             lote_exist = db.query(LoteProductoTerminado).filter(
                 LoteProductoTerminado.produccion_id == produccion_id,
                 LoteProductoTerminado.tipo == "alfajor",
@@ -1119,9 +1195,16 @@ def avanzar_etapa_mobile(
                     activo=True,
                 )
                 db.add(lote)
+                prod.cantidad_producida = cant
+            else:
+                # Actualizar cantidad si se especificó
+                if body and body.cantidad and body.cantidad > 0:
+                    lote_exist.cantidad_actual = body.cantidad
+                    lote_exist.cantidad_inicial = body.cantidad
+                    prod.cantidad_producida = body.cantidad
 
     db.commit()
-    return {"ok": True, "mensaje": f"Producción #{produccion_id} marcada como finalizada"}
+    return {"ok": True, "mensaje": f"Producción #{produccion_id} finalizada"}
 
 
 # ── Configuración de producción (horno + mano de obra) ───────────────────────

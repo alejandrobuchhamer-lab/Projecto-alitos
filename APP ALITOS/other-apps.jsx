@@ -1,5 +1,54 @@
 /* ===================== ALITO'S · App PRODUCCIÓN ===================== */
-const { useState: oUseState, useContext: oUseContext, useEffect: oUseEffect } = React;
+const { useState: oUseState, useContext: oUseContext, useEffect: oUseEffect, useRef: oUseRef } = React;
+
+/* ══════════════════════════════════════════════════════════════════════
+   MODAL CANTIDAD ALFAJORES — aparece al finalizar producción de armado
+══════════════════════════════════════════════════════════════════════ */
+function ModalCantidadAlfajores({ batch, onConfirm, onCancel }) {
+  const [qty, setQty] = oUseState("");
+  const inp = oUseRef(null);
+  oUseEffect(() => { setTimeout(() => inp.current?.focus(), 100); }, []);
+
+  const est = typeof batch?.tapasTeoricas === "number" ? batch.tapasTeoricas : null;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "flex-end",
+    }} onClick={onCancel}>
+      <div style={{
+        background: "var(--card)", width: "100%", borderRadius: "20px 20px 0 0",
+        padding: "24px 20px 36px",
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ width: 36, height: 4, background: "var(--border)", borderRadius: 99, margin: "0 auto 20px" }} />
+        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>Alfajores terminados</div>
+        <div style={{ fontSize: 13, color: "var(--txt-3)", marginBottom: 20 }}>
+          ¿Cuántos alfajores armados en este lote?
+          {est ? ` (estimado: ${est})` : ""}
+        </div>
+        <input ref={inp} type="number" min="1" step="1"
+          value={qty} onChange={e => setQty(e.target.value)}
+          placeholder={est ? String(est) : "ej: 240"}
+          style={{
+            width: "100%", background: "var(--card-2)", border: "1px solid var(--border)",
+            borderRadius: 12, color: "var(--txt)", fontSize: 18, fontWeight: 700,
+            padding: "14px 16px", outline: "none", fontFamily: "var(--font)",
+            textAlign: "center", marginBottom: 16,
+          }} />
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: "14px", borderRadius: 14, border: "1px solid var(--border)",
+            background: "var(--card-2)", color: "var(--txt-3)", fontSize: 15, fontWeight: 600, cursor: "pointer",
+          }}>Cancelar</button>
+          <button onClick={() => { const n = parseFloat(qty) || est || 1; onConfirm(n); }} style={{
+            flex: 2, padding: "14px", borderRadius: 14, border: "none",
+            background: "var(--amber-bright)", color: "#1a0f00", fontSize: 15, fontWeight: 700, cursor: "pointer",
+          }}>Confirmar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    MAIN APP
@@ -9,6 +58,7 @@ function ProduccionApp({ onLogout, user }) {
   const [tab, setTab] = oUseState("lotes");
   const [batches, setBatches] = oUseState(() => BATCH_SEED.map(b => ({ ...b })));
   const [refreshKey, setRefreshKey] = oUseState(0);
+  const [cantModal, setCantModal] = oUseState(null); // {id, tapasTeoricas} cuando es armado
 
   function recargarLotes() {
     return new Promise(resolve => {
@@ -26,12 +76,22 @@ function ProduccionApp({ onLogout, user }) {
     else await new Promise(r => setTimeout(r, 500));
   }
 
-  async function advance(id) {
+  async function advance(batch) {
+    // Si es armado (stage === 2), pedir cantidad de alfajores
+    if (batch.stage === 2 || batch.etapa?.toLowerCase?.().includes("armado")) {
+      setCantModal(batch);
+      return;
+    }
+    await doAdvance(batch.id, null);
+  }
+
+  async function doAdvance(id, cantidad) {
+    setCantModal(null);
     try {
-      await avanzarEtapaProduccion(id);
+      await avanzarEtapaProduccion(id, cantidad);
       recargarLotes();
-      toast("Etapa avanzada", "ok");
-    } catch {
+      toast(cantidad ? `${cantidad} alfajores registrados ✓` : "Etapa avanzada", "ok");
+    } catch(e) {
       setBatches(bs => bs.map(b => {
         if (b.id !== id) return b;
         const nextIdx = typeof b.stage === "number" ? Math.min(b.stage + 1, 3) : 3;
@@ -43,8 +103,9 @@ function ProduccionApp({ onLogout, user }) {
 
   const nav = [
     { id: "lotes",   icon: "factory", label: "En curso" },
-    { id: "insumos", icon: "box",     label: "Insumos"  },
+    { id: "stock",   icon: "box",     label: "Stock"    },
     { id: "nueva",   icon: "plus",    label: "Producir" },
+    { id: "insumos", icon: "package", label: "Insumos"  },
     { id: "compras", icon: "cart",    label: "Compras"  },
   ];
 
@@ -55,11 +116,19 @@ function ProduccionApp({ onLogout, user }) {
         avatar={{ color: "var(--green)", txt: (user?.avatar) || "F", onClick: onLogout }} />
       <PullToRefresh key={tab} onRefresh={onRefresh}>
         {tab === "lotes"   && <ProdHoy batches={batches} onAdvance={advance} />}
+        {tab === "stock"   && <StockTerminado key={refreshKey} />}
         {tab === "insumos" && <StockInsumos key={refreshKey} />}
         {tab === "nueva"   && <NuevaProduccion user={user} toast={toast} onDone={() => { setTab("lotes"); recargarLotes(); }} />}
         {tab === "compras" && <RegistrarCompra toast={toast} />}
       </PullToRefresh>
       <BotNav items={nav} value={tab} onChange={setTab} />
+      {cantModal && (
+        <ModalCantidadAlfajores
+          batch={cantModal}
+          onConfirm={n => doAdvance(cantModal.id, n)}
+          onCancel={() => setCantModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -84,6 +153,100 @@ const STAGE_API = [
   { l: "Tapas",   c: "var(--amber-bright)", soft: "var(--amber-soft)" },
   { l: "Armado",  c: "var(--blue)",         soft: "var(--blue-soft)"  },
 ];
+
+/* ══════════════════════════════════════════════════════════════════════
+   TAB STOCK TERMINADO — alfajores listos en fábrica
+══════════════════════════════════════════════════════════════════════ */
+function StockTerminado() {
+  const [lotes, setLotes] = oUseState([]);
+  const [loading, setLoading] = oUseState(true);
+
+  oUseEffect(() => {
+    setLoading(true);
+    fetchStockTerminado()
+      .then(data => { setLotes(data || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const total = lotes.reduce((a, l) => a + (l.cantidad_actual || 0), 0);
+  const proxVencer = lotes.filter(l => l.dias_para_vencer !== null && l.dias_para_vencer <= 5).length;
+
+  return (
+    <div className="anim-in pad-x stack gap-14" style={{ paddingTop: 16, paddingBottom: 80 }}>
+      <div className="metric-grid">
+        <div className="metric">
+          <div className="m-ico" style={{ background: "var(--amber-soft)", color: "var(--amber-bright)" }}>
+            <Icon name="box" size={17} />
+          </div>
+          <div className="m-label">Alfajores listos</div>
+          <div className="m-val">{Math.round(total)} <span className="cur">u.</span></div>
+        </div>
+        <div className="metric">
+          <div className="m-ico" style={{ background: proxVencer ? "var(--red-soft)" : "var(--green-soft)", color: proxVencer ? "var(--red)" : "var(--green)" }}>
+            <Icon name="clock" size={17} />
+          </div>
+          <div className="m-label">Por vencer</div>
+          <div className="m-val" style={{ color: proxVencer ? "var(--red)" : undefined }}>
+            {proxVencer} <span className="cur">lotes</span>
+          </div>
+        </div>
+      </div>
+
+      {loading && (
+        <div style={{ textAlign: "center", padding: "40px 0", color: "var(--txt-3)" }}>
+          <div style={{ fontSize: 28, marginBottom: 8 }}>⏳</div>
+          <div style={{ fontSize: 13 }}>Cargando stock…</div>
+        </div>
+      )}
+
+      {!loading && lotes.length === 0 && (
+        <div className="card card-pad" style={{ textAlign: "center", padding: "36px 16px", color: "var(--txt-3)" }}>
+          <Icon name="box" size={40} style={{ opacity: 0.3, display: "block", margin: "0 auto 12px" }} />
+          <div style={{ fontSize: 14, marginBottom: 4 }}>Sin alfajores terminados</div>
+          <div style={{ fontSize: 12 }}>Cuando se finalice una producción de armado aparece aquí</div>
+        </div>
+      )}
+
+      {!loading && lotes.length > 0 && (
+        <div className="card">
+          {lotes.map((l, i) => {
+            const pct = l.cantidad_inicial > 0 ? Math.round((l.cantidad_actual / l.cantidad_inicial) * 100) : 100;
+            const warn = l.dias_para_vencer !== null && l.dias_para_vencer <= 5;
+            return (
+              <div key={l.id}>
+                <div className="lrow" style={{ padding: "14px 16px", alignItems: "center" }}>
+                  <img src={_guessImg(l.producto)} style={{ width: 44, height: 44, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} alt="" />
+                  <div className="grow" style={{ marginLeft: 12, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 650 }}>{l.producto}</div>
+                    <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 2 }}>
+                      Lote {l.numero_lote}{l.operario ? ` · ${l.operario}` : ""} · {l.fecha_produccion}
+                    </div>
+                    <div style={{ height: 3, background: "var(--border)", borderRadius: 99, overflow: "hidden", marginTop: 5 }}>
+                      <div style={{ height: "100%", width: pct + "%", borderRadius: 99, background: warn ? "var(--red)" : "var(--green)", transition: "width 0.4s" }} />
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", marginLeft: 12, flexShrink: 0 }}>
+                    <div style={{ fontSize: 20, fontWeight: 750, color: warn ? "var(--red)" : "var(--txt)" }}>
+                      {Math.round(l.cantidad_actual)}
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--txt-3)" }}>unid.</div>
+                    {warn && <div style={{ fontSize: 9.5, color: "var(--red)", fontWeight: 700 }}>⚠ {l.dias_para_vencer}d</div>}
+                  </div>
+                </div>
+                {l.costo_unitario > 0 && (
+                  <div style={{ fontSize: 11, color: "var(--txt-3)", padding: "0 16px 10px 72px" }}>
+                    Costo unit: ${l.costo_unitario.toFixed(2)} · Total: ${(l.costo_unitario * l.cantidad_actual).toFixed(0)}
+                  </div>
+                )}
+                {i < lotes.length - 1 && <div className="divider" style={{ marginLeft: 72 }} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ProdHoy({ batches, onAdvance }) {
   const done = batches.filter(b => b.stage === "listo" || b.progress >= 100).reduce((a, b) => a + b.qty, 0);
@@ -143,8 +306,9 @@ function ProdHoy({ batches, onAdvance }) {
                   <span style={{ width: (b.progress || 0) + "%", background: isListo ? "var(--green)" : undefined }} />
                 </div>
                 {!isListo && (
-                  <button className="btn btn-ghost btn-block btn-sm" style={{ marginTop: 12 }} onClick={() => onAdvance(b.id)}>
-                    <Icon name="arrowRight" size={16} />Avanzar etapa
+                  <button className="btn btn-ghost btn-block btn-sm" style={{ marginTop: 12 }} onClick={() => onAdvance(b)}>
+                    <Icon name="arrowRight" size={16} />
+                    {b.stage === 2 || (b.etapa || "").toLowerCase().includes("armado") ? "Finalizar armado" : "Avanzar etapa"}
                   </button>
                 )}
               </div>
@@ -677,6 +841,7 @@ function RegistrarCompra({ toast }) {
 function FabricaPanel({ user, toast }) {
   const [sub, setSub] = oUseState("lotes");
   const [batches, setBatches] = oUseState(() => BATCH_SEED.map(b => ({ ...b })));
+  const [cantModal, setCantModal] = oUseState(null);
 
   function recargarLotes() {
     fetchEtapasProduccion()
@@ -686,11 +851,20 @@ function FabricaPanel({ user, toast }) {
 
   oUseEffect(() => { recargarLotes(); }, []);
 
-  async function advance(id) {
+  async function advance(batch) {
+    if (batch.stage === 2 || (batch.etapa || "").toLowerCase().includes("armado")) {
+      setCantModal(batch);
+      return;
+    }
+    await doAdvance(batch.id, null);
+  }
+
+  async function doAdvance(id, cantidad) {
+    setCantModal(null);
     try {
-      await avanzarEtapaProduccion(id);
+      await avanzarEtapaProduccion(id, cantidad);
       recargarLotes();
-      toast("Etapa avanzada", "ok");
+      toast(cantidad ? `${cantidad} alfajores registrados ✓` : "Etapa avanzada", "ok");
     } catch {
       setBatches(bs => bs.map(b => {
         if (b.id !== id) return b;
@@ -703,14 +877,14 @@ function FabricaPanel({ user, toast }) {
 
   const CHIPS = [
     { id: "lotes",   icon: "factory", label: "En curso" },
-    { id: "insumos", icon: "box",     label: "Insumos"  },
+    { id: "stock",   icon: "box",     label: "Stock"    },
     { id: "nueva",   icon: "plus",    label: "Producir" },
+    { id: "insumos", icon: "package", label: "Insumos"  },
     { id: "compras", icon: "cart",    label: "Compras"  },
   ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
-      {/* Chip bar */}
       <div style={{
         display: "flex", gap: 8, padding: "12px 16px 4px",
         overflowX: "auto", scrollbarWidth: "none", flexShrink: 0,
@@ -735,13 +909,21 @@ function FabricaPanel({ user, toast }) {
         })}
       </div>
 
-      {/* Contenido */}
       <div style={{ flex: 1, overflowY: "auto" }} key={sub}>
         {sub === "lotes"   && <ProdHoy batches={batches} onAdvance={advance} />}
+        {sub === "stock"   && <StockTerminado />}
         {sub === "insumos" && <StockInsumos />}
         {sub === "nueva"   && <NuevaProduccion user={user} toast={toast} onDone={() => { setSub("lotes"); recargarLotes(); }} />}
         {sub === "compras" && <RegistrarCompra toast={toast} />}
       </div>
+
+      {cantModal && (
+        <ModalCantidadAlfajores
+          batch={cantModal}
+          onConfirm={n => doAdvance(cantModal.id, n)}
+          onCancel={() => setCantModal(null)}
+        />
+      )}
     </div>
   );
 }

@@ -502,8 +502,14 @@ async function fetchAnalytics(dias) {
 }
 
 // ── Producción: avanzar etapa desde móvil ─────────────────────
-async function avanzarEtapaProduccion(produccionId) {
-  return apiPost("/produccion/api/" + produccionId + "/avanzar-etapa-mobile", {});
+async function avanzarEtapaProduccion(produccionId, cantidad = null) {
+  return apiPost("/produccion/api/" + produccionId + "/avanzar-etapa-mobile",
+    cantidad ? { cantidad } : {});
+}
+
+// ── Stock de alfajores terminados (fábrica) ───────────────────
+async function fetchStockTerminado() {
+  return apiGet("/produccion/api/stock-terminado");
 }
 
 // ── Web Push: suscripción automática post-login ───────────────
@@ -616,7 +622,7 @@ Object.assign(window, { cambiarPassword,
   fetchNegocios, fetchVentasPendientes, fetchCuentas, registrarVenta,
   cobrarEntrega, crearPedido, fetchPedidosAdmin, actualizarPedido,
   fetchResumen, agregarMovimiento, fetchEventos, fetchEtapasProduccion, pingOnline,
-  fetchProductos, avanzarEtapaProduccion,
+  fetchProductos, avanzarEtapaProduccion, fetchStockTerminado,
   fetchPerfil, actualizarPerfil,
   fetchInsumos, fetchRecetasActivas,
   fetchLotesMasaDisp, fetchLotesTapasDisp,
