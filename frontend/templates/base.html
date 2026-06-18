@@ -20,10 +20,21 @@
 
   {% block extra_css %}{% endblock %}
 
-  <!-- Flash prevention: sidebar empieza sin clase collapsed — JS la agrega con no-transition antes del primer paint -->
+  <!-- Flash prevention: estado inicial del sidebar controlado por JS con no-transition -->
+  <script>
+    (function() {
+      var hovered = sessionStorage.getItem('sb-hover') === '1';
+      if (!hovered) document.documentElement.classList.add('sb-collapsed-init');
+    })();
+  </script>
   <style>
-    /* Ocultar solo el sidebar hasta que JS aplique el estado correcto */
-    #sidebar { visibility: hidden; }
+    /* Aplicar estado colapsado ANTES del primer paint si no hay hover activo */
+    html.sb-collapsed-init #sidebar { width: 56px; overflow: visible; }
+    html.sb-collapsed-init #sidebar .sidebar-logo-text,
+    html.sb-collapsed-init #sidebar .nav-section-label,
+    html.sb-collapsed-init #sidebar .label,
+    html.sb-collapsed-init #sidebar .nav-badge { opacity: 0; pointer-events: none; }
+    html.sb-collapsed-init #main-wrapper { margin-left: 56px; }
   </style>
 
   <style>
@@ -499,18 +510,15 @@
     const sidebar = document.getElementById('sidebar');
     const main    = document.getElementById('main-wrapper');
 
-    // Aplicar estado correcto sin transición, luego revelar (evita cualquier flash)
+    // Estado inicial: no-transition, aplicar estado correcto en una sola llamada
     const _hoverExpanded = sessionStorage.getItem('sb-hover') === '1';
     [sidebar, main].forEach(el => { if (el) el.classList.add('no-transition'); });
-    setSidebarState(!_hoverExpanded);  // una sola llamada — estado correcto directo
-
-    // Revelar sidebar con el estado ya aplicado, luego habilitar transiciones
-    requestAnimationFrame(() => {
-      if (sidebar) sidebar.style.visibility = '';
-      requestAnimationFrame(() => {
-        [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
-      });
-    });
+    setSidebarState(!_hoverExpanded);
+    // Remover clase CSS de init (ya JS tomó el control) y habilitar transiciones
+    document.documentElement.classList.remove('sb-collapsed-init');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
+    }));
 
     // Hover: expandir solo cuando el cursor está dentro del ancho visible del sidebar
     const COLLAPSED_W = 56;
