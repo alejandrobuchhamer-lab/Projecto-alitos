@@ -16,9 +16,25 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="/static/css/main.css?v=40" />
+  <link rel="stylesheet" href="/static/css/main.css?v=41" />
 
   {% block extra_css %}{% endblock %}
+
+  <!-- Evita flash del sidebar al navegar: aplica estado antes del primer render -->
+  <script>
+    (function() {
+      var hovered = sessionStorage.getItem('sb-hover') === '1';
+      if (hovered) {
+        document.documentElement.style.setProperty('--sb-init', 'var(--sidebar-width)');
+        document.addEventListener('DOMContentLoaded', function() {
+          var s = document.getElementById('sidebar');
+          var m = document.getElementById('main-wrapper');
+          if (s) s.classList.remove('collapsed');
+          if (m) m.classList.remove('sidebar-collapsed');
+        });
+      }
+    })();
+  </script>
 
   <style>
     /* ── Topbar user menu ── */

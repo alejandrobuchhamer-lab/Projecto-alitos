@@ -282,10 +282,10 @@ body {
 
 /* Transición de página lujosa */
 .page-content {
-  animation: page-fade-in 0.28s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: page-fade-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes page-fade-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
