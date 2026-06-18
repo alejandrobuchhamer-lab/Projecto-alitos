@@ -499,22 +499,33 @@
       [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
     }));
 
-    // Hover: expandir solo cuando el cursor está dentro de los px visibles del sidebar
+    // Hover: expandir solo cuando el cursor está dentro del ancho visible del sidebar
     const COLLAPSED_W = 56;
     let _hoverTimeout;
-    let _hoverExpanded = false;
+    let _hoverExpanded = sessionStorage.getItem('sb-hover') === '1';
+
+    // Restaurar estado hover de la página anterior
+    if (_hoverExpanded) setSidebarState(false);
+
     document.addEventListener('mousemove', (e) => {
-      if (!sidebar.classList.contains('collapsed')) return;
       if (e.clientX <= COLLAPSED_W) {
         clearTimeout(_hoverTimeout);
-        if (!_hoverExpanded) { _hoverExpanded = true; setSidebarState(false); }
-      } else if (_hoverExpanded && e.clientX > COLLAPSED_W + 20) {
-        clearTimeout(_hoverTimeout);
-        _hoverTimeout = setTimeout(() => { _hoverExpanded = false; setSidebarState(true); }, 400);
+        if (!_hoverExpanded) {
+          _hoverExpanded = true;
+          sessionStorage.setItem('sb-hover', '1');
+          setSidebarState(false);
+        }
+      } else if (e.clientX > COLLAPSED_W + 20) {
+        if (_hoverExpanded) {
+          clearTimeout(_hoverTimeout);
+          _hoverTimeout = setTimeout(() => {
+            _hoverExpanded = false;
+            sessionStorage.removeItem('sb-hover');
+            setSidebarState(true);
+          }, 400);
+        }
       }
     });
-    // Al hacer click en toggle, resetear flag
-    document.getElementById('sidebar-toggle-btn')?.addEventListener('click', () => { _hoverExpanded = false; });
 
     // Scroll con rueda del mouse en sidebar-nav
     const nav = sidebar?.querySelector('.sidebar-nav');
