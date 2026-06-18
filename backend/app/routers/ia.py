@@ -89,7 +89,7 @@ def proyecciones_html(request: Request, db: Session = Depends(get_db)):
 
     # Precio de venta promedio
     productos = db.query(ProductoTerminado).filter(ProductoTerminado.activo == True).all()
-    precios = [p.precio_venta for p in productos if p.precio_venta]
+    precios = [p.precio_venta_base for p in productos if p.precio_venta_base]
     precio_venta_prom = round(sum(precios) / len(precios), 2) if precios else 0.0
 
     # Config horno / MO
@@ -117,7 +117,7 @@ def proyecciones_html(request: Request, db: Session = Depends(get_db)):
         "ventas_30d_unidades": int(ventas_recientes[0] or 0),
         "ventas_30d_monto": float(ventas_recientes[1] or 0),
         "ventas_30d_count": int(ventas_recientes[2] or 0),
-        "productos": [{"id": p.id, "nombre": p.nombre, "precio_venta": p.precio_venta} for p in productos],
+        "productos": [{"id": p.id, "nombre": p.nombre, "precio_venta": p.precio_venta_base} for p in productos],
     })
 
 
