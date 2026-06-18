@@ -266,6 +266,50 @@ def actualizar_datos_tapa(produccion_id: int, data: ProduccionTapaUpdate, db: Se
     return ProduccionOut.model_validate(prod)
 
 
+@router.get("/api/etapas")
+def etapas_activas(db: Session = Depends(get_db)):
+    """Vista simplificada de producciones activas para la app móvil."""
+    from sqlalchemy.orm import joinedload
+    prods = (
+        db.query(Produccion)
+        .options(joinedload(Produccion.receta_version).joinedload(RecetaVersion.producto))
+        .filter(Produccion.estado == "en_proceso")
+        .order_by(Produccion.fecha_inicio.desc())
+        .limit(20)
+        .all()
+    )
+    ETAPA_MAP = {"masa": "Amasado", "tapas": "Tapas", "armado": "Armado"}
+    result = []
+    for p in prods:
+        nombre_producto = p.receta_version.producto.nombre if p.receta_version and p.receta_version.producto else "Producción"
+        result.append({
+            "id":           p.id,
+            "tipo":         p.tipo_produccion,
+            "etapa_label":  ETAPA_MAP.get(p.tipo_produccion, p.tipo_produccion),
+            "producto":     nombre_producto,
+            "cantidad":     float(p.cantidad_producida or 0),
+            "unidad":       "kg" if p.tipo_produccion == "masa" else "und",
+            "fecha_inicio": p.fecha_inicio.strftime("%d/%m %H:%M") if p.fecha_inicio else None,
+            "operario":     p.operario or "Sin asignar",
+        })
+    return result
+
+
+@router.get("/api/config")
+def get_config(db: Session = Depends(get_db)):
+    """Devuelve configuración actual: horno activo y precio mano de obra."""
+    cfg = db.query(ConfiguracionProduccion).filter(ConfiguracionProduccion.id == 1).first()
+    horno = None
+    if cfg and cfg.horno_activo_id:
+        h = db.query(Horno).filter(Horno.id == cfg.horno_activo_id).first()
+        if h:
+            horno = {"id": h.id, "nombre": h.nombre, "potencia_kw": h.potencia_kw, "precio_kwh": h.precio_kwh}
+    return {
+        "precio_hora_mano_obra": cfg.precio_hora_mano_obra if cfg else 0.0,
+        "horno": horno,
+    }
+
+
 @router.get("/api/{produccion_id}", response_model=ProduccionOut)
 def obtener_produccion(produccion_id: int, db: Session = Depends(get_db)):
     prod = db.query(Produccion).filter(Produccion.id == produccion_id).first()
@@ -999,13 +1043,12 @@ def agregar_registro_tapas(produccion_id: int, data: RegistroTapasBody, db: Sess
 @router.post("/api/{produccion_id}/avanzar-etapa-mobile")
 def avanzar_etapa_mobile(
     produccion_id: int,
-    data: dict = None,
     db: Session = Depends(get_db),
 ):
     """Avance rápido desde la app móvil. Marca la producción como finalizada
     con los datos mínimos necesarios. El operario puede completar detalles
     desde el sistema web."""
-    from datetime import datetime
+    from datetime import datetime, timedelta
     prod = db.query(Produccion).filter(
         Produccion.id == produccion_id,
         Produccion.estado == "en_proceso",
@@ -1015,60 +1058,36 @@ def avanzar_etapa_mobile(
 
     prod.estado = "finalizada"
     prod.fecha_fin = datetime.utcnow()
-    if data:
-        if data.get("notas"):
-            # Guardar notas como referencia
-            pass
 
-    # Para producciones de tipo armado, intentar crear lote de producto terminado
+    # Para producciones de tipo armado, crear lote de producto terminado
     if prod.tipo_produccion == "armado" and prod.receta_version_id:
         from sqlalchemy.orm import joinedload
         prod_full = db.query(Produccion).options(
             joinedload(Produccion.receta_version).joinedload(RecetaVersion.producto)
         ).filter(Produccion.id == produccion_id).first()
         if prod_full and prod_full.receta_version and prod_full.receta_version.producto:
-            from datetime import timedelta
-            lote = LoteProductoTerminado(
-                producto_id=prod_full.receta_version.producto.id,
-                produccion_id=prod_full.id,
-                cantidad=float(prod_full.cantidad_producida or 0),
-                fecha_produccion=datetime.utcnow(),
-                fecha_vencimiento=datetime.utcnow() + timedelta(days=30),
-                tipo="alfajor",
-            )
-            db.add(lote)
+            cant = float(prod_full.cantidad_producida or 0)
+            numero = (prod_full.numero_lote_produccion or f"ALF-MOB-{produccion_id}")
+            lote_exist = db.query(LoteProductoTerminado).filter(
+                LoteProductoTerminado.produccion_id == produccion_id,
+                LoteProductoTerminado.tipo == "alfajor",
+            ).first()
+            if not lote_exist:
+                lote = LoteProductoTerminado(
+                    producto_id=prod_full.receta_version.producto.id,
+                    produccion_id=prod_full.id,
+                    numero_lote=numero,
+                    cantidad_inicial=cant,
+                    cantidad_actual=cant,
+                    fecha_produccion=datetime.utcnow(),
+                    fecha_vencimiento=datetime.utcnow() + timedelta(days=30),
+                    tipo="alfajor",
+                    activo=True,
+                )
+                db.add(lote)
 
     db.commit()
     return {"ok": True, "mensaje": f"Producción #{produccion_id} marcada como finalizada"}
-
-
-@router.get("/api/etapas")
-def etapas_activas(db: Session = Depends(get_db)):
-    """Vista simplificada de producciones activas para la app móvil."""
-    from sqlalchemy.orm import joinedload
-    prods = (
-        db.query(Produccion)
-        .options(joinedload(Produccion.receta_version).joinedload(RecetaVersion.producto))
-        .filter(Produccion.estado == "en_proceso")
-        .order_by(Produccion.fecha_inicio.desc())
-        .limit(20)
-        .all()
-    )
-    ETAPA_MAP = {"masa": "Amasado", "tapas": "Tapas", "armado": "Armado"}
-    result = []
-    for p in prods:
-        nombre_producto = p.receta_version.producto.nombre if p.receta_version and p.receta_version.producto else "Producción"
-        result.append({
-            "id":              p.id,
-            "tipo":            p.tipo_produccion,
-            "etapa_label":     ETAPA_MAP.get(p.tipo_produccion, p.tipo_produccion),
-            "producto":        nombre_producto,
-            "cantidad":        float(p.cantidad_producida or 0),
-            "unidad":          "kg" if p.tipo_produccion == "masa" else "und",
-            "fecha_inicio":    p.fecha_inicio.strftime("%d/%m %H:%M") if p.fecha_inicio else None,
-            "operario":        p.operario or "Sin asignar",
-        })
-    return result
 
 
 # ── Configuración de producción (horno + mano de obra) ───────────────────────
@@ -1078,21 +1097,6 @@ class ConfigProduccionBody(BaseModel):
     horno_nombre: str | None = None
     horno_potencia_kw: float | None = None
     horno_precio_kwh: float | None = None
-
-
-@router.get("/api/config")
-def get_config(db: Session = Depends(get_db)):
-    """Devuelve configuración actual: horno activo y precio mano de obra."""
-    cfg = db.query(ConfiguracionProduccion).filter(ConfiguracionProduccion.id == 1).first()
-    horno = None
-    if cfg and cfg.horno_activo_id:
-        h = db.query(Horno).filter(Horno.id == cfg.horno_activo_id).first()
-        if h:
-            horno = {"id": h.id, "nombre": h.nombre, "potencia_kw": h.potencia_kw, "precio_kwh": h.precio_kwh}
-    return {
-        "precio_hora_mano_obra": cfg.precio_hora_mano_obra if cfg else 0.0,
-        "horno": horno,
-    }
 
 
 @router.put("/api/config")

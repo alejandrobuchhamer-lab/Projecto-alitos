@@ -104,17 +104,24 @@ def listar_movimientos(
 
 @router.post("/api/movimientos", status_code=201)
 def registrar_movimiento(data: dict, db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
-    cuenta = db.query(Cuenta).filter(Cuenta.id == data["cuenta_id"]).first()
+    cuenta_id = data.get("cuenta_id")
+    if not cuenta_id:
+        raise HTTPException(400, "cuenta_id requerido")
+    cuenta = db.query(Cuenta).filter(Cuenta.id == cuenta_id).first()
     if not cuenta:
         raise HTTPException(404, "Cuenta no encontrada")
-    if data.get("tipo") == "transferencia" and not data.get("cuenta_destino_id"):
+    tipo = data.get("tipo", "entrada")
+    monto = data.get("monto")
+    if monto is None:
+        raise HTTPException(400, "monto requerido")
+    if tipo == "transferencia" and not data.get("cuenta_destino_id"):
         raise HTTPException(400, "Transferencia requiere cuenta destino")
     m = MovimientoCuenta(
         fecha=datetime.fromisoformat(data["fecha"]) if data.get("fecha") else datetime.utcnow(),
-        cuenta_id=data["cuenta_id"],
-        tipo=data["tipo"],
-        monto=float(data["monto"]),
-        concepto=data["concepto"],
+        cuenta_id=cuenta_id,
+        tipo=tipo,
+        monto=float(monto),
+        concepto=data.get("concepto") or "Sin concepto",
         referencia=data.get("referencia"),
         cuenta_destino_id=data.get("cuenta_destino_id"),
         creado_por_id=user.id,
