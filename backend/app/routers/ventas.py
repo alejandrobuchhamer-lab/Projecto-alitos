@@ -70,14 +70,6 @@ def cobrar(venta_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, str(e))
 
 
-@router.get("/api/{venta_id}", response_model=VentaOut)
-def obtener_venta(venta_id: int, db: Session = Depends(get_db)):
-    v = db.query(Venta).filter(Venta.id == venta_id).first()
-    if not v:
-        raise HTTPException(404, "Venta no encontrada")
-    return VentaOut.model_validate(v)
-
-
 @router.get("/api/analytics/top")
 def analytics_top(db: Session = Depends(get_db)):
     rows = (
@@ -105,6 +97,14 @@ def analytics_formas_pago(db: Session = Depends(get_db)):
         .all()
     )
     return [{"forma_pago": r.forma_pago, "cantidad": r.cantidad, "total": r.total} for r in rows]
+
+
+@router.get("/api/{venta_id}", response_model=VentaOut)
+def obtener_venta(venta_id: int, db: Session = Depends(get_db)):
+    v = db.query(Venta).filter(Venta.id == venta_id).first()
+    if not v:
+        raise HTTPException(404, "Venta no encontrada")
+    return VentaOut.model_validate(v)
 
 
 # Pedidos

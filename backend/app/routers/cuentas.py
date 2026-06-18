@@ -64,6 +64,8 @@ def listar_cuentas(db: Session = Depends(get_db)):
 
 @router.post("/api/cuentas", status_code=201)
 def crear_cuenta(data: dict, db: Session = Depends(get_db), _u: Usuario = Depends(permiso("finanzas"))):
+    if not data.get("nombre"):
+        raise HTTPException(400, "nombre requerido")
     c = Cuenta(
         nombre=data["nombre"], tipo=data.get("tipo", "efectivo"),
         saldo_inicial=data.get("saldo_inicial", 0),

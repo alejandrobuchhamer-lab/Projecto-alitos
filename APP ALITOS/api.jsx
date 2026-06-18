@@ -366,13 +366,13 @@ async function fetchCuentas() {
   return map;
 }
 
-async function agregarMovimiento({ cuentaId, tipo, monto, concepto, descripcion }) {
+async function agregarMovimiento({ cuentaId, tipo, monto, concepto, referencia }) {
   return apiPost("/cuentas/api/movimientos", {
-    cuenta_id:   cuentaId,
+    cuenta_id: cuentaId,
     tipo,
     monto,
     concepto,
-    descripcion: descripcion || "",
+    referencia: referencia || null,
   });
 }
 

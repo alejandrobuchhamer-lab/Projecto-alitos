@@ -68,6 +68,68 @@ def crear_insumo(data: InsumoCreate, db: Session = Depends(get_db)):
     return InsumoOut.model_validate(insumo)
 
 
+@router.put("/api/lotes/{lote_id}", response_model=LoteInsumoOut)
+def actualizar_lote(lote_id: int, data: LoteInsumoUpdate, db: Session = Depends(get_db)):
+    lote = db.query(LoteInsumo).filter(LoteInsumo.id == lote_id).first()
+    if not lote:
+        raise HTTPException(404, "Lote no encontrado")
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(lote, k, v)
+    db.commit()
+    db.refresh(lote)
+    return LoteInsumoOut.model_validate(lote)
+
+
+@router.get("/api/resumen")
+def resumen_insumos(db: Session = Depends(get_db)):
+    from datetime import timedelta
+    from sqlalchemy import func
+    from app.models.produccion import ProduccionInsumo
+
+    valor_total = db.query(
+        func.sum(LoteInsumo.cantidad_actual * LoteInsumo.costo_unitario)
+    ).filter(LoteInsumo.activo == True).scalar() or 0.0
+
+    hace_30 = datetime.utcnow() - timedelta(days=30)
+    top_rows = (
+        db.query(
+            LoteInsumo.insumo_id,
+            func.sum(ProduccionInsumo.cantidad_usada).label("total")
+        )
+        .join(ProduccionInsumo, ProduccionInsumo.lote_insumo_id == LoteInsumo.id)
+        .filter(ProduccionInsumo.cantidad_usada > 0)
+        .group_by(LoteInsumo.insumo_id)
+        .order_by(func.sum(ProduccionInsumo.cantidad_usada).desc())
+        .limit(5)
+        .all()
+    )
+    top_consumidos = []
+    for row in top_rows:
+        ins = db.query(Insumo).filter(Insumo.id == row.insumo_id).first()
+        if ins:
+            top_consumidos.append({
+                "nombre": ins.nombre,
+                "unidad": ins.unidad_medida,
+                "total": round(row.total, 3),
+                "stock_actual": ins.stock_actual,
+            })
+
+    todos = db.query(Insumo).filter(Insumo.activo == True).all()
+    alertas = [
+        {"nombre": i.nombre, "stock_actual": i.stock_actual,
+         "stock_minimo": i.stock_minimo, "unidad": i.unidad_medida}
+        for i in todos if i.bajo_stock
+    ]
+
+    return {
+        "valor_total_stock": round(valor_total, 2),
+        "top_consumidos": top_consumidos,
+        "alertas": alertas,
+        "total_insumos": len(todos),
+        "insumos_ok": sum(1 for i in todos if not i.bajo_stock),
+    }
+
+
 @router.get("/api/{insumo_id}", response_model=InsumoOut)
 def obtener_insumo(insumo_id: int, db: Session = Depends(get_db)):
     insumo = db.query(Insumo).filter(Insumo.id == insumo_id).first()
@@ -141,73 +203,6 @@ def crear_lote(insumo_id: int, data: LoteInsumoCreate, db: Session = Depends(get
     db.commit()
     db.refresh(lote)
     return LoteInsumoOut.model_validate(lote)
-
-
-@router.put("/api/lotes/{lote_id}", response_model=LoteInsumoOut)
-def actualizar_lote(lote_id: int, data: LoteInsumoUpdate, db: Session = Depends(get_db)):
-    lote = db.query(LoteInsumo).filter(LoteInsumo.id == lote_id).first()
-    if not lote:
-        raise HTTPException(404, "Lote no encontrado")
-    for k, v in data.model_dump(exclude_none=True).items():
-        setattr(lote, k, v)
-    db.commit()
-    db.refresh(lote)
-    return LoteInsumoOut.model_validate(lote)
-
-
-# ─── Resumen de Insumos ──────────────────────────────────────────────────────
-
-@router.get("/api/resumen")
-def resumen_insumos(db: Session = Depends(get_db)):
-    from datetime import timedelta
-    from sqlalchemy import func
-    from app.models.produccion import ProduccionInsumo
-
-    # Valor total del stock: suma cantidad_actual × costo_unitario de lotes activos
-    valor_total = db.query(
-        func.sum(LoteInsumo.cantidad_actual * LoteInsumo.costo_unitario)
-    ).filter(LoteInsumo.activo == True).scalar() or 0.0
-
-    # Top consumidos últimos 30 días
-    hace_30 = datetime.utcnow() - timedelta(days=30)
-    top_rows = (
-        db.query(
-            LoteInsumo.insumo_id,
-            func.sum(ProduccionInsumo.cantidad_usada).label("total")
-        )
-        .join(ProduccionInsumo, ProduccionInsumo.lote_insumo_id == LoteInsumo.id)
-        .filter(ProduccionInsumo.cantidad_usada > 0)
-        .group_by(LoteInsumo.insumo_id)
-        .order_by(func.sum(ProduccionInsumo.cantidad_usada).desc())
-        .limit(5)
-        .all()
-    )
-    top_consumidos = []
-    for row in top_rows:
-        ins = db.query(Insumo).filter(Insumo.id == row.insumo_id).first()
-        if ins:
-            top_consumidos.append({
-                "nombre": ins.nombre,
-                "unidad": ins.unidad_medida,
-                "total": round(row.total, 3),
-                "stock_actual": ins.stock_actual,
-            })
-
-    # Alertas bajo mínimo
-    todos = db.query(Insumo).filter(Insumo.activo == True).all()
-    alertas = [
-        {"nombre": i.nombre, "stock_actual": i.stock_actual,
-         "stock_minimo": i.stock_minimo, "unidad": i.unidad_medida}
-        for i in todos if i.bajo_stock
-    ]
-
-    return {
-        "valor_total_stock": round(valor_total, 2),
-        "top_consumidos": top_consumidos,
-        "alertas": alertas,
-        "total_insumos": len(todos),
-        "insumos_ok": sum(1 for i in todos if not i.bajo_stock),
-    }
 
 
 # ─── Ingreso Masivo ──────────────────────────────────────────────────────────

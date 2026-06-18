@@ -68,6 +68,8 @@ def listar_negocios(db: Session = Depends(get_db)):
 
 @router.post("/api/negocios", status_code=201)
 def crear_negocio(data: dict, db: Session = Depends(get_db), _u: Usuario = Depends(permiso("vendedores"))):
+    if not data.get("nombre"):
+        raise HTTPException(400, "nombre requerido")
     n = Negocio(
         nombre=data["nombre"],
         direccion=data.get("direccion"),
@@ -143,14 +145,26 @@ def asignar_stock(data: dict, db: Session = Depends(get_db), user: Usuario = Dep
     """Solo admin puede asignar stock a vendedores. Consume lotes FEFO y registra costo por lote."""
     from app.models.producto import LoteProductoTerminado, ProductoTerminado
 
-    vendedor = db.query(Usuario).filter(Usuario.id == data["vendedor_id"], Usuario.activo == True).first()
+    vendedor_id = data.get("vendedor_id")
+    producto_id = data.get("producto_id")
+    if not vendedor_id:
+        raise HTTPException(400, "vendedor_id requerido")
+    if not producto_id:
+        raise HTTPException(400, "producto_id requerido")
+    try:
+        cantidad_total = float(data.get("cantidad") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "cantidad inválida")
+    if cantidad_total <= 0:
+        raise HTTPException(400, "cantidad debe ser mayor a 0")
+
+    vendedor = db.query(Usuario).filter(Usuario.id == vendedor_id, Usuario.activo == True).first()
     if not vendedor:
         raise HTTPException(404, "Vendedor no encontrado")
 
-    cantidad_total = float(data["cantidad"])
     s = StockVendedor(
-        vendedor_id=data["vendedor_id"],
-        producto_id=data["producto_id"],
+        vendedor_id=vendedor_id,
+        producto_id=producto_id,
         cantidad_asignada=cantidad_total,
         cantidad_disponible=cantidad_total,
         precio_unitario=data.get("precio_unitario"),
@@ -162,7 +176,7 @@ def asignar_stock(data: dict, db: Session = Depends(get_db), user: Usuario = Dep
 
     # FEFO: consumir lotes de más antiguo a más nuevo y registrar costo por lote
     lotes = db.query(LoteProductoTerminado).filter(
-        LoteProductoTerminado.producto_id == data["producto_id"],
+        LoteProductoTerminado.producto_id == producto_id,
         LoteProductoTerminado.tipo == "alfajor",
         LoteProductoTerminado.activo == True,
         LoteProductoTerminado.cantidad_actual > 0,
@@ -185,11 +199,11 @@ def asignar_stock(data: dict, db: Session = Depends(get_db), user: Usuario = Dep
 
     db.commit()
     db.refresh(s)
-    broadcast_event("stock", {"vendedor_id": data["vendedor_id"]})
+    broadcast_event("stock", {"vendedor_id": vendedor_id})
 
     try:
         from app.routers.push import enviar_push
-        prod = db.query(ProductoTerminado).filter(ProductoTerminado.id == data["producto_id"]).first()
+        prod = db.query(ProductoTerminado).filter(ProductoTerminado.id == producto_id).first()
         enviar_push(db, vendedor.id, {
             "title": "Nuevo stock asignado",
             "body":  f"Se te asignó {int(cantidad_total)} unidades de {prod.nombre if prod else 'producto'}",
@@ -254,7 +268,18 @@ def listar_entregas(
 
 @router.post("/api/entregas", status_code=201)
 def registrar_entrega(data: dict, db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
-    negocio = db.query(Negocio).filter(Negocio.id == data["negocio_id"]).first()
+    negocio_id = data.get("negocio_id")
+    producto_id = data.get("producto_id")
+    if not negocio_id:
+        raise HTTPException(400, "negocio_id requerido")
+    if not producto_id:
+        raise HTTPException(400, "producto_id requerido")
+    try:
+        cantidad = float(data.get("cantidad") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "cantidad inválida")
+
+    negocio = db.query(Negocio).filter(Negocio.id == negocio_id).first()
     if not negocio:
         raise HTTPException(404, "Negocio no encontrado")
     dias = int(data.get("dias_consignacion", 7))
@@ -265,14 +290,14 @@ def registrar_entrega(data: dict, db: Session = Depends(get_db), user: Usuario =
     if stock_vend_id:
         sv = db.query(StockVendedor).filter(StockVendedor.id == stock_vend_id).first()
         if sv:
-            sv.cantidad_disponible = max(0, sv.cantidad_disponible - float(data["cantidad"]))
+            sv.cantidad_disponible = max(0, sv.cantidad_disponible - cantidad)
 
     e = EntregaNegocio(
         vendedor_id=user.id,
-        negocio_id=data["negocio_id"],
+        negocio_id=negocio_id,
         stock_vendedor_id=stock_vend_id,
-        producto_id=data["producto_id"],
-        cantidad=float(data["cantidad"]),
+        producto_id=producto_id,
+        cantidad=cantidad,
         precio_unitario=data.get("precio_unitario"),
         lat=data.get("lat") or negocio.lat,
         lng=data.get("lng") or negocio.lng,
@@ -419,8 +444,13 @@ def _fmt_venta(v: VentaVendedor, productos_map: dict) -> dict:
 @router.post("/api/venta-directa", status_code=201)
 def registrar_venta_directa(data: dict, db: Session = Depends(get_db), user: Usuario = Depends(require_user)):
     """Venta del vendedor: descuenta stock FEFO, calcula costo y rentabilidad real."""
-    cantidad = float(data["cantidad"])
-    precio_unitario = float(data["precio_unitario"])
+    try:
+        cantidad = float(data.get("cantidad") or 0)
+        precio_unitario = float(data.get("precio_unitario") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "cantidad y precio_unitario deben ser numéricos")
+    if cantidad <= 0 or precio_unitario <= 0:
+        raise HTTPException(400, "cantidad y precio_unitario son requeridos")
     sv_id = data.get("stock_vendedor_id")
     monto_original = round(cantidad * precio_unitario, 2)
 

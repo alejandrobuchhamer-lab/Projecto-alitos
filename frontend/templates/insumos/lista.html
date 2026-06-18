@@ -817,9 +817,11 @@ async function editarInsumo(id) {
 
 async function guardarEdicionInsumo() {
   const id = document.getElementById('edit-ins-id').value;
+  const nombre = document.getElementById('edit-ins-nombre').value.trim();
+  if (!nombre) { toast('El nombre del insumo no puede estar vacío', 'error'); return; }
   try {
     await apiCall('PUT', `/insumos/api/${id}`, {
-      nombre:            document.getElementById('edit-ins-nombre').value.trim(),
+      nombre,
       categoria:         document.getElementById('edit-ins-categoria').value,
       unidad_medida:     document.getElementById('edit-ins-unidad').value,
       stock_minimo:      parseFloat(document.getElementById('edit-ins-minimo').value) || 0,
