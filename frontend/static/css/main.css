@@ -94,7 +94,7 @@ body {
   display: flex;
   flex-direction: column;
   z-index: 200;
-  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
 
@@ -115,7 +115,7 @@ body {
   min-height: var(--topbar-height);
   width: 100%;
   overflow: hidden;
-  transition: padding 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: padding 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar.collapsed .sidebar-logo { padding: 14px 0; justify-content: center; }
@@ -127,13 +127,13 @@ body {
 
 .sidebar-logo-text {
   overflow: hidden; white-space: nowrap;
-  transition: opacity 0.18s ease 0.22s, max-width 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.18s ease 0.12s, max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1);
   max-width: 160px; opacity: 1;
 }
 
 .sidebar.collapsed .sidebar-logo-text {
   opacity: 0; max-width: 0;
-  transition: opacity 0.1s ease, max-width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.1s ease, max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-logo-text .brand {
@@ -165,7 +165,7 @@ body {
   overflow: hidden;
   max-width: var(--sidebar-width);
   opacity: 1;
-  transition: opacity 0.2s ease, padding 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.2s ease, padding 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar.collapsed .nav-section-label {
@@ -181,9 +181,9 @@ body {
   border-radius: var(--radius-sm);
   margin: 1px 6px;
   transition: background 0.15s ease, color 0.15s ease,
-              padding 0.38s cubic-bezier(0.4, 0, 0.2, 1),
-              gap 0.38s cubic-bezier(0.4, 0, 0.2, 1),
-              width 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+              padding 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              gap 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              width 0.32s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
   position: relative;
   font-size: 0.83rem;
@@ -213,12 +213,12 @@ body {
 .nav-item .label {
   font-size: 0.83rem; font-weight: 400;
   overflow: hidden; max-width: 140px; opacity: 1;
-  transition: opacity 0.18s ease 0.22s, max-width 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.18s ease 0.12s, max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar.collapsed .nav-item .label {
   opacity: 0; max-width: 0;
-  transition: opacity 0.12s ease, max-width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.12s ease, max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .nav-badge {
@@ -247,17 +247,17 @@ body {
   font-size: 0.68rem; font-weight: 600; letter-spacing: 0.5px;
   text-transform: uppercase; white-space: nowrap;
   overflow: hidden; max-width: 100px;
-  transition: opacity 0.18s ease 0.22s, max-width 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.18s ease 0.12s, max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar.collapsed .sidebar-toggle .toggle-label {
   opacity: 0; max-width: 0;
-  transition: opacity 0.12s ease, max-width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.12s ease, max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .toggle-arrow {
   width: 14px; height: 14px; flex-shrink: 0;
-  transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1); display: inline-block;
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1); display: inline-block;
 }
 
 .sidebar.collapsed .toggle-arrow { transform: rotate(180deg); }
@@ -277,15 +277,15 @@ body {
 .main-wrapper {
   margin-left: var(--sidebar-width);
   flex: 1; display: flex; flex-direction: column; min-height: 100vh;
-  transition: margin-left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: margin-left 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Transición de página lujosa */
 .page-content {
-  animation: page-fade-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: page-fade-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes page-fade-in {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
