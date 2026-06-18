@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block title %}Proyecciones & Break-Even{% endblock %}
+{% block page_title %}Proyecciones{% endblock %}
+
+{% block content %}
+<style>
+.bi-card { background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:12px;padding:20px;margin-bottom:16px }
+.bi-card h3 { font-size:0.95rem;font-weight:600;margin:0 0 16px;color:var(--color-text) }
+.scenario-grid { display:grid;gap:10px;margin-top:12px }
+.scenario-row { display:grid;grid-template-columns:100px repeat(5,1fr);gap:8px;align-items:center;padding:10px 12px;background:var(--color-bg-elevated);border-radius:8px;font-size:0.82rem }
+.scenario-row.header { background:transparent;font-weight:600;font-size:0.75rem;color:var(--color-text-muted);padding-bottom:4px }
+.scenario-row.breakeven-row { border:2px solid rgba(99,102,241,0.5);background:rgba(99,102,241,0.06) }
+.sign-pos { color:var(--color-success);font-weight:600 }
+.sign-neg { color:var(--color-danger);font-weight:600 }
+.input-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px }
+.slider-wrap { display:flex;flex-direction:column;gap:4px }
+.slider-wrap label { font-size:0.78rem;color:var(--color-text-muted);font-weight:500 }
+.slider-val { font-size:0.9rem;font-weight:600;color:var(--color-accent) }
+input[type=range] { width:100%;accent-color:var(--color-accent) }
+.be-highlight { font-size:1.8rem;font-weight:700;color:var(--color-accent);text-align:center }
+.be-sub { font-size:0.82rem;color:var(--color-text-muted);text-align:center }
+.stat-box { background:var(--color-bg-elevated);border-radius:8px;padding:12px;text-align:center }
+.stat-box .val { font-size:1.3rem;font-weight:700 }
+.stat-box .lbl { font-size:0.75rem;color:var(--color-text-muted) }
+.bar-wrap { height:8px;background:var(--color-bg-elevated);border-radius:4px;overflow:hidden;margin-top:4px }
+.bar-fill { height:100%;border-radius:4px;background:var(--color-accent);transition:width 0.4s }
+</style>
+
+<!-- Datos del backend como JSON para JS -->
+<script>
+const _BI = {
+  costoUnitarioProm: {{ costo_unitario_prom | tojson }},
+  precioVentaProm:   {{ precio_venta_prom   | tojson }},
+  precioHoraMO:      {{ precio_hora_mo      | tojson }},
+  horno:             {{ horno               | tojson }},
+  ventas30dUnidades: {{ ventas_30d_unidades | tojson }},
+  ventas30dMonto:    {{ ventas_30d_monto    | tojson }},
+  productos:         {{ productos           | tojson }},
+};
+</script>
+
+<!-- KPIs de contexto real -->
+<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+  <div class="kpi-card">
+    <div class="kpi-label">Costo/u real (prom)</div>
+    <div class="kpi-value" style="font-size:1.3rem" id="kpi-costo-u">
+      {% if costo_unitario_prom > 0 %}${{ "{:,.2f}".format(costo_unitario_prom) }}{% else %}—{% endif %}
+    </div>
+    <div class="kpi-sub text-muted">últimas producciones</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Precio venta prom</div>
+    <div class="kpi-value" style="font-size:1.3rem">
+      {% if precio_venta_prom > 0 %}${{ "{:,.2f}".format(precio_venta_prom) }}{% else %}—{% endif %}
+    </div>
+    <div class="kpi-sub text-muted">catálogo activo</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Unidades (30 días)</div>
+    <div class="kpi-value">{{ ventas_30d_unidades }}</div>
+    <div class="kpi-sub text-muted">vendidas</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Facturación (30 días)</div>
+    <div class="kpi-value" style="font-size:1.1rem">${{ "{:,.0f}".format(ventas_30d_monto) }}</div>
+    <div class="kpi-sub text-muted">{{ ventas_30d_count }} operaciones</div>
+  </div>
+</div>
+
+<!-- PARÁMETROS -->
+<div class="bi-card">
+  <h3>⚙️ Parámetros del modelo</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div>
+      <div class="fw-600 text-sm mb-3" style="color:var(--color-text-muted)">Costos variables (por alfajor)</div>
+      <div class="input-grid">
+        <div class="slider-wrap">
+          <label>Costo MP + producción / u</label>
+          <input type="range" id="sl-costo-u" min="0" max="5000" step="10" value="{{ costo_unitario_prom or 800 }}" oninput="recalcular()">
+          <div><span class="slider-val" id="lbl-costo-u">$—</span></div>
+        </div>
+        <div class="slider-wrap">
+          <label>Precio de venta / u</label>
+          <input type="range" id="sl-precio-u" min="0" max="10000" step="50" value="{{ precio_venta_prom or 2000 }}" oninput="recalcular()">
+          <div><span class="slider-val" id="lbl-precio-u">$—</span></div>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <label class="form-label text-xs">Precio de venta exacto ($)</label>
+        <input type="number" class="form-control" id="in-precio-u" style="max-width:160px" step="10" oninput="syncPrecioInput()" placeholder="ej. 2000">
+      </div>
+    </div>
+    <div>
+      <div class="fw-600 text-sm mb-3" style="color:var(--color-text-muted)">Costos fijos mensuales</div>
+      <div class="input-grid">
+        <div class="form-group mb-0">
+          <label class="form-label text-xs">Alquiler / espacio ($)</label>
+          <input type="number" class="form-control" id="cf-alquiler" value="0" step="500" oninput="recalcular()">
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label text-xs">Sueldo fijo ($)</label>
+          <input type="number" class="form-control" id="cf-sueldo" value="0" step="1000" oninput="recalcular()">
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label text-xs">Otros fijos (luz base, internet, etc.)</label>
+          <input type="number" class="form-control" id="cf-otros" value="0" step="500" oninput="recalcular()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--color-border)">
+    <div class="fw-600 text-sm mb-3" style="color:var(--color-text-muted)">Capacidad de producción</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      <div class="slider-wrap">
+        <label>Días de producción / mes</label>
+        <input type="range" id="sl-dias" min="1" max="30" step="1" value="12" oninput="recalcular()">
+        <div><span class="slider-val" id="lbl-dias">—</span> días</div>
+      </div>
+      <div class="slider-wrap">
+        <label>Alfajores por jornada (armado)</label>
+        <input type="range" id="sl-xdia" min="10" max="500" step="10" value="120" oninput="recalcular()">
+        <div><span class="slider-val" id="lbl-xdia">—</span> unidades</div>
+      </div>
+      <div class="slider-wrap">
+        <label>% ventas efectivo cobrado</label>
+        <input type="range" id="sl-cobro" min="50" max="100" step="5" value="85" oninput="recalcular()">
+        <div><span class="slider-val" id="lbl-cobro">—</span>% del total</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BREAK-EVEN -->
+<div class="bi-card">
+  <h3>📍 Punto de equilibrio</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="stat-box">
+      <div class="lbl">Unidades para cubrir costos fijos</div>
+      <div class="val" id="be-unidades">—</div>
+      <div class="lbl" id="be-unidades-sub"></div>
+    </div>
+    <div class="stat-box">
+      <div class="lbl">Facturación de equilibrio / mes</div>
+      <div class="val" id="be-facturacion">—</div>
+    </div>
+    <div class="stat-box">
+      <div class="lbl">Margen bruto / unidad</div>
+      <div class="val" id="be-margen-u">—</div>
+      <div class="lbl" id="be-margen-pct"></div>
+    </div>
+  </div>
+  <div style="background:var(--color-bg-elevated);border-radius:8px;padding:14px;font-size:0.82rem" id="be-explicacion"></div>
+</div>
+
+<!-- ESCENARIOS -->
+<div class="bi-card">
+  <h3>📊 Escenarios de escala</h3>
+  <div class="scenario-grid">
+    <div class="scenario-row header">
+      <div>Escenario</div>
+      <div>Unidades/mes</div>
+      <div>Ingresos</div>
+      <div>Costos totales</div>
+      <div>Ganancia neta</div>
+      <div>Margen %</div>
+    </div>
+    <div id="scenario-rows"></div>
+  </div>
+</div>
+
+<!-- PROYECCIÓN A 6 MESES -->
+<div class="bi-card">
+  <h3>📈 Proyección con crecimiento mensual</h3>
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+    <div class="slider-wrap" style="flex:0 0 240px">
+      <label>Crecimiento mensual estimado</label>
+      <input type="range" id="sl-crecimiento" min="0" max="50" step="5" value="10" oninput="recalcular()">
+      <div><span class="slider-val" id="lbl-crecimiento">—</span>% / mes</div>
+    </div>
+    <div class="text-muted text-sm">Proyección desde el escenario actual a 6 meses</div>
+  </div>
+  <div id="proyeccion-meses" style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px"></div>
+</div>
+
+<script>
+const ARS = n => '$' + (n < 0 ? '-' : '') + Math.abs(Math.round(n)).toLocaleString('es-AR');
+const PCT = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+
+// Escenarios de producción predefinidos
+const SCENARIOS = [
+  { label: "Actual",   multiplier: 1   },
+  { label: "×1.5",     multiplier: 1.5 },
+  { label: "×2",       multiplier: 2   },
+  { label: "×3",       multiplier: 3   },
+  { label: "×5",       multiplier: 5   },
+];
+
+function v(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
+
+function syncPrecioInput() {
+  const val = v('in-precio-u');
+  if (val > 0) {
+    document.getElementById('sl-precio-u').value = val;
+    recalcular();
+  }
+}
+
+function recalcular() {
+  const costoU   = v('sl-costo-u');
+  const precioU  = v('sl-precio-u');
+  const dias     = v('sl-dias');
+  const xDia     = v('sl-xdia');
+  const cobro    = v('sl-cobro') / 100;
+  const alquiler = v('cf-alquiler');
+  const sueldo   = v('cf-sueldo');
+  const otros    = v('cf-otros');
+  const crec     = v('sl-crecimiento') / 100;
+
+  // Labels sliders
+  document.getElementById('lbl-costo-u').textContent   = ARS(costoU);
+  document.getElementById('lbl-precio-u').textContent  = ARS(precioU);
+  document.getElementById('lbl-dias').textContent      = dias;
+  document.getElementById('lbl-xdia').textContent      = xDia;
+  document.getElementById('lbl-cobro').textContent     = v('sl-cobro');
+  document.getElementById('lbl-crecimiento').textContent = v('sl-crecimiento');
+  // Sync input exacto de precio
+  document.getElementById('in-precio-u').placeholder   = ARS(precioU).replace('$','');
+
+  const cf       = alquiler + sueldo + otros;
+  const margenU  = precioU - costoU;
+  const margenPct = precioU > 0 ? (margenU / precioU * 100) : 0;
+  const unidadesActual = Math.round(dias * xDia);
+
+  // Break-even
+  const beUnidades = margenU > 0 ? Math.ceil(cf / margenU) : null;
+  const beFact = beUnidades ? beUnidades * precioU : null;
+
+  // DOM: break-even
+  document.getElementById('be-unidades').textContent    = beUnidades != null ? beUnidades.toLocaleString('es-AR') : '∞';
+  document.getElementById('be-unidades-sub').textContent = beUnidades != null
+    ? (beUnidades <= unidadesActual ? `✓ ya los producís (${unidadesActual} u/mes)` : `Necesitás ${beUnidades - unidadesActual} u más por mes`)
+    : 'Costo ≥ precio';
+  document.getElementById('be-facturacion').textContent = beFact ? ARS(beFact) : '—';
+  document.getElementById('be-margen-u').textContent    = ARS(margenU);
+  document.getElementById('be-margen-pct').textContent  = `${margenPct.toFixed(1)}% del precio`;
+
+  const beColor = margenU <= 0 ? 'var(--color-danger)' : margenU < precioU * 0.3 ? 'var(--color-warning)' : 'var(--color-success)';
+  document.getElementById('be-margen-u').style.color = beColor;
+
+  let expl = '';
+  if (margenU <= 0) {
+    expl = `<span style="color:var(--color-danger)">⚠️ El costo unitario es mayor o igual al precio de venta — cada alfajor genera pérdida de <strong>${ARS(Math.abs(margenU))}</strong>. No hay punto de equilibrio posible con estos números.</span>`;
+  } else if (cf === 0) {
+    expl = `Sin costos fijos, cualquier unidad vendida genera ganancia de <strong>${ARS(margenU)}</strong> (${margenPct.toFixed(1)}%). Agregá costos fijos si los tenés para un análisis completo.`;
+  } else {
+    const diasBE = Math.ceil(beUnidades / xDia);
+    expl = `Con los parámetros actuales, necesitás producir y vender <strong>${beUnidades.toLocaleString('es-AR')} alfajores</strong> para cubrir los $${cf.toLocaleString('es-AR')} de costos fijos. Eso equivale a <strong>${diasBE} jornadas</strong> de ${xDia} u/día.`;
+    if (beUnidades <= unidadesActual) {
+      expl += ` <span style="color:var(--color-success)">✓ Con tu producción actual (${unidadesActual} u/mes) <strong>ya superás el break-even</strong> y generás ${ARS((unidadesActual - beUnidades) * margenU)} de ganancia neta.</span>`;
+    } else {
+      expl += ` Con tu producción actual <strong>todavía no cubrís los fijos</strong> — te quedan ${ARS((beUnidades - unidadesActual) * margenU)} por recuperar.`;
+    }
+  }
+  document.getElementById('be-explicacion').innerHTML = expl;
+
+  // Escenarios
+  let rowsHtml = '';
+  for (const sc of SCENARIOS) {
+    const u = Math.round(unidadesActual * sc.multiplier);
+    const ingresos = u * precioU * cobro;
+    const cvTotal  = u * costoU;
+    const total    = cvTotal + cf;
+    const neto     = ingresos - total;
+    const mpct     = ingresos > 0 ? (neto / ingresos * 100) : 0;
+    const isBE     = beUnidades && u >= beUnidades && Math.round(unidadesActual * (sc.multiplier > 1 ? SCENARIOS[SCENARIOS.indexOf(sc)-1]?.multiplier || 0 : 0)) < beUnidades;
+    rowsHtml += `<div class="scenario-row${isBE ? ' breakeven-row' : ''}">
+      <div class="fw-600">${sc.label} ${sc.multiplier === 1 ? '<span class="badge badge-muted" style="font-size:0.65rem">actual</span>' : ''}</div>
+      <div>${u.toLocaleString('es-AR')} u</div>
+      <div>${ARS(ingresos)}</div>
+      <div>${ARS(total)}</div>
+      <div class="${neto >= 0 ? 'sign-pos' : 'sign-neg'}">${ARS(neto)}</div>
+      <div class="${mpct >= 30 ? 'sign-pos' : mpct >= 0 ? '' : 'sign-neg'}">${PCT(mpct)}</div>
+    </div>`;
+  }
+  document.getElementById('scenario-rows').innerHTML = rowsHtml;
+
+  // Proyección mensual 6 meses
+  let mesHtml = '';
+  let uMes = unidadesActual;
+  for (let i = 1; i <= 6; i++) {
+    if (i > 1) uMes = Math.round(uMes * (1 + crec));
+    const ing = uMes * precioU * cobro;
+    const costos = uMes * costoU + cf;
+    const neto = ing - costos;
+    const pct = ing > 0 ? (neto / ing * 100) : 0;
+    const barPct = Math.max(0, Math.min(100, pct + 50));
+    mesHtml += `<div class="stat-box">
+      <div class="lbl" style="font-size:0.7rem">Mes ${i}</div>
+      <div style="font-size:0.9rem;font-weight:600">${uMes.toLocaleString('es-AR')} u</div>
+      <div style="font-size:0.75rem;margin:4px 0">${ARS(ing)}</div>
+      <div class="${neto >= 0 ? 'sign-pos' : 'sign-neg'}" style="font-size:0.85rem">${ARS(neto)}</div>
+      <div class="bar-wrap" style="margin-top:6px"><div class="bar-fill" style="width:${barPct}%;background:${neto>=0?'var(--color-success)':'var(--color-danger)'}"></div></div>
+    </div>`;
+  }
+  document.getElementById('proyeccion-meses').innerHTML = mesHtml;
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  // Pre-cargar valores del backend
+  if (_BI.costoUnitarioProm > 0) document.getElementById('sl-costo-u').value = _BI.costoUnitarioProm;
+  if (_BI.precioVentaProm   > 0) document.getElementById('sl-precio-u').value = _BI.precioVentaProm;
+  recalcular();
+});
+</script>
+{% endblock %}
