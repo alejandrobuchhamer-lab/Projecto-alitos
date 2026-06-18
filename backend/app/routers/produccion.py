@@ -1232,3 +1232,42 @@ def eliminar_registro_tapas(produccion_id: int, registro_id: int, db: Session = 
 
     db.commit()
     return {"ok": True}
+
+
+# ── Diagnóstico de stock por receta ──────────────────────────────────────────
+
+@router.get("/api/debug-stock/{receta_version_id}")
+def debug_stock_receta(receta_version_id: int, escala: float = 1.0, db: Session = Depends(get_db)):
+    """Diagnóstico: muestra el estado de stock para cada ingrediente de la receta."""
+    from datetime import datetime
+    receta = db.query(RecetaVersion).filter(RecetaVersion.id == receta_version_id).first()
+    if not receta:
+        raise HTTPException(404, "Receta no encontrada")
+    resultado = []
+    for ing in receta.ingredientes:
+        if ing.tipo_ingrediente == "insumo":
+            insumo = db.query(Insumo).filter(Insumo.id == ing.insumo_id).first()
+            lotes = db.query(LoteInsumo).filter(LoteInsumo.insumo_id == ing.insumo_id).all()
+            lotes_activos = [l for l in lotes if l.activo and l.cantidad_actual > 0]
+            lotes_vencidos = [l for l in lotes_activos if l.fecha_vencimiento and datetime.utcnow() > l.fecha_vencimiento]
+            resultado.append({
+                "tipo": "insumo",
+                "insumo_id": ing.insumo_id,
+                "nombre": insumo.nombre if insumo else f"Insumo #{ing.insumo_id}",
+                "cantidad_necesaria": ing.cantidad * escala,
+                "unidad": ing.unidad_medida,
+                "stock_activo_total": sum(l.cantidad_actual for l in lotes_activos),
+                "stock_sin_vencidos": sum(l.cantidad_actual for l in lotes_activos if l not in lotes_vencidos),
+                "lotes_total": len(lotes),
+                "lotes_activos": len(lotes_activos),
+                "lotes_vencidos": len(lotes_vencidos),
+                "lotes_detalle": [{
+                    "id": l.id,
+                    "numero_lote": l.numero_lote,
+                    "cantidad_actual": l.cantidad_actual,
+                    "activo": l.activo,
+                    "fecha_vencimiento": str(l.fecha_vencimiento) if l.fecha_vencimiento else None,
+                    "vencido": bool(l.fecha_vencimiento and datetime.utcnow() > l.fecha_vencimiento),
+                } for l in lotes],
+            })
+    return {"receta_id": receta_version_id, "escala": escala, "ingredientes": resultado}
