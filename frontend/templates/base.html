@@ -302,12 +302,6 @@
 
   </div>
 
-  <div class="sidebar-toggle" id="sidebar-toggle-btn">
-    <svg class="toggle-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="15 18 9 12 15 6"/>
-    </svg>
-    <span class="toggle-label">Contraer</span>
-  </div>
 
 </nav>
 
@@ -504,6 +498,23 @@
     requestAnimationFrame(() => requestAnimationFrame(() => {
       [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
     }));
+
+    // Hover: expandir solo cuando el cursor está dentro de los px visibles del sidebar
+    const COLLAPSED_W = 56;
+    let _hoverTimeout;
+    let _hoverExpanded = false;
+    document.addEventListener('mousemove', (e) => {
+      if (!sidebar.classList.contains('collapsed')) return;
+      if (e.clientX <= COLLAPSED_W) {
+        clearTimeout(_hoverTimeout);
+        if (!_hoverExpanded) { _hoverExpanded = true; setSidebarState(false); }
+      } else if (_hoverExpanded && e.clientX > COLLAPSED_W + 20) {
+        clearTimeout(_hoverTimeout);
+        _hoverTimeout = setTimeout(() => { _hoverExpanded = false; setSidebarState(true); }, 400);
+      }
+    });
+    // Al hacer click en toggle, resetear flag
+    document.getElementById('sidebar-toggle-btn')?.addEventListener('click', () => { _hoverExpanded = false; });
 
     // Scroll con rueda del mouse en sidebar-nav
     const nav = sidebar?.querySelector('.sidebar-nav');
