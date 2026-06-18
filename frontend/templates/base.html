@@ -163,7 +163,7 @@
 {% set _is_vend = _rol in ['admin', 'vendedor'] %}
 
 <!-- ====== SIDEBAR ====== -->
-<nav class="sidebar" id="sidebar">
+<nav class="sidebar collapsed" id="sidebar">
 
   <div class="sidebar-logo">
     <img src="/static/img/logo1.png" alt="ALITOS" class="sidebar-logo-img">
@@ -320,7 +320,7 @@
 </style>
 
 <!-- ====== MAIN ====== -->
-<div class="main-wrapper" id="main-wrapper">
+<div class="main-wrapper sidebar-collapsed" id="main-wrapper">
 
   <!-- ===== TOPBAR ===== -->
   <header class="topbar">
@@ -504,17 +504,6 @@
     requestAnimationFrame(() => requestAnimationFrame(() => {
       [sidebar, main].forEach(el => { if (el) el.classList.remove('no-transition'); });
     }));
-
-    // Hover: expandir al entrar, colapsar al salir
-    let _hoverTimeout;
-    sidebar?.addEventListener('mouseenter', () => {
-      clearTimeout(_hoverTimeout);
-      if (sidebar.classList.contains('collapsed')) setSidebarState(false);
-    });
-    sidebar?.addEventListener('mouseleave', () => {
-      clearTimeout(_hoverTimeout);
-      _hoverTimeout = setTimeout(() => setSidebarState(true), 400);
-    });
 
     // Scroll con rueda del mouse en sidebar-nav
     const nav = sidebar?.querySelector('.sidebar-nav');
