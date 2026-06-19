@@ -194,11 +194,16 @@ function Fingerprint({ user, onAuthed, onPasswordAuthed, onBack, onMustChange, r
       setTimeout(() => setState("leaving"), 700);
       setTimeout(() => onAuthed(), 1600);
     } catch(e) {
-      const msg = e?.message || "";
-      if (msg === "no-plugin" || msg === "no-biometry") {
-        // Dispositivo sin biometría — caer en contraseña
+      const msg = (e?.message || e?.code || "").toString().toLowerCase();
+      const noDisp = msg.includes("no-biometry") || msg.includes("no-plugin") ||
+                     msg.includes("none") || msg.includes("not enrolled") ||
+                     msg.includes("not available") || msg.includes("unavailable") ||
+                     msg.includes("lockout") || msg === "";
+      if (noDisp) {
         setState("idle");
         setModoPass(true);
+      } else if (msg.includes("cancel") || msg.includes("user cancel")) {
+        setState("idle");
       } else {
         setState("error");
         setErrMsg("Huella no reconocida");

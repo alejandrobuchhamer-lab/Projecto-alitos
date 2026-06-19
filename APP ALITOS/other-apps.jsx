@@ -58,7 +58,10 @@ function ProduccionApp({ onLogout, user }) {
   const [tab, setTab] = oUseState("lotes");
   const [batches, setBatches] = oUseState(() => BATCH_SEED.map(b => ({ ...b })));
   const [refreshKey, setRefreshKey] = oUseState(0);
-  const [cantModal, setCantModal] = oUseState(null); // {id, tapasTeoricas} cuando es armado
+  const [cantModal, setCantModal] = oUseState(null);
+  const [profileOpen, setProfileOpen] = oUseState(false);
+  const { notifs, unread, markRead } = useNotifs ? useNotifs() : { notifs: [], unread: 0, markRead: () => {} };
+  const [notifOpen, setNotifOpen] = oUseState(false);
 
   function recargarLotes() {
     return new Promise(resolve => {
@@ -112,8 +115,8 @@ function ProduccionApp({ onLogout, user }) {
   return (
     <div className="screen-wrap">
       <AppBar leftLogo title="Fábrica"
-        right={<NotifBell unread={0} onClick={() => toast("Sin notificaciones nuevas", "info")} />}
-        avatar={{ color: "var(--green)", txt: (user?.avatar) || "F", onClick: onLogout }} />
+        right={<NotifBell unread={unread} onClick={() => { setNotifOpen(true); markRead(); }} />}
+        avatar={{ color: "var(--green)", txt: user?.first?.[0] || "F", onClick: () => setProfileOpen(true) }} />
       <PullToRefresh key={tab} onRefresh={onRefresh}>
         {tab === "lotes"   && <ProdHoy batches={batches} onAdvance={advance} />}
         {tab === "stock"   && <StockTerminado key={refreshKey} />}
@@ -129,6 +132,8 @@ function ProduccionApp({ onLogout, user }) {
           onCancel={() => setCantModal(null)}
         />
       )}
+      <ProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} onLogout={onLogout} user={user} />
+      <NotifSheet open={notifOpen} notifs={notifs} onClose={() => setNotifOpen(false)} />
     </div>
   );
 }

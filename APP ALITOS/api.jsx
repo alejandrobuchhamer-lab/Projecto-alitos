@@ -147,15 +147,19 @@ async function checkBiometricAvailable() {
 
 async function triggerBiometric(reason) {
   const plugin = window?.Capacitor?.Plugins?.BiometricAuth;
-  if (!plugin) throw new Error("no-plugin");
-  const check = await plugin.checkBiometry();
-  if (!check.isAvailable) throw new Error("no-biometry");
+  if (!plugin) throw new Error("no-biometry");
+  try {
+    const check = await plugin.checkBiometry();
+    if (!check.isAvailable) throw new Error("no-biometry");
+  } catch(e) {
+    throw new Error("no-biometry");
+  }
   await plugin.authenticate({
     reason: reason || "Verificá tu identidad para ingresar a Alito's",
     cancelTitle: "Cancelar",
     androidTitle: "Alito's",
     androidSubtitle: "Confirmá tu identidad",
-    allowDeviceCredential: true,
+    allowDeviceCredential: false,
   });
 }
 

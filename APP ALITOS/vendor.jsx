@@ -18,6 +18,8 @@ function VendorApp({ onLogout, user }) {
   const [pendingVenta, setPendingVenta] = vUseState(null);
   const [pendientes, setPendientes]     = vUseState([]);
   const [profileOpen, setProfileOpen]   = vUseState(false);
+  const [notifOpen, setNotifOpen]       = vUseState(false);
+  const { notifs, unread, markRead }    = useNotifs ? useNotifs() : { notifs: [], unread: 0, markRead: () => {} };
 
   function reloadData() {
     fetchMiStock().then(setStock).catch(() => {});
@@ -98,7 +100,7 @@ function VendorApp({ onLogout, user }) {
   return (
     <div className="screen-wrap">
       <AppBar leftLogo title="Vendedor · reparto" userName={ME.name}
-        right={<NotifBell unread={0} onClick={() => toast("3 negocios con mercadería por vencer", "warn")} />}
+        right={<NotifBell unread={unread} onClick={() => { setNotifOpen(true); markRead(); }} />}
         avatar={{ color: ME.color, txt: ME.avatar, onClick: () => setProfileOpen(true) }} />
 
       <PullToRefresh key={tab} onRefresh={reloadData}>
@@ -130,6 +132,8 @@ function VendorApp({ onLogout, user }) {
         onSaved={() => { setPendingVenta(null); reloadData(); toast("Pago completado", "ok"); }} />
       {/* PERFIL sheet */}
       <ProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} onLogout={onLogout} user={user} />
+      {/* NOTIFS sheet */}
+      <NotifSheet open={notifOpen} notifs={notifs} onClose={() => setNotifOpen(false)} />
     </div>
   );
 }
@@ -289,7 +293,58 @@ function VendorRoute({ me, places, onDetail, onNewBiz }) {
 }
 
 /* ---------- Vendor Sell tab (landing) ---------- */
+function VentaDetalleSheet({ venta, onClose, onDeleted }) {
+  const toast = vUseContext(ToastCtx);
+  const [deleting, setDeleting] = vUseState(false);
+  if (!venta) return null;
+  async function borrar() {
+    if (!confirm(`¿Eliminar venta #${venta.id}?`)) return;
+    setDeleting(true);
+    try {
+      await apiFetch(`/vendedores/api/ventas/${venta.id}`, { method: "DELETE" });
+      toast("Venta eliminada", "ok");
+      onDeleted();
+    } catch { toast("Error al eliminar", "error"); setDeleting(false); }
+  }
+  const ep = venta.estado_pago || "completo";
+  return (
+    <Sheet open={!!venta} onClose={onClose} icon="receipt" title={`Venta #${venta.id}`}>
+      <div className="stack gap-10" style={{ padding: "0 0 8px" }}>
+        <div className="row between">
+          <span style={{ color: "var(--txt-3)", fontSize: 13 }}>Cliente</span>
+          <span style={{ fontWeight: 600 }}>{venta.cliente_nombre || venta.lugar || "CF"}</span>
+        </div>
+        <div className="row between">
+          <span style={{ color: "var(--txt-3)", fontSize: 13 }}>Producto</span>
+          <span>{venta.producto || "Alfajor"}</span>
+        </div>
+        <div className="row between">
+          <span style={{ color: "var(--txt-3)", fontSize: 13 }}>Cantidad</span>
+          <span style={{ fontWeight: 700 }}>{venta.cantidad || venta.units} u.</span>
+        </div>
+        <div className="row between">
+          <span style={{ color: "var(--txt-3)", fontSize: 13 }}>Total</span>
+          <span style={{ fontWeight: 800, color: "var(--green)", fontSize: 17 }}>{ARS(venta.monto_total || venta.amount)}</span>
+        </div>
+        <div className="row between">
+          <span style={{ color: "var(--txt-3)", fontSize: 13 }}>Pago</span>
+          <span>{venta.forma_pago || "—"}</span>
+        </div>
+        <div className="row between">
+          <span style={{ color: "var(--txt-3)", fontSize: 13 }}>Estado</span>
+          <span className={"badge " + (ep === "completo" ? "green" : "amber")}>{ep === "completo" ? "Cobrado" : "Pendiente"}</span>
+        </div>
+      </div>
+      <button className="btn btn-outline btn-block" style={{ color: "var(--red)", borderColor: "var(--red)", marginTop: 8 }}
+        onClick={borrar} disabled={deleting}>
+        {deleting ? "Eliminando…" : "Eliminar esta venta"}
+      </button>
+    </Sheet>
+  );
+}
+
 function VendorSellTab({ onSell, sales, cashToday, soldToday, pendientes, onCompletarPago }) {
+  const [ventaDet, setVentaDet] = vUseState(null);
   const totalPendiente = (pendientes || []).reduce((a, v) => a + (v.monto_pendiente || 0), 0);
   return (
     <div className="anim-in pad stack gap-16">
@@ -333,7 +388,9 @@ function VendorSellTab({ onSell, sales, cashToday, soldToday, pendientes, onComp
         </div>
       )}
 
-      <div className="note"><Icon name="info" size={16} />Cada venta descuenta el stock y suma a tu recaudación del día.</div>
+      <VentaDetalleSheet venta={ventaDet} onClose={() => setVentaDet(null)}
+        onDeleted={() => { setVentaDet(null); window.location.reload(); }} />
+      <div className="note"><Icon name="info" size={16} />Cada venta descuenta el stock y suma a tu recaudación del día. Tocá una venta para ver detalles o eliminarla.</div>
 
       <div>
         <div className="section-title">Ventas de hoy</div>
@@ -345,7 +402,7 @@ function VendorSellTab({ onSell, sales, cashToday, soldToday, pendientes, onComp
             const pend = s.estado_pago && s.estado_pago !== "completo";
             return (
               <div key={s.id || i}>
-                <div className="mv">
+                <div className="mv" style={{ cursor: "pointer" }} onClick={() => setVentaDet(s)}>
                   <div className="mv-ico" style={{ background: pend ? "var(--amber-soft)" : "var(--green-soft)", color: pend ? "var(--amber-bright)" : "var(--green)" }}>
                     <Icon name={pend ? "clock" : "check"} size={17} />
                   </div>
