@@ -602,6 +602,78 @@ async function registrarCompraInsumo(insumoId, { cantidad, costoUnitario, provee
   });
 }
 
+// ── Admin: todas las ventas del equipo ───────────────────────────
+async function fetchVentasAdmin({ desde, hasta, vendedorId } = {}) {
+  const qs = new URLSearchParams();
+  if (desde) qs.set("desde", desde);
+  if (hasta) qs.set("hasta", hasta);
+  if (vendedorId) qs.set("vendedor_id", vendedorId);
+  const q = qs.toString();
+  const data = await apiGet("/vendedores/api/ventas-admin" + (q ? "?" + q : ""));
+  return data.map(v => ({
+    ...v,
+    pay: v.forma_pago === "qr" ? "qr" : v.forma_pago === "transferencia" ? "transfer" : "efectivo",
+  }));
+}
+
+// ── Finanzas: gastos ──────────────────────────────────────────────
+async function fetchGastos({ desde, hasta } = {}) {
+  const qs = new URLSearchParams();
+  if (desde) qs.set("desde", desde);
+  if (hasta) qs.set("hasta", hasta);
+  const q = qs.toString();
+  return apiGet("/finanzas/api/gastos" + (q ? "?" + q : ""));
+}
+
+async function crearGasto({ concepto, monto, categoria }) {
+  return apiPost("/finanzas/api/gastos", { concepto, monto: Number(monto), categoria: categoria || "general" });
+}
+
+async function eliminarGasto(id) {
+  return apiFetch("/finanzas/api/gastos/" + id, { method: "DELETE" });
+}
+
+async function fetchFinanzasSalud() {
+  return apiGet("/finanzas/api/salud");
+}
+
+// ── Alertas de stock ──────────────────────────────────────────────
+async function fetchAlertas() {
+  return apiGet("/alertas/api");
+}
+
+async function resolverAlerta(id) {
+  return apiPost("/alertas/api/" + id + "/resolver", {});
+}
+
+async function verificarAlertas() {
+  return apiPost("/alertas/api/verificar", {});
+}
+
+// ── Gestión de usuarios (admin) ───────────────────────────────────
+async function fetchUsuariosAdmin() {
+  return apiGet("/api/mobile/admin/usuarios_pins");
+}
+
+async function crearUsuario({ nombre, username, password, rol }) {
+  return apiPost("/api/mobile/admin/crear-usuario", { nombre, username, password, rol: rol || "vendedor" });
+}
+
+async function actualizarUsuario(id, data) {
+  return apiFetch("/api/mobile/admin/usuarios/" + id, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+async function desactivarUsuario(id) {
+  return apiFetch("/api/mobile/admin/usuarios/" + id, { method: "DELETE" });
+}
+
+async function resetPinUsuario(userId, nuevoPin) {
+  return apiPost("/api/mobile/admin/reset_pin", { user_id: userId, nuevo_pin: nuevoPin });
+}
+
 // ── Cambiar contraseña ────────────────────────────────────────────
 async function cambiarPassword(passwordActual, passwordNueva) {
   return apiFetch("/api/mobile/cambiar-password", {
@@ -634,4 +706,7 @@ Object.assign(window, { cambiarPassword,
   fetchListasPrecio, actualizarListaPrecio,
   buscarClientesPedido, asignarPedido, entregarPedido,
   fetchClientes, crearCliente,
+  fetchVentasAdmin, fetchGastos, crearGasto, eliminarGasto, fetchFinanzasSalud,
+  fetchAlertas, resolverAlerta, verificarAlertas,
+  fetchUsuariosAdmin, crearUsuario, actualizarUsuario, desactivarUsuario, resetPinUsuario,
 });

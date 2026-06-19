@@ -20,6 +20,7 @@ function AdminApp({ onLogout, user }) {
   const [adminSellOpen, setAdminSellOpen] = aUseState(false);
   const [adminStock, setAdminStock] = aUseState([]);
   const [profileOpen, setProfileOpen] = aUseState(false);
+  const [gestionSub, setGestionSub] = aUseState(null);
 
   const adminName = user?.nombre || user?.name || "Administrador";
   const adminInitials = adminName.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
@@ -192,6 +193,7 @@ function AdminApp({ onLogout, user }) {
     { id: "precios",   icon: "tag",     label: "Precios"  },
     { id: "mapa",      icon: "map",     label: "Mapa"     },
     { id: "analytics", icon: "chart",   label: "BI"       },
+    { id: "gestion",   icon: "settings", label: "Gestión"  },
   ];
 
   return (
@@ -212,6 +214,7 @@ function AdminApp({ onLogout, user }) {
         {tab === "equipo"    && <AdminEquipo vendors={vendors} onAssign={setAssignVendor} onDetail={setVendorDetail} />}
         {tab === "fabrica"   && <FabricaPanel user={user} toast={toast} />}
         {tab === "precios"   && <AdminPrecios />}
+        {tab === "gestion"   && <AdminGestion sub={gestionSub} setSub={setGestionSub} toast={toast} />}
       </PullToRefresh>
 
       <BotNav items={nav} value={tab} onChange={setTab} />
@@ -569,6 +572,558 @@ function AdminPrecios() {
         </div>
       ))}
       <div style={{ height: 8 }} />
+    </div>
+  );
+}
+
+/* ===================== GESTIÓN HUB ===================== */
+function AdminGestion({ sub, setSub, toast }) {
+  if (sub === "ventas")   return <AdminVentasEquipo onBack={() => setSub(null)} toast={toast} />;
+  if (sub === "finanzas") return <AdminFinanzasView  onBack={() => setSub(null)} toast={toast} />;
+  if (sub === "alertas")  return <AdminAlertasView   onBack={() => setSub(null)} toast={toast} />;
+  if (sub === "usuarios") return <AdminUsuariosView  onBack={() => setSub(null)} toast={toast} />;
+  if (sub === "insumos")  return <AdminInsumosView   onBack={() => setSub(null)} toast={toast} />;
+
+  const items = [
+    { id: "ventas",   icon: "cart",     color: "var(--green)",       soft: "var(--green-soft)",   title: "Ventas del equipo",  desc: "Historial completo del equipo" },
+    { id: "insumos",  icon: "box",      color: "var(--amber-bright)",soft: "var(--amber-soft)",   title: "Insumos",            desc: "Stock de materias primas y lotes" },
+    { id: "finanzas", icon: "bank",     color: "var(--blue)",        soft: "var(--blue-soft)",    title: "Finanzas",           desc: "Gastos y salud financiera" },
+    { id: "usuarios", icon: "users",    color: "var(--purple)",      soft: "var(--purple-soft)",  title: "Usuarios",           desc: "Crear y gestionar equipo" },
+    { id: "alertas",  icon: "alert",    color: "var(--red)",         soft: "var(--red-soft)",     title: "Alertas de stock",   desc: "Notificaciones de stock bajo" },
+  ];
+  return (
+    <div className="anim-in pad stack gap-12">
+      <div className="section-title">Administración</div>
+      <div className="stack gap-10">
+        {items.map(item => (
+          <div className="card" key={item.id} onClick={() => setSub(item.id)} style={{ cursor: "pointer" }}>
+            <div className="lrow" style={{ padding: "14px 14px" }}>
+              <div className="l-ava" style={{ background: item.soft, color: item.color, borderRadius: 13 }}>
+                <Icon name={item.icon} size={22} />
+              </div>
+              <div className="grow">
+                <div className="l-name">{item.title}</div>
+                <div className="l-sub">{item.desc}</div>
+              </div>
+              <Icon name="chevR" size={18} style={{ color: "var(--txt-3)" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ height: 8 }} />
+    </div>
+  );
+}
+
+/* ── Sub-header compartido ── */
+function SubHeader({ onBack, title, right }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", padding: "8px 8px 8px 4px", gap: 4, borderBottom: "1px solid var(--border)", background: "var(--bg)", position: "sticky", top: 0, zIndex: 10 }}>
+      <button className="ab-action" onClick={onBack}><Icon name="back" size={20} /></button>
+      <div style={{ fontSize: 15, fontWeight: 700, flex: 1, paddingLeft: 2 }}>{title}</div>
+      {right}
+    </div>
+  );
+}
+
+/* ===================== VENTAS DEL EQUIPO ===================== */
+function AdminVentasEquipo({ onBack, toast }) {
+  const [ventas, setVentas]   = aUseState([]);
+  const [loading, setLoading] = aUseState(true);
+  const [filtro, setFiltro]   = aUseState("hoy");
+  const [vendedorId, setVendedorId] = aUseState(null);
+  const [vendors, setVendors] = aUseState([]);
+
+  function rango(f) {
+    const hoy = new Date().toISOString().slice(0, 10);
+    if (f === "hoy") return { desde: hoy, hasta: hoy };
+    const d = new Date(); d.setDate(d.getDate() - (f === "semana" ? 6 : 29));
+    return { desde: d.toISOString().slice(0, 10), hasta: hoy };
+  }
+
+  function cargar(f, vId) {
+    setLoading(true);
+    fetchVentasAdmin({ ...rango(f), vendedorId: vId })
+      .then(data => { setVentas(data); setLoading(false); })
+      .catch(() => { toast("Error cargando ventas", "error"); setLoading(false); });
+  }
+
+  aUseEffect(() => {
+    fetchVendedores().then(data => setVendors(data)).catch(() => {});
+    cargar("hoy", null);
+  }, []);
+
+  function cambiarFiltro(f) { setFiltro(f); cargar(f, vendedorId); }
+  function cambiarVendedor(vId) { setVendedorId(vId); cargar(filtro, vId); }
+
+  const totalMonto = ventas.reduce((a, v) => a + (v.monto_total || 0), 0);
+  const totalUnits = ventas.reduce((a, v) => a + (v.cantidad || 0), 0);
+  const PAY_ICO  = { efectivo: "cash", transfer: "bank", qr: "qr" };
+  const PAY_LBL  = { efectivo: "Efectivo", transfer: "Transfer.", qr: "QR/MP" };
+
+  return (
+    <div className="anim-in" style={{ display: "flex", flexDirection: "column" }}>
+      <SubHeader onBack={onBack} title="Ventas del equipo" />
+      <div className="pad stack gap-12">
+        <div className="chip-row">
+          {[["hoy","Hoy"],["semana","7 días"],["mes","30 días"]].map(([id,l]) => (
+            <button key={id} className={"chip" + (filtro === id ? " active" : "")} onClick={() => cambiarFiltro(id)}>{l}</button>
+          ))}
+        </div>
+        {vendors.length > 0 && (
+          <div className="chip-row">
+            <button className={"chip" + (!vendedorId ? " active" : "")} onClick={() => cambiarVendedor(null)}>Todos</button>
+            {vendors.map(v => (
+              <button key={v.id} className={"chip" + (vendedorId === v.id ? " active" : "")} onClick={() => cambiarVendedor(v.id)}>{v.first}</button>
+            ))}
+          </div>
+        )}
+        {!loading && (
+          <div className="metric-grid">
+            <div className="metric">
+              <div className="m-label">Total vendido</div>
+              <div className="m-val"><span className="cur">$</span>{ARSc(totalMonto)}</div>
+            </div>
+            <div className="metric">
+              <div className="m-label">Unidades</div>
+              <div className="m-val">{totalUnits} <span style={{ fontSize: 13, color: "var(--txt-3)", fontWeight: 600 }}>u.</span></div>
+            </div>
+          </div>
+        )}
+        {loading && <div className="empty" style={{ padding: 32 }}><div style={{ width: 28, height: 28, border: "3px solid var(--border)", borderTopColor: "var(--amber)", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }} /></div>}
+        {!loading && ventas.length === 0 && <div className="empty"><Icon name="cart" size={40} /><div>Sin ventas en este período</div></div>}
+        {!loading && ventas.length > 0 && (
+          <div className="card">
+            {ventas.map((v, i) => (
+              <div key={v.id}>
+                <div className="lrow" style={{ padding: "11px 12px" }}>
+                  <div className="l-ava" style={{ background: "var(--green-soft)", color: "var(--green)", borderRadius: 10, width: 38, height: 38, minWidth: 38 }}>
+                    <Icon name={PAY_ICO[v.pay] || "cash"} size={16} />
+                  </div>
+                  <div className="grow">
+                    <div style={{ fontSize: 13, fontWeight: 650 }}>{v.vendedor} · {v.cantidad} u.</div>
+                    <div style={{ fontSize: 11, color: "var(--txt-3)" }}>{v.fecha} · {v.cliente_nombre || v.lugar || "CF"}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 750 }}>{ARS(v.monto_total)}</div>
+                    <div style={{ fontSize: 10, color: "var(--txt-3)" }}>{PAY_LBL[v.pay] || v.forma_pago}</div>
+                  </div>
+                </div>
+                {i < ventas.length - 1 && <div className="divider" style={{ marginLeft: 62 }} />}
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ height: 16 }} />
+      </div>
+    </div>
+  );
+}
+
+/* ===================== FINANZAS / GASTOS ===================== */
+function AdminFinanzasView({ onBack, toast }) {
+  const [gastos, setGastos]   = aUseState([]);
+  const [salud, setSalud]     = aUseState(null);
+  const [loading, setLoading] = aUseState(true);
+  const [nuevoOpen, setNuevoOpen] = aUseState(false);
+  const [concepto, setConcepto]   = aUseState("");
+  const [monto, setMonto]         = aUseState("");
+  const [categoria, setCategoria] = aUseState("general");
+  const [saving, setSaving]       = aUseState(false);
+
+  function cargar() {
+    setLoading(true);
+    Promise.all([fetchGastos(), fetchFinanzasSalud()])
+      .then(([g, s]) => { setGastos(g); setSalud(s); setLoading(false); })
+      .catch(() => { toast("Error cargando finanzas", "error"); setLoading(false); });
+  }
+
+  aUseEffect(() => { cargar(); }, []);
+
+  async function guardar() {
+    if (!concepto.trim() || !monto || Number(monto) <= 0) { toast("Completá concepto y monto", "warn"); return; }
+    setSaving(true);
+    try {
+      await crearGasto({ concepto: concepto.trim(), monto: Number(monto), categoria });
+      toast("Gasto registrado", "ok");
+      setNuevoOpen(false); setConcepto(""); setMonto(""); setCategoria("general");
+      cargar();
+    } catch { toast("Error al guardar", "error"); }
+    finally { setSaving(false); }
+  }
+
+  async function borrar(id) {
+    try { await eliminarGasto(id); setGastos(g => g.filter(x => x.id !== id)); toast("Eliminado", "ok"); }
+    catch { toast("Error", "error"); }
+  }
+
+  const CATS = ["general", "insumos", "servicios", "transporte", "personal", "otros"];
+
+  return (
+    <div className="anim-in" style={{ display: "flex", flexDirection: "column" }}>
+      <SubHeader onBack={onBack} title="Finanzas"
+        right={<button className="ab-action" onClick={() => setNuevoOpen(true)}><Icon name="plus" size={20} /></button>} />
+      <div className="pad stack gap-14">
+        {salud && (
+          <div className="card card-pad">
+            <div className="section-title" style={{ margin: "0 0 10px" }}>Este mes</div>
+            <div className="metric-grid">
+              <div className="metric">
+                <div className="m-label">Ingresos</div>
+                <div className="m-val" style={{ color: "var(--green)", fontSize: 18 }}>{ARS(salud.ingresos_mes || 0)}</div>
+              </div>
+              <div className="metric">
+                <div className="m-label">Gastos</div>
+                <div className="m-val" style={{ color: "var(--red)", fontSize: 18 }}>{ARS(salud.costos_mes || 0)}</div>
+              </div>
+              <div className="metric">
+                <div className="m-label">Ganancia</div>
+                <div className="m-val" style={{ fontSize: 18 }}>{ARS(salud.ganancia_neta_mes || 0)}</div>
+              </div>
+              <div className="metric">
+                <div className="m-label">Margen</div>
+                <div className="m-val" style={{ fontSize: 18 }}>{(salud.margen_mes || 0).toFixed(1)}<span className="cur">%</span></div>
+              </div>
+            </div>
+          </div>
+        )}
+        {loading && <div className="empty" style={{ padding: 32 }}><div style={{ width: 28, height: 28, border: "3px solid var(--border)", borderTopColor: "var(--amber)", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }} /></div>}
+        {!loading && (
+          <div>
+            <div className="row between" style={{ marginBottom: 10 }}>
+              <div className="section-title" style={{ margin: 0 }}>Gastos recientes</div>
+              <button className="btn btn-primary btn-sm" onClick={() => setNuevoOpen(true)}><Icon name="plus" size={14} />Nuevo</button>
+            </div>
+            <div className="card">
+              {gastos.length === 0 && <div className="empty"><Icon name="bank" size={36} /><div>Sin gastos registrados</div></div>}
+              {gastos.slice(0, 50).map((g, i) => (
+                <div key={g.id}>
+                  <div className="lrow" style={{ padding: "11px 12px" }}>
+                    <div className="l-ava" style={{ background: "var(--red-soft)", color: "var(--red)", borderRadius: 10, width: 36, height: 36, minWidth: 36 }}>
+                      <Icon name="minus" size={16} />
+                    </div>
+                    <div className="grow">
+                      <div style={{ fontSize: 13, fontWeight: 650 }}>{g.concepto}</div>
+                      <div style={{ fontSize: 11, color: "var(--txt-3)" }}>{g.categoria} · {g.fecha ? g.fecha.slice(0, 10) : ""}</div>
+                    </div>
+                    <div className="row gap-8">
+                      <div style={{ fontSize: 14, fontWeight: 750 }}>{ARS(g.monto)}</div>
+                      <button className="ab-action" style={{ width: 28, height: 28 }} onClick={() => borrar(g.id)}>
+                        <Icon name="x" size={14} style={{ color: "var(--red)" }} />
+                      </button>
+                    </div>
+                  </div>
+                  {i < Math.min(gastos.length, 50) - 1 && <div className="divider" style={{ marginLeft: 60 }} />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{ height: 16 }} />
+      </div>
+
+      <Sheet open={nuevoOpen} onClose={() => setNuevoOpen(false)} icon="bank" title="Registrar gasto">
+        <div className="stack gap-10">
+          <input className="input" placeholder="Concepto (ej: Harina 50kg)" value={concepto} onChange={e => setConcepto(e.target.value)} />
+          <div className="money"><span className="sgn">$</span><input className="input" type="number" placeholder="0" value={monto} onChange={e => setMonto(e.target.value)} style={{ paddingLeft: 28 }} /></div>
+          <select className="select" value={categoria} onChange={e => setCategoria(e.target.value)}>
+            {CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+          </select>
+        </div>
+        <button className={"btn btn-primary btn-block" + (saving ? " loading" : "")} style={{ marginTop: 16 }} onClick={guardar} disabled={saving}>
+          {saving ? "Guardando…" : "Guardar gasto"}
+        </button>
+      </Sheet>
+    </div>
+  );
+}
+
+/* ===================== ALERTAS DE STOCK ===================== */
+function AdminAlertasView({ onBack, toast }) {
+  const [alertas, setAlertas]   = aUseState([]);
+  const [loading, setLoading]   = aUseState(true);
+  const [checking, setChecking] = aUseState(false);
+
+  function cargar() {
+    setLoading(true);
+    fetchAlertas().then(data => { setAlertas(data); setLoading(false); }).catch(() => setLoading(false));
+  }
+
+  aUseEffect(() => { cargar(); }, []);
+
+  async function verificar() {
+    setChecking(true);
+    try { await verificarAlertas(); cargar(); toast("Alertas verificadas", "ok"); }
+    catch { toast("Error al verificar", "error"); }
+    finally { setChecking(false); }
+  }
+
+  async function resolver(id) {
+    try { await resolverAlerta(id); setAlertas(a => a.filter(x => x.id !== id)); toast("Resuelta", "ok"); }
+    catch { toast("Error", "error"); }
+  }
+
+  const PRIO = { alta: "var(--red)", media: "var(--amber-bright)", baja: "var(--blue)" };
+
+  return (
+    <div className="anim-in" style={{ display: "flex", flexDirection: "column" }}>
+      <SubHeader onBack={onBack} title="Alertas de stock"
+        right={<button className={"ab-action" + (checking ? " loading" : "")} onClick={verificar} disabled={checking}><Icon name="check" size={20} /></button>} />
+      <div className="pad stack gap-12">
+        {loading && <div className="empty" style={{ padding: 32 }}><div style={{ width: 28, height: 28, border: "3px solid var(--border)", borderTopColor: "var(--amber)", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }} /></div>}
+        {!loading && alertas.length === 0 && (
+          <div className="empty"><Icon name="check" size={44} style={{ color: "var(--green)", opacity: 1 }} /><div>Sin alertas activas</div></div>
+        )}
+        {!loading && alertas.length > 0 && (
+          <div className="card">
+            {alertas.map((a, i) => (
+              <div key={a.id}>
+                <div className="lrow" style={{ padding: "12px 12px" }}>
+                  <div className="l-ava" style={{ background: "var(--red-soft)", color: PRIO[a.prioridad] || "var(--red)", borderRadius: 10, width: 36, height: 36, minWidth: 36 }}>
+                    <Icon name="alert" size={16} />
+                  </div>
+                  <div className="grow">
+                    <div style={{ fontSize: 12.5, fontWeight: 650, lineHeight: 1.3 }}>{a.mensaje}</div>
+                    <div style={{ fontSize: 10.5, color: "var(--txt-3)", marginTop: 2 }}>{a.modulo} · {a.prioridad || "media"}</div>
+                  </div>
+                  <button className="btn btn-ghost btn-sm" style={{ padding: "4px 10px", fontSize: 12, flexShrink: 0 }} onClick={() => resolver(a.id)}>Resolver</button>
+                </div>
+                {i < alertas.length - 1 && <div className="divider" style={{ marginLeft: 60 }} />}
+              </div>
+            ))}
+          </div>
+        )}
+        <button className={"btn btn-ghost btn-block" + (checking ? " loading" : "")} onClick={verificar} disabled={checking}>
+          <Icon name="check" size={17} />{checking ? "Verificando…" : "Verificar alertas ahora"}
+        </button>
+        <div style={{ height: 16 }} />
+      </div>
+    </div>
+  );
+}
+
+/* ===================== GESTIÓN DE USUARIOS ===================== */
+function AdminUsuariosView({ onBack, toast }) {
+  const [users, setUsers]       = aUseState([]);
+  const [loading, setLoading]   = aUseState(true);
+  const [crearOpen, setCrearOpen]   = aUseState(false);
+  const [pinOpen, setPinOpen]       = aUseState(false);
+  const [selected, setSelected]     = aUseState(null);
+  const [nombre, setNombre]         = aUseState("");
+  const [username, setUsername]     = aUseState("");
+  const [password, setPassword]     = aUseState("");
+  const [rol, setRol]               = aUseState("vendedor");
+  const [nuevoPin, setNuevoPin]     = aUseState("");
+  const [saving, setSaving]         = aUseState(false);
+
+  function cargar() {
+    setLoading(true);
+    fetchUsuariosAdmin().then(data => { setUsers(data); setLoading(false); }).catch(() => setLoading(false));
+  }
+
+  aUseEffect(() => { cargar(); }, []);
+
+  async function crear() {
+    if (!nombre.trim() || !username.trim() || !password) { toast("Completá todos los campos", "warn"); return; }
+    setSaving(true);
+    try {
+      await crearUsuario({ nombre: nombre.trim(), username: username.trim(), password, rol });
+      toast("Usuario creado", "ok");
+      setCrearOpen(false); setNombre(""); setUsername(""); setPassword(""); setRol("vendedor");
+      cargar();
+    } catch(e) { toast(e.message || "Error al crear", "error"); }
+    finally { setSaving(false); }
+  }
+
+  async function resetPin() {
+    if (!nuevoPin || nuevoPin.length !== 6 || !/^\d+$/.test(nuevoPin)) { toast("El PIN debe tener 6 dígitos", "warn"); return; }
+    setSaving(true);
+    try {
+      await resetPinUsuario(selected.id, nuevoPin);
+      toast("PIN actualizado", "ok");
+      setPinOpen(false); setNuevoPin(""); cargar();
+    } catch { toast("Error al resetear PIN", "error"); }
+    finally { setSaving(false); }
+  }
+
+  async function desactivar(u) {
+    if (!confirm("¿Desactivar a " + u.nombre + "?")) return;
+    try { await desactivarUsuario(u.id); toast("Usuario desactivado", "ok"); cargar(); }
+    catch { toast("Error", "error"); }
+  }
+
+  const ROL_C = { admin: "var(--purple)", vendedor: "var(--blue)", produccion: "var(--green)" };
+  const ROL_L = { admin: "Admin", vendedor: "Vendedor", produccion: "Prod." };
+
+  return (
+    <div className="anim-in" style={{ display: "flex", flexDirection: "column" }}>
+      <SubHeader onBack={onBack} title="Usuarios"
+        right={<button className="ab-action" onClick={() => setCrearOpen(true)}><Icon name="plus" size={20} /></button>} />
+      <div className="pad stack gap-12">
+        {loading && <div className="empty" style={{ padding: 32 }}><div style={{ width: 28, height: 28, border: "3px solid var(--border)", borderTopColor: "var(--amber)", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }} /></div>}
+        {!loading && (
+          <div className="stack gap-10">
+            {users.map(u => (
+              <div className="card" key={u.id}>
+                <div className="lrow" style={{ padding: "13px 14px", cursor: "pointer" }} onClick={() => setSelected(selected?.id === u.id ? null : u)}>
+                  <div style={{ width: 42, height: 42, minWidth: 42, borderRadius: "50%", background: "var(--purple-soft)", color: ROL_C[u.rol] || "var(--purple)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800 }}>
+                    {u.nombre[0].toUpperCase()}
+                  </div>
+                  <div className="grow">
+                    <div className="l-name">{u.nombre}</div>
+                    <div className="l-sub">@{u.username}{u.pin_temporal ? ` · PIN: ${u.pin_temporal}` : ""}</div>
+                  </div>
+                  <span className="badge" style={{ background: (ROL_C[u.rol] || "var(--blue)") + "22", color: ROL_C[u.rol] || "var(--blue)" }}>
+                    {ROL_L[u.rol] || u.rol}
+                  </span>
+                </div>
+                {selected?.id === u.id && (
+                  <div className="row gap-8" style={{ padding: "0 14px 14px" }}>
+                    <button className="btn btn-ghost btn-sm grow" onClick={() => { setSelected(u); setNuevoPin(""); setPinOpen(true); }}>
+                      <Icon name="check" size={14} />Resetear PIN
+                    </button>
+                    <button className="btn btn-ghost btn-sm grow" style={{ color: "var(--red)" }} onClick={() => desactivar(u)}>
+                      <Icon name="x" size={14} />Desactivar
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <button className="btn btn-primary btn-block" onClick={() => setCrearOpen(true)}>
+          <Icon name="plus" size={18} />Crear usuario
+        </button>
+        <div style={{ height: 16 }} />
+      </div>
+
+      <Sheet open={crearOpen} onClose={() => setCrearOpen(false)} icon="user" title="Crear usuario">
+        <div className="stack gap-10">
+          <input className="input" placeholder="Nombre completo" value={nombre} onChange={e => setNombre(e.target.value)} />
+          <input className="input" placeholder="Username (sin espacios)" value={username} onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, ""))} />
+          <input className="input" type="password" placeholder="Contraseña (mín. 6 caracteres)" value={password} onChange={e => setPassword(e.target.value)} />
+          <select className="select" value={rol} onChange={e => setRol(e.target.value)}>
+            <option value="vendedor">Vendedor</option>
+            <option value="produccion">Producción</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+        <button className={"btn btn-primary btn-block" + (saving ? " loading" : "")} style={{ marginTop: 16 }} onClick={crear} disabled={saving}>
+          {saving ? "Creando…" : "Crear usuario"}
+        </button>
+      </Sheet>
+
+      <Sheet open={pinOpen && !!selected} onClose={() => setPinOpen(false)} icon="check" title={"Resetear PIN — " + (selected?.nombre || "")}>
+        <div className="stack gap-10">
+          <input className="input" type="number" placeholder="Nuevo PIN (6 dígitos)" value={nuevoPin}
+            onChange={e => setNuevoPin(e.target.value.slice(0, 6))} maxLength={6} />
+          <div style={{ fontSize: 12, color: "var(--txt-3)" }}>El usuario deberá cambiar su PIN al ingresar.</div>
+        </div>
+        <button className={"btn btn-primary btn-block" + (saving ? " loading" : "")} style={{ marginTop: 16 }} onClick={resetPin} disabled={saving}>
+          {saving ? "Guardando…" : "Confirmar reseteo"}
+        </button>
+      </Sheet>
+    </div>
+  );
+}
+
+/* ===================== INSUMOS ===================== */
+function AdminInsumosView({ onBack, toast }) {
+  const [insumos, setInsumos]   = aUseState([]);
+  const [loading, setLoading]   = aUseState(true);
+  const [search, setSearch]     = aUseState("");
+  const [selected, setSelected] = aUseState(null);
+  const [loteOpen, setLoteOpen] = aUseState(false);
+  const [ltCant, setLtCant]     = aUseState("");
+  const [ltCosto, setLtCosto]   = aUseState("");
+  const [ltProv, setLtProv]     = aUseState("");
+  const [ltVenc, setLtVenc]     = aUseState("");
+  const [saving, setSaving]     = aUseState(false);
+
+  function cargar() {
+    setLoading(true);
+    fetchInsumos().then(data => { setInsumos(data); setLoading(false); }).catch(() => setLoading(false));
+  }
+
+  aUseEffect(() => { cargar(); }, []);
+
+  const shown = search
+    ? insumos.filter(i => (i.nombre || "").toLowerCase().includes(search.toLowerCase()))
+    : insumos;
+
+  function stockColor(ins) {
+    if ((ins.stock_actual || 0) <= 0) return "var(--red)";
+    if (ins.stock_minimo && ins.stock_actual <= ins.stock_minimo) return "var(--amber-bright)";
+    return "var(--green)";
+  }
+
+  function abrirLote(ins) {
+    setSelected(ins); setLtCant(""); setLtCosto(""); setLtProv(""); setLtVenc(""); setLoteOpen(true);
+  }
+
+  async function guardarLote() {
+    if (!ltCant || Number(ltCant) <= 0) { toast("Ingresá una cantidad", "warn"); return; }
+    setSaving(true);
+    try {
+      await registrarCompraInsumo(selected.id, {
+        cantidad:         Number(ltCant),
+        costoUnitario:    Number(ltCosto) || 0,
+        proveedor:        ltProv || null,
+        fechaVencimiento: ltVenc || null,
+        notas:            null,
+      });
+      toast("Lote registrado", "ok");
+      setLoteOpen(false); cargar();
+    } catch { toast("Error al registrar lote", "error"); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="anim-in" style={{ display: "flex", flexDirection: "column" }}>
+      <SubHeader onBack={onBack} title="Insumos" />
+      <div className="pad stack gap-12">
+        <input className="input" placeholder="Buscar insumo…" value={search} onChange={e => setSearch(e.target.value)} />
+        {loading && <div className="empty" style={{ padding: 32 }}><div style={{ width: 28, height: 28, border: "3px solid var(--border)", borderTopColor: "var(--amber)", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }} /></div>}
+        {!loading && (
+          <div className="card">
+            {shown.length === 0 && <div className="empty"><Icon name="box" size={36} /><div>Sin insumos</div></div>}
+            {shown.map((ins, i) => (
+              <div key={ins.id}>
+                <div className="lrow" style={{ padding: "11px 12px" }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: stockColor(ins), marginRight: 12, marginTop: 1, flexShrink: 0 }} />
+                  <div className="grow">
+                    <div style={{ fontSize: 13, fontWeight: 650 }}>{ins.nombre}</div>
+                    <div style={{ fontSize: 11, color: "var(--txt-3)" }}>Stock: {ins.stock_actual} {ins.unidad}{ins.stock_minimo ? ` · mín. ${ins.stock_minimo}` : ""}</div>
+                  </div>
+                  <button className="btn btn-ghost btn-sm" style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => abrirLote(ins)}>+ Lote</button>
+                </div>
+                {i < shown.length - 1 && <div className="divider" style={{ marginLeft: 34 }} />}
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ height: 16 }} />
+      </div>
+
+      <Sheet open={loteOpen && !!selected} onClose={() => setLoteOpen(false)} icon="box" title={"Nuevo lote — " + (selected?.nombre || "")}>
+        <div className="stack gap-10">
+          <div className="row gap-10">
+            <div className="grow">
+              <div className="lab">Cantidad ({selected?.unidad || "u."})</div>
+              <input className="input" type="number" placeholder="0" value={ltCant} onChange={e => setLtCant(e.target.value)} />
+            </div>
+            <div className="grow">
+              <div className="lab">Costo unitario $</div>
+              <input className="input" type="number" placeholder="0" value={ltCosto} onChange={e => setLtCosto(e.target.value)} />
+            </div>
+          </div>
+          <input className="input" placeholder="Proveedor (opcional)" value={ltProv} onChange={e => setLtProv(e.target.value)} />
+          <div><div className="lab">Vencimiento</div><input className="input" type="date" value={ltVenc} onChange={e => setLtVenc(e.target.value)} /></div>
+        </div>
+        <button className={"btn btn-primary btn-block" + (saving ? " loading" : "")} style={{ marginTop: 16 }} onClick={guardarLote} disabled={saving}>
+          {saving ? "Guardando…" : "Registrar lote"}
+        </button>
+      </Sheet>
     </div>
   );
 }

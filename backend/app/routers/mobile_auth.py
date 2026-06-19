@@ -188,6 +188,29 @@ def admin_reset_pin(request: Request, data: ResetPinRequest, authorization: str 
     return {"ok": True}
 
 
+class CambiarPasswordRequest(BaseModel):
+    password_actual: str
+    password_nueva: str
+
+
+@router.post("/cambiar-password")
+def cambiar_password(data: CambiarPasswordRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Cambia la contraseña del usuario autenticado y limpia must_change_password."""
+    payload = get_mobile_user(authorization)
+    user = db.query(Usuario).filter(Usuario.id == int(payload["sub"]), Usuario.activo == True).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    if not user.check_password(data.password_actual):
+        raise HTTPException(400, "Contraseña actual incorrecta")
+    if len(data.password_nueva) < 6:
+        raise HTTPException(400, "La nueva contraseña debe tener al menos 6 caracteres")
+    user.set_password(data.password_nueva)
+    user.must_change_password = False
+    user.pin_temporal = None
+    db.commit()
+    return {"ok": True}
+
+
 class ActualizarPerfilRequest(BaseModel):
     nombre: str | None = None
     telefono: str | None = None
@@ -211,6 +234,66 @@ def get_perfil(authorization: str = Header(None), db: Session = Depends(get_db))
         "bio":      user.bio or "",
         "foto":     user.foto or None,
     }
+
+
+class CrearUsuarioRequest(BaseModel):
+    nombre: str
+    username: str
+    password: str
+    rol: str = "vendedor"
+
+
+class ActualizarUsuarioAdminRequest(BaseModel):
+    nombre: str | None = None
+    rol: str | None = None
+    activo: bool | None = None
+
+
+@router.post("/admin/crear-usuario", status_code=201)
+def admin_crear_usuario(request: Request, data: CrearUsuarioRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Admin — crea un nuevo usuario."""
+    _require_admin(request, authorization, db)
+    nombre = data.nombre.strip()
+    username = data.username.strip().lower()
+    if not nombre or not username or not data.password:
+        raise HTTPException(400, "nombre, username y password son requeridos")
+    if db.query(Usuario).filter(Usuario.username == username).first():
+        raise HTTPException(400, "El username ya existe")
+    user = Usuario(nombre=nombre, username=username, rol=data.rol, activo=True)
+    user.set_password(data.password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "username": user.username, "nombre": user.nombre, "rol": user.rol}
+
+
+@router.put("/admin/usuarios/{user_id}")
+def admin_actualizar_usuario(request: Request, user_id: int, data: ActualizarUsuarioAdminRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Admin — actualiza nombre, rol o estado de un usuario."""
+    _require_admin(request, authorization, db)
+    user = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    if data.nombre is not None:
+        user.nombre = data.nombre.strip()
+    if data.rol is not None:
+        user.rol = data.rol
+    if data.activo is not None:
+        user.activo = data.activo
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/admin/usuarios/{user_id}")
+def admin_eliminar_usuario(request: Request, user_id: int, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Admin — desactiva un usuario (soft delete)."""
+    _require_admin(request, authorization, db)
+    user = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    user.activo = False
+    db.commit()
+    return {"ok": True}
 
 
 @router.patch("/perfil")

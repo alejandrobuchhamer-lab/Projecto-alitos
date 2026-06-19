@@ -408,6 +408,43 @@ def _calcular_costo_fefo(db: Session, sv_id: int, vendedor_id: int, cantidad: fl
     return round(costo_total, 4), costo_unit
 
 
+@router.get("/api/ventas-admin")
+def ventas_admin_api(
+    desde: str = None,
+    hasta: str = None,
+    vendedor_id: int = None,
+    limit: int = 150,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(require_admin),
+):
+    """Admin — todas las ventas del equipo en JSON."""
+    import datetime as _dt
+    from app.models.producto import ProductoTerminado
+    q = db.query(VentaVendedor)
+    if desde:
+        try:
+            q = q.filter(VentaVendedor.fecha >= _dt.datetime.fromisoformat(desde))
+        except ValueError:
+            pass
+    if hasta:
+        try:
+            q = q.filter(VentaVendedor.fecha < _dt.datetime.fromisoformat(hasta) + _dt.timedelta(days=1))
+        except ValueError:
+            pass
+    if vendedor_id:
+        q = q.filter(VentaVendedor.vendedor_id == vendedor_id)
+    ventas = q.order_by(VentaVendedor.fecha.desc()).limit(min(int(limit), 500)).all()
+    productos_map = {p.id: p for p in db.query(ProductoTerminado).all()}
+    vendedores_map = {u.id: u.nombre for u in db.query(Usuario).all()}
+    result = []
+    for v in ventas:
+        d = _fmt_venta(v, productos_map)
+        d["vendedor_id"] = v.vendedor_id
+        d["vendedor"] = vendedores_map.get(v.vendedor_id, "?")
+        result.append(d)
+    return result
+
+
 def _fmt_venta(v: VentaVendedor, productos_map: dict) -> dict:
     pagos = []
     try:
