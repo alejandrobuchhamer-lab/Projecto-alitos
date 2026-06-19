@@ -386,8 +386,10 @@ async function fetchEtapasProduccion() {
   const STAGE_IDX = { masa: 0, tapas: 1, armado: 2 };
   return data.map(p => ({
     id:       p.id,
+    tipo:     p.tipo,
     prod:     p.producto,
     qty:      p.cantidad,
+    unidad:   p.unidad,
     stage:    STAGE_IDX[p.tipo] !== undefined ? STAGE_IDX[p.tipo] : 0,
     progress: Math.round(((STAGE_IDX[p.tipo] || 0) / 3) * 100),
     etapa:    p.etapa_label,
@@ -506,9 +508,8 @@ async function fetchAnalytics(dias) {
 }
 
 // ── Producción: avanzar etapa desde móvil ─────────────────────
-async function avanzarEtapaProduccion(produccionId, cantidad = null) {
-  return apiPost("/produccion/api/" + produccionId + "/avanzar-etapa-mobile",
-    cantidad ? { cantidad } : {});
+async function avanzarEtapaProduccion(produccionId, data = {}) {
+  return apiPost("/produccion/api/" + produccionId + "/avanzar-etapa-mobile", data || {});
 }
 
 // ── Stock de alfajores terminados (fábrica) ───────────────────
@@ -573,7 +574,7 @@ async function fetchLotesTapasDisp() {
 }
 
 // ── Iniciar producción desde móvil ────────────────────────────────
-async function iniciarProduccion({ tipo, recetaId, cantidadRecetas, operario, notas, pesoMasaG, pesoTapaObjetivoG, loteOrigenId, cantidadTapasAUsar }) {
+async function iniciarProduccion({ tipo, recetaId, cantidadRecetas, operario, notas, pesoMasaG, pesoTapaObjetivoG, pesoTapaMinG, pesoTapaMaxG, loteOrigenId, cantidadTapasAUsar }) {
   return apiPost("/produccion/api/iniciar", {
     tipo_produccion:       tipo,
     receta_version_id:     recetaId || null,
@@ -582,23 +583,52 @@ async function iniciarProduccion({ tipo, recetaId, cantidadRecetas, operario, no
     notas:                 notas || null,
     peso_masa_total_g:     pesoMasaG || null,
     peso_tapa_objetivo_g:  pesoTapaObjetivoG || null,
+    peso_tapa_min_g:       pesoTapaMinG || null,
+    peso_tapa_max_g:       pesoTapaMaxG || null,
     lote_origen_id:        loteOrigenId || null,
     cantidad_tapas_a_usar: cantidadTapasAUsar || null,
   });
 }
 
 // ── Registrar ingreso de compra ────────────────────────────────────
-async function registrarCompraInsumo(insumoId, { cantidad, costoUnitario, proveedor, fechaVencimiento, notas }) {
-  const numLote = "MOB-" + new Date().toISOString().slice(0,10).replace(/-/g,"") + "-" + (Math.random()*1000|0);
+async function registrarCompraInsumo(insumoId, {
+  cantidad, costoUnitario, proveedor, fechaVencimiento, notas, numeroLote,
+  tipoPresentacion, cantidadBultos, unidadesPorBulto, precioPorBulto,
+}) {
+  const numLote = numeroLote || ("MOB-" + new Date().toISOString().slice(0,10).replace(/-/g,"") + "-" + (Math.random()*1000|0));
   return apiPost("/insumos/" + insumoId + "/lotes", {
-    insumo_id:         insumoId,
-    numero_lote:       numLote,
-    cantidad_inicial:  cantidad,
-    costo_unitario:    costoUnitario || 0,
-    proveedor:         proveedor || null,
-    fecha_vencimiento: fechaVencimiento || null,
-    notas:             notas || null,
-    tipo_presentacion: "unidad",
+    insumo_id:          insumoId,
+    numero_lote:        numLote,
+    cantidad_inicial:   cantidad,
+    costo_unitario:     costoUnitario || 0,
+    proveedor:          proveedor || null,
+    fecha_vencimiento:  fechaVencimiento || null,
+    notas:              notas || null,
+    tipo_presentacion:  tipoPresentacion || "unidad",
+    cantidad_bultos:    cantidadBultos || null,
+    unidades_por_bulto: unidadesPorBulto || null,
+    precio_por_bulto:   precioPorBulto || null,
+  });
+}
+
+// ── Ingreso masivo con flete ───────────────────────────────────────
+async function registrarIngresoMasivo({ proveedor, notas, flete, items }) {
+  return apiPost("/insumos/api/ingreso-masivo", {
+    proveedor_global: proveedor || null,
+    notas:            notas || null,
+    costo_extra:      flete || 0,
+    tipo_costo_extra: "flete",
+    items:            items.map(it => ({
+      insumo_id:          it.insumoId,
+      tipo_presentacion:  it.tipoPresentacion || "unidad",
+      cantidad_bultos:    it.cantidadBultos || 1,
+      unidades_por_bulto: it.unidadesPorBulto || 1,
+      precio_por_bulto:   it.precioPorBulto || 0,
+      proveedor:          it.proveedor || null,
+      fecha_vencimiento:  it.fechaVencimiento || null,
+      numero_lote:        it.numeroLote || null,
+      notas:              it.notas || null,
+    })),
   });
 }
 
@@ -702,7 +732,7 @@ Object.assign(window, { cambiarPassword,
   fetchPerfil, actualizarPerfil,
   fetchInsumos, fetchRecetasActivas,
   fetchLotesMasaDisp, fetchLotesTapasDisp,
-  iniciarProduccion, registrarCompraInsumo,
+  iniciarProduccion, registrarCompraInsumo, registrarIngresoMasivo,
   fetchListasPrecio, actualizarListaPrecio,
   buscarClientesPedido, asignarPedido, entregarPedido,
   fetchClientes, crearCliente,

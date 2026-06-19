@@ -1110,6 +1110,18 @@ def agregar_registro_tapas(produccion_id: int, data: RegistroTapasBody, db: Sess
 
 class AvanzarEtapaMobileBody(BaseModel):
     cantidad: float | None = None
+    # Masa
+    masa_real_g: float | None = None
+    # Tapas
+    tapas_reales: int | None = None
+    tapas_rotas: int | None = None
+    masa_desperdiciada_g: float | None = None
+    peso_tapa_cruda_promedio_g: float | None = None
+    horas_horno_total: float | None = None
+    # Armado
+    dias_vencimiento: int | None = None
+    # Común
+    notas: str | None = None
 
 
 @router.post("/api/{produccion_id}/avanzar-etapa-mobile")
@@ -1118,8 +1130,7 @@ def avanzar_etapa_mobile(
     body: AvanzarEtapaMobileBody = None,
     db: Session = Depends(get_db),
 ):
-    """Avance rápido desde la app móvil. Marca la producción como finalizada.
-    Para armado, acepta 'cantidad' de alfajores producidos en el body."""
+    """Avance rápido desde la app móvil. Marca la producción como finalizada y crea el lote correspondiente."""
     from datetime import datetime, timedelta
     from sqlalchemy.orm import joinedload as _jl
     prod = db.query(Produccion).filter(
@@ -1131,41 +1142,85 @@ def avanzar_etapa_mobile(
 
     prod.estado = "finalizada"
     prod.fecha_fin = datetime.utcnow()
+    if body and body.notas:
+        prod.notas = body.notas
 
-    # Para producciones de masa: crear lote de masa si no existe
-    if prod.tipo_produccion == "masa" and prod.receta_version_id:
-        prod_full = db.query(Produccion).options(
-            _jl(Produccion.receta_version).joinedload(RecetaVersion.producto)
-        ).filter(Produccion.id == produccion_id).first()
-        if prod_full and prod_full.receta_version and prod_full.receta_version.producto:
-            cant = body.cantidad if body and body.cantidad and body.cantidad > 0 else float(prod_full.cantidad_producida or 0)
-            if cant > 0:
+    # ── Masa ──────────────────────────────────────────────────────────────────
+    if prod.tipo_produccion == "masa":
+        if body and body.masa_real_g:
+            prod.masa_real_g = body.masa_real_g
+
+        if prod.receta_version_id:
+            prod_full = db.query(Produccion).options(
+                _jl(Produccion.receta_version).joinedload(RecetaVersion.producto)
+            ).filter(Produccion.id == produccion_id).first()
+            if prod_full and prod_full.receta_version and prod_full.receta_version.producto:
+                cant = (body.cantidad if body and body.cantidad and body.cantidad > 0 else None) \
+                    or float(prod_full.cantidad_producida or 0)
+                if cant > 0:
+                    lote_exist = db.query(LoteProductoTerminado).filter(
+                        LoteProductoTerminado.produccion_id == produccion_id,
+                        LoteProductoTerminado.tipo == "masa",
+                    ).first()
+                    if not lote_exist:
+                        lote = LoteProductoTerminado(
+                            producto_id=prod_full.receta_version.producto.id,
+                            produccion_id=prod_full.id,
+                            numero_lote=prod_full.numero_lote_produccion or f"MASA-MOB-{produccion_id}",
+                            cantidad_inicial=cant,
+                            cantidad_actual=cant,
+                            fecha_produccion=datetime.utcnow(),
+                            fecha_vencimiento=datetime.utcnow() + timedelta(days=7),
+                            tipo="masa",
+                            activo=True,
+                        )
+                        db.add(lote)
+                        prod.cantidad_producida = cant
+
+    # ── Tapas ─────────────────────────────────────────────────────────────────
+    elif prod.tipo_produccion == "tapas":
+        if body:
+            if body.tapas_reales is not None: prod.tapas_reales = body.tapas_reales
+            if body.tapas_rotas is not None:  prod.tapas_rotas = body.tapas_rotas
+            if body.masa_desperdiciada_g is not None: prod.masa_desperdiciada_g = body.masa_desperdiciada_g
+            if body.peso_tapa_cruda_promedio_g is not None: prod.peso_tapa_cruda_promedio_g = body.peso_tapa_cruda_promedio_g
+            if body.horas_horno_total is not None: prod.horas_horno_total = body.horas_horno_total
+
+        if prod.receta_version_id:
+            prod_full = db.query(Produccion).options(
+                _jl(Produccion.receta_version).joinedload(RecetaVersion.producto)
+            ).filter(Produccion.id == produccion_id).first()
+            if prod_full and prod_full.receta_version and prod_full.receta_version.producto:
+                tapas_cant = float(
+                    (body.tapas_reales if body and body.tapas_reales and body.tapas_reales > 0 else None)
+                    or prod_full.cantidad_producida or 0
+                ) or 1.0
                 lote_exist = db.query(LoteProductoTerminado).filter(
                     LoteProductoTerminado.produccion_id == produccion_id,
-                    LoteProductoTerminado.tipo == "masa",
+                    LoteProductoTerminado.tipo == "tapas",
                 ).first()
                 if not lote_exist:
                     lote = LoteProductoTerminado(
                         producto_id=prod_full.receta_version.producto.id,
                         produccion_id=prod_full.id,
-                        numero_lote=prod_full.numero_lote_produccion or f"MASA-MOB-{produccion_id}",
-                        cantidad_inicial=cant,
-                        cantidad_actual=cant,
+                        numero_lote=prod_full.numero_lote_produccion or f"TAPAS-MOB-{produccion_id}",
+                        cantidad_inicial=tapas_cant,
+                        cantidad_actual=tapas_cant,
+                        cantidad_libre=tapas_cant,
                         fecha_produccion=datetime.utcnow(),
-                        fecha_vencimiento=datetime.utcnow() + timedelta(days=7),
-                        tipo="masa",
+                        fecha_vencimiento=datetime.utcnow() + timedelta(days=5),
+                        tipo="tapas",
                         activo=True,
                     )
                     db.add(lote)
-                    prod.cantidad_producida = cant
+                    prod.cantidad_producida = tapas_cant
 
-    # Para producciones de armado: crear lote de alfajores
+    # ── Armado ────────────────────────────────────────────────────────────────
     elif prod.tipo_produccion == "armado" and prod.receta_version_id:
         prod_full = db.query(Produccion).options(
             _jl(Produccion.receta_version).joinedload(RecetaVersion.producto)
         ).filter(Produccion.id == produccion_id).first()
         if prod_full and prod_full.receta_version and prod_full.receta_version.producto:
-            # Prioridad: quantity from mobile → cantidad_producida → tapas_teoricas
             cant = body.cantidad if body and body.cantidad and body.cantidad > 0 else None
             if not cant:
                 cant = float(prod_full.cantidad_producida or 0)
@@ -1174,9 +1229,9 @@ def avanzar_etapa_mobile(
                     LoteProductoTerminado.id == prod_full.lote_origen_id
                 ).first()
                 if lote_tapas:
-                    # Estimación: 1 alfajor por tapa (ajustar si la receta usa 2)
                     cant = float(prod_full.tapas_teoricas or lote_tapas.cantidad_actual or 0)
             cant = cant or 1.0
+            dias_venc = (body.dias_vencimiento if body and body.dias_vencimiento and body.dias_vencimiento > 0 else None) or 30
             numero = prod_full.numero_lote_produccion or f"ALF-MOB-{produccion_id}"
             lote_exist = db.query(LoteProductoTerminado).filter(
                 LoteProductoTerminado.produccion_id == produccion_id,
@@ -1190,14 +1245,13 @@ def avanzar_etapa_mobile(
                     cantidad_inicial=cant,
                     cantidad_actual=cant,
                     fecha_produccion=datetime.utcnow(),
-                    fecha_vencimiento=datetime.utcnow() + timedelta(days=30),
+                    fecha_vencimiento=datetime.utcnow() + timedelta(days=dias_venc),
                     tipo="alfajor",
                     activo=True,
                 )
                 db.add(lote)
                 prod.cantidad_producida = cant
             else:
-                # Actualizar cantidad si se especificó
                 if body and body.cantidad and body.cantidad > 0:
                     lote_exist.cantidad_actual = body.cantidad
                     lote_exist.cantidad_inicial = body.cantidad

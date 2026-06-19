@@ -2,14 +2,52 @@
 const { useState: oUseState, useContext: oUseContext, useEffect: oUseEffect, useRef: oUseRef } = React;
 
 /* ══════════════════════════════════════════════════════════════════════
-   MODAL CANTIDAD ALFAJORES — aparece al finalizar producción de armado
+   SHEET DE FINALIZACIÓN — se adapta al tipo de producción (masa/tapas/armado)
 ══════════════════════════════════════════════════════════════════════ */
-function ModalCantidadAlfajores({ batch, onConfirm, onCancel }) {
-  const [qty, setQty] = oUseState("");
-  const inp = oUseRef(null);
-  oUseEffect(() => { setTimeout(() => inp.current?.focus(), 100); }, []);
+function FinalizarProduccionSheet({ batch, onConfirm, onCancel }) {
+  const tipo = batch?.tipo || (batch?.stage === 0 ? "masa" : batch?.stage === 1 ? "tapas" : "armado");
+  const est  = batch?.qty;
 
-  const est = typeof batch?.tapasTeoricas === "number" ? batch.tapasTeoricas : null;
+  const [notas,           setNotas]           = oUseState("");
+  // Masa
+  const [masaRealG,       setMasaRealG]       = oUseState("");
+  // Tapas
+  const [tapasReales,     setTapasReales]     = oUseState("");
+  const [tapasRotas,      setTapasRotas]      = oUseState("0");
+  const [masaDesperc,     setMasaDesperc]     = oUseState("");
+  const [pesoCrudo,       setPesoCrudo]       = oUseState("");
+  const [horasHorno,      setHorasHorno]      = oUseState("");
+  // Armado
+  const [cantidad,        setCantidad]        = oUseState("");
+  const [diasVenc,        setDiasVenc]        = oUseState("30");
+
+  const inp = {
+    width: "100%", background: "var(--card-2)", border: "1px solid var(--border)", borderRadius: 12,
+    color: "var(--txt)", fontSize: 14, padding: "12px 14px", outline: "none", fontFamily: "var(--font)",
+  };
+
+  const TITULO  = { masa: "Finalizar masa", tapas: "Finalizar tapas", armado: "Finalizar armado" };
+  const BTN_CLR = { masa: "var(--red)", tapas: "var(--amber-bright)", armado: "var(--amber-bright)" };
+  const BTN_TXT = { masa: "#fff", tapas: "#1a0f00", armado: "#1a0f00" };
+
+  function confirm() {
+    const data = {};
+    if (notas) data.notas = notas;
+    if (tipo === "masa") {
+      if (masaRealG) data.masa_real_g = +masaRealG;
+      if (masaRealG) data.cantidad    = +masaRealG;
+    } else if (tipo === "tapas") {
+      data.tapas_reales = tapasReales ? +tapasReales : (est ? Math.round(est) : undefined);
+      if (tapasRotas)   data.tapas_rotas = +tapasRotas;
+      if (masaDesperc)  data.masa_desperdiciada_g = +masaDesperc;
+      if (pesoCrudo)    data.peso_tapa_cruda_promedio_g = +pesoCrudo;
+      if (horasHorno)   data.horas_horno_total = +horasHorno;
+    } else {
+      data.cantidad = cantidad ? +cantidad : (est ? Math.round(est) : 1);
+      data.dias_vencimiento = diasVenc ? +diasVenc : 30;
+    }
+    onConfirm(data);
+  }
 
   return (
     <div style={{
@@ -18,32 +56,91 @@ function ModalCantidadAlfajores({ batch, onConfirm, onCancel }) {
     }} onClick={onCancel}>
       <div style={{
         background: "var(--card)", width: "100%", borderRadius: "20px 20px 0 0",
-        padding: "24px 20px 36px",
+        padding: "24px 20px 36px", maxHeight: "92vh", overflowY: "auto",
       }} onClick={e => e.stopPropagation()}>
         <div style={{ width: 36, height: 4, background: "var(--border)", borderRadius: 99, margin: "0 auto 20px" }} />
-        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>Alfajores terminados</div>
-        <div style={{ fontSize: 13, color: "var(--txt-3)", marginBottom: 20 }}>
-          ¿Cuántos alfajores armados en este lote?
-          {est ? ` (estimado: ${est})` : ""}
+        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>{TITULO[tipo] || "Finalizar"}</div>
+        <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 20 }}>
+          {batch?.prod}{est ? ` · ${Math.round(est)} ${batch?.unidad || "und"} estimados` : ""}
         </div>
-        <input ref={inp} type="number" min="1" step="1"
-          value={qty} onChange={e => setQty(e.target.value)}
-          placeholder={est ? String(est) : "ej: 240"}
-          style={{
-            width: "100%", background: "var(--card-2)", border: "1px solid var(--border)",
-            borderRadius: 12, color: "var(--txt)", fontSize: 18, fontWeight: 700,
-            padding: "14px 16px", outline: "none", fontFamily: "var(--font)",
-            textAlign: "center", marginBottom: 16,
-          }} />
-        <div style={{ display: "flex", gap: 10 }}>
+
+        <div className="stack gap-12">
+          {tipo === "masa" && (
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
+                Peso real de masa (g) <span style={{ fontWeight: 400 }}>— opcional</span>
+              </div>
+              <input type="number" min="0" step="any" value={masaRealG} onChange={e => setMasaRealG(e.target.value)}
+                placeholder="ej: 5000" style={inp} autoFocus />
+            </div>
+          )}
+
+          {tipo === "tapas" && (<>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Tapas producidas</div>
+              <input type="number" min="0" step="1" value={tapasReales} onChange={e => setTapasReales(e.target.value)}
+                placeholder={est ? String(Math.round(est)) : "ej: 480"} style={{ ...inp, fontWeight: 700, fontSize: 18, textAlign: "center" }} autoFocus />
+            </div>
+            <div className="row gap-12">
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Tapas rotas</div>
+                <input type="number" min="0" step="1" value={tapasRotas} onChange={e => setTapasRotas(e.target.value)}
+                  placeholder="0" style={inp} />
+              </div>
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Masa desperdicios (g)</div>
+                <input type="number" min="0" step="any" value={masaDesperc} onChange={e => setMasaDesperc(e.target.value)}
+                  placeholder="0" style={inp} />
+              </div>
+            </div>
+            <div className="row gap-12">
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Peso tapa cruda (g)</div>
+                <input type="number" min="0" step="0.1" value={pesoCrudo} onChange={e => setPesoCrudo(e.target.value)}
+                  placeholder="ej: 12.5" style={inp} />
+              </div>
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Horas de horno</div>
+                <input type="number" min="0" step="0.25" value={horasHorno} onChange={e => setHorasHorno(e.target.value)}
+                  placeholder="ej: 2.5" style={inp} />
+              </div>
+            </div>
+          </>)}
+
+          {tipo === "armado" && (<>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Alfajores terminados</div>
+              <input type="number" min="1" step="1" value={cantidad} onChange={e => setCantidad(e.target.value)}
+                placeholder={est ? String(Math.round(est)) : "ej: 240"}
+                style={{ ...inp, fontSize: 20, fontWeight: 750, textAlign: "center" }} autoFocus />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
+                Días hasta vencimiento <span style={{ fontWeight: 400 }}>— default: 30</span>
+              </div>
+              <input type="number" min="1" max="365" value={diasVenc} onChange={e => setDiasVenc(e.target.value)}
+                placeholder="30" style={inp} />
+            </div>
+          </>)}
+
+          <div>
+            <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
+              Notas <span style={{ fontWeight: 400 }}>— opcional</span>
+            </div>
+            <input value={notas} onChange={e => setNotas(e.target.value)} placeholder="Observaciones…" style={inp} />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           <button onClick={onCancel} style={{
             flex: 1, padding: "14px", borderRadius: 14, border: "1px solid var(--border)",
             background: "var(--card-2)", color: "var(--txt-3)", fontSize: 15, fontWeight: 600, cursor: "pointer",
           }}>Cancelar</button>
-          <button onClick={() => { const n = parseFloat(qty) || est || 1; onConfirm(n); }} style={{
+          <button onClick={confirm} style={{
             flex: 2, padding: "14px", borderRadius: 14, border: "none",
-            background: "var(--amber-bright)", color: "#1a0f00", fontSize: 15, fontWeight: 700, cursor: "pointer",
-          }}>Confirmar</button>
+            background: BTN_CLR[tipo] || "var(--amber-bright)", color: BTN_TXT[tipo] || "#1a0f00",
+            fontSize: 15, fontWeight: 700, cursor: "pointer",
+          }}>Confirmar finalización</button>
         </div>
       </div>
     </div>
@@ -58,7 +155,7 @@ function ProduccionApp({ onLogout, user }) {
   const [tab, setTab] = oUseState("lotes");
   const [batches, setBatches] = oUseState(() => BATCH_SEED.map(b => ({ ...b })));
   const [refreshKey, setRefreshKey] = oUseState(0);
-  const [cantModal, setCantModal] = oUseState(null);
+  const [finalizarModal, setFinalizarModal] = oUseState(null);
   const [profileOpen, setProfileOpen] = oUseState(false);
   const { notifs, unread, markRead } = useNotifs ? useNotifs() : { notifs: [], unread: 0, markRead: () => {} };
   const [notifOpen, setNotifOpen] = oUseState(false);
@@ -79,28 +176,26 @@ function ProduccionApp({ onLogout, user }) {
     else await new Promise(r => setTimeout(r, 500));
   }
 
-  async function advance(batch) {
-    // Si es armado (stage === 2), pedir cantidad de alfajores
-    if (batch.stage === 2 || batch.etapa?.toLowerCase?.().includes("armado")) {
-      setCantModal(batch);
-      return;
-    }
-    await doAdvance(batch.id, null);
+  function advance(batch) {
+    setFinalizarModal(batch);
   }
 
-  async function doAdvance(id, cantidad) {
-    setCantModal(null);
+  async function doAdvance(id, data) {
+    setFinalizarModal(null);
     try {
-      await avanzarEtapaProduccion(id, cantidad);
+      await avanzarEtapaProduccion(id, data || {});
       recargarLotes();
-      toast(cantidad ? `${cantidad} alfajores registrados ✓` : "Etapa avanzada", "ok");
+      const msg = data?.cantidad ? `${data.cantidad} alfajores registrados ✓`
+                : data?.tapas_reales ? `${data.tapas_reales} tapas registradas ✓`
+                : "Producción finalizada ✓";
+      toast(msg, "ok");
     } catch(e) {
       setBatches(bs => bs.map(b => {
         if (b.id !== id) return b;
         const nextIdx = typeof b.stage === "number" ? Math.min(b.stage + 1, 3) : 3;
         return { ...b, stage: nextIdx, progress: nextIdx >= 3 ? 100 : Math.min(100, (b.progress || 0) + 34) };
       }));
-      toast("Avanzado (sin conexión)", "warn");
+      toast((e?.message || "Avanzado (sin conexión)").slice(0, 80), "warn");
     }
   }
 
@@ -125,11 +220,11 @@ function ProduccionApp({ onLogout, user }) {
         {tab === "compras" && <RegistrarCompra toast={toast} />}
       </PullToRefresh>
       <BotNav items={nav} value={tab} onChange={setTab} />
-      {cantModal && (
-        <ModalCantidadAlfajores
-          batch={cantModal}
-          onConfirm={n => doAdvance(cantModal.id, n)}
-          onCancel={() => setCantModal(null)}
+      {finalizarModal && (
+        <FinalizarProduccionSheet
+          batch={finalizarModal}
+          onConfirm={data => doAdvance(finalizarModal.id, data)}
+          onCancel={() => setFinalizarModal(null)}
         />
       )}
       <ProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} onLogout={onLogout} user={user} />
@@ -313,7 +408,9 @@ function ProdHoy({ batches, onAdvance }) {
                 {!isListo && (
                   <button className="btn btn-ghost btn-block btn-sm" style={{ marginTop: 12 }} onClick={() => onAdvance(b)}>
                     <Icon name="arrowRight" size={16} />
-                    {b.stage === 2 || (b.etapa || "").toLowerCase().includes("armado") ? "Finalizar armado" : "Avanzar etapa"}
+                    {b.tipo === "armado" || b.stage === 2 ? "Finalizar armado"
+                     : b.tipo === "tapas" || b.stage === 1 ? "Finalizar tapas"
+                     : "Finalizar masa"}
                   </button>
                 )}
               </div>
@@ -457,6 +554,10 @@ function NuevaProduccion({ user, toast, onDone }) {
   const [recetaId, setRecetaId] = oUseState("");
   const [cantRecetas, setCantRecetas] = oUseState("1");
   const [pesoMasaG, setPesoMasaG] = oUseState("");
+  const [pesoTapaMinG, setPesoTapaMinG] = oUseState("");
+  const [pesoTapaMaxG, setPesoTapaMaxG] = oUseState("");
+  const [pesoTapaObjetivoG, setPesoTapaObjetivoG] = oUseState("");
+  const [cantidadTapasAUsar, setCantidadTapasAUsar] = oUseState("");
   const [loteOrigenId, setLoteOrigenId] = oUseState("");
   const [operario, setOperario] = oUseState(((user?.name || user?.nombre || "").split(" ")[0]) || "");
   const [notas, setNotas] = oUseState("");
@@ -464,7 +565,7 @@ function NuevaProduccion({ user, toast, onDone }) {
   oUseEffect(() => {
     if (!tipo) return;
     setLoadingOpts(true);
-    setRecetaId(""); setLoteOrigenId("");
+    setRecetaId(""); setLoteOrigenId(""); setCantidadTapasAUsar(""); setPesoTapaObjetivoG("");
     const p = tipo === "masa"
       ? fetchRecetasActivas().then(d => setRecetas(d))
       : tipo === "tapas"
@@ -482,12 +583,16 @@ function NuevaProduccion({ user, toast, onDone }) {
     try {
       await iniciarProduccion({
         tipo,
-        recetaId:       recetaId ? +recetaId : null,
-        cantidadRecetas: +cantRecetas || 1,
-        operario:       operario || null,
-        notas:          notas || null,
-        pesoMasaG:      pesoMasaG ? +pesoMasaG : null,
-        loteOrigenId:   loteOrigenId ? +loteOrigenId : null,
+        recetaId:         recetaId ? +recetaId : null,
+        cantidadRecetas:  +cantRecetas || 1,
+        operario:         operario || null,
+        notas:            notas || null,
+        pesoMasaG:        pesoMasaG        ? +pesoMasaG        : null,
+        pesoTapaMinG:     pesoTapaMinG     ? +pesoTapaMinG     : null,
+        pesoTapaMaxG:     pesoTapaMaxG     ? +pesoTapaMaxG     : null,
+        pesoTapaObjetivoG: pesoTapaObjetivoG ? +pesoTapaObjetivoG : null,
+        cantidadTapasAUsar: cantidadTapasAUsar ? +cantidadTapasAUsar : null,
+        loteOrigenId:     loteOrigenId ? +loteOrigenId : null,
       });
       toast("¡Producción iniciada!", "ok");
       onDone();
@@ -573,10 +678,24 @@ function NuevaProduccion({ user, toast, onDone }) {
                 </div>
                 <input type="number" placeholder="ej: 5000" value={pesoMasaG} onChange={e => setPesoMasaG(e.target.value)} style={inp} />
               </div>
+              <div className="row gap-12">
+                <div className="grow">
+                  <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
+                    Tapa mín (g) <span style={{ fontWeight: 400 }}>— opc.</span>
+                  </div>
+                  <input type="number" step="0.1" placeholder="ej: 11" value={pesoTapaMinG} onChange={e => setPesoTapaMinG(e.target.value)} style={inp} />
+                </div>
+                <div className="grow">
+                  <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
+                    Tapa máx (g) <span style={{ fontWeight: 400 }}>— opc.</span>
+                  </div>
+                  <input type="number" step="0.1" placeholder="ej: 14" value={pesoTapaMaxG} onChange={e => setPesoTapaMaxG(e.target.value)} style={inp} />
+                </div>
+              </div>
             </>
           )}
 
-          {!loadingOpts && tipo === "tapas" && (
+          {!loadingOpts && tipo === "tapas" && (<>
             <div>
               <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Lote de masa origen</div>
               {lotesMasa.length === 0
@@ -586,14 +705,21 @@ function NuevaProduccion({ user, toast, onDone }) {
                     {lotesMasa.map(l => (
                       <option key={l.id} value={l.id}>
                         {l.numero_lote} · {l.producto_nombre} · {Math.round(l.cantidad_actual)} unds
+                        {l.peso_tapa_objetivo_g ? ` · obj: ${l.peso_tapa_objetivo_g}g` : ""}
                       </option>
                     ))}
                   </select>
               }
             </div>
-          )}
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
+                Peso objetivo por tapa (g) <span style={{ fontWeight: 400 }}>— opcional</span>
+              </div>
+              <input type="number" step="0.1" placeholder="ej: 12.5" value={pesoTapaObjetivoG} onChange={e => setPesoTapaObjetivoG(e.target.value)} style={inp} />
+            </div>
+          </>)}
 
-          {!loadingOpts && tipo === "armado" && (
+          {!loadingOpts && tipo === "armado" && (<>
             <div>
               <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Lote de tapas origen</div>
               {lotesTapas.length === 0
@@ -608,7 +734,13 @@ function NuevaProduccion({ user, toast, onDone }) {
                   </select>
               }
             </div>
-          )}
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
+                Tapas a usar <span style={{ fontWeight: 400 }}>— opcional, deja en blanco para usar todas</span>
+              </div>
+              <input type="number" min="1" step="1" placeholder="ej: 480" value={cantidadTapasAUsar} onChange={e => setCantidadTapasAUsar(e.target.value)} style={inp} />
+            </div>
+          </>)}
 
           {!loadingOpts && (
             <>
@@ -643,19 +775,70 @@ function NuevaProduccion({ user, toast, onDone }) {
 
 /* ══════════════════════════════════════════════════════════════════════
    TAB 4 — REGISTRAR COMPRA DE INSUMOS
+   Modos: Simple | Por bultos | Masivo (multi-insumo + flete)
 ══════════════════════════════════════════════════════════════════════ */
+function InsumoDropdown({ insumos, insumoId, q, setQ, onSelect, inp }) {
+  const filtrados = insumos.filter(i => !q || i.nombre.toLowerCase().includes(q.toLowerCase()));
+  const insumoSel = insumos.find(i => String(i.id) === String(insumoId));
+  const showDropdown = !insumoId || q !== (insumoSel?.nombre || "");
+  return (
+    <>
+      <div style={{ position: "relative" }}>
+        <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--txt-3)", pointerEvents: "none" }}>
+          <Icon name="search" size={16} />
+        </span>
+        <input value={q} onChange={e => { setQ(e.target.value); if (insumoId) onSelect(null); }}
+          placeholder="Buscar insumo…" style={{ ...inp, paddingLeft: 38 }} />
+      </div>
+      {showDropdown && filtrados.length > 0 && (
+        <div style={{ maxHeight: 200, overflowY: "auto", borderRadius: 12, background: "var(--card)", border: "1px solid var(--border)", marginTop: 6 }}>
+          {filtrados.map((ins, i) => (
+            <div key={ins.id} onClick={() => onSelect(ins)} style={{
+              padding: "11px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
+              background: String(insumoId) === String(ins.id) ? "var(--amber-soft)" : "transparent",
+              borderBottom: i < filtrados.length - 1 ? "1px solid var(--border)" : "none",
+            }}>
+              <div style={{ width: 8, height: 8, borderRadius: 99, flexShrink: 0, background: ins.bajo_stock ? "var(--red)" : "var(--green)" }} />
+              <div className="grow">
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{ins.nombre}</div>
+                <div style={{ fontSize: 11, color: "var(--txt-3)" }}>
+                  {Math.round(ins.stock_actual * 10) / 10} {ins.unidad_medida}{ins.bajo_stock ? " · ⚠ bajo mín." : ""}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function RegistrarCompra({ toast }) {
   const [insumos, setInsumos] = oUseState([]);
-  const [loading, setLoading] = oUseState(false);
   const [loadingInsumos, setLoadingInsumos] = oUseState(true);
-  const [q, setQ] = oUseState("");
+  const [loading, setLoading] = oUseState(false);
+  const [modo, setModo] = oUseState("simple"); // "simple" | "bultos" | "masivo"
 
+  // Simple / Bultos state
   const [insumoId, setInsumoId] = oUseState("");
+  const [q, setQ] = oUseState("");
   const [cantidad, setCantidad] = oUseState("");
   const [costoUnit, setCostoUnit] = oUseState("");
   const [proveedor, setProveedor] = oUseState("");
   const [vencimiento, setVencimiento] = oUseState("");
   const [notas, setNotas] = oUseState("");
+  const [numeroLote, setNumeroLote] = oUseState("");
+  // Bultos extra
+  const [tipoPres, setTipoPres] = oUseState("bolsa");
+  const [cantBultos, setCantBultos] = oUseState("");
+  const [unidadesPorBulto, setUnidadesPorBulto] = oUseState("");
+  const [precioPorBulto, setPrecioPorBulto] = oUseState("");
+
+  // Masivo state
+  const [filas, setFilas] = oUseState([{ id: 1, insumoId: "", q: "", cantBultos: "", unidadesPorBulto: "1", precioPorBulto: "", vencimiento: "" }]);
+  const [flete, setFlete] = oUseState("");
+  const [provMasivo, setProvMasivo] = oUseState("");
+  const [notasMasivo, setNotasMasivo] = oUseState("");
 
   oUseEffect(() => {
     fetchInsumos()
@@ -664,9 +847,9 @@ function RegistrarCompra({ toast }) {
   }, []);
 
   const insumoSel = insumos.find(i => String(i.id) === String(insumoId));
-  const filtrados = insumos.filter(i => !q || i.nombre.toLowerCase().includes(q.toLowerCase()));
 
   function selectInsumo(ins) {
+    if (!ins) { setInsumoId(""); return; }
     setInsumoId(String(ins.id));
     setQ(ins.nombre);
     if (!proveedor && ins.proveedor_default) setProveedor(ins.proveedor_default);
@@ -674,29 +857,8 @@ function RegistrarCompra({ toast }) {
 
   function resetForm() {
     setInsumoId(""); setCantidad(""); setCostoUnit(""); setProveedor("");
-    setVencimiento(""); setNotas(""); setQ("");
-  }
-
-  async function submit() {
-    if (!insumoId)                { toast("Seleccioná un insumo", "warn"); return; }
-    if (!cantidad || +cantidad <= 0) { toast("Ingresá la cantidad recibida", "warn"); return; }
-    if (costoUnit === "" || +costoUnit < 0) { toast("Ingresá el costo por unidad (puede ser 0)", "warn"); return; }
-    setLoading(true);
-    try {
-      await registrarCompraInsumo(+insumoId, {
-        cantidad:         +cantidad,
-        costoUnitario:    +costoUnit,
-        proveedor:        proveedor || null,
-        fechaVencimiento: vencimiento || null,
-        notas:            notas || null,
-      });
-      toast("Ingreso registrado ✓", "ok");
-      resetForm();
-    } catch(e) {
-      toast((e?.message || "Error al registrar").slice(0, 80), "err");
-    } finally {
-      setLoading(false);
-    }
+    setVencimiento(""); setNotas(""); setQ(""); setNumeroLote("");
+    setCantBultos(""); setUnidadesPorBulto(""); setPrecioPorBulto("");
   }
 
   const inp = {
@@ -704,135 +866,363 @@ function RegistrarCompra({ toast }) {
     color: "var(--txt)", fontSize: 14, padding: "12px 14px", outline: "none", fontFamily: "var(--font)",
   };
 
-  const totalCompra = cantidad && costoUnit && +cantidad > 0 && +costoUnit > 0
-    ? +cantidad * +costoUnit : 0;
+  // ── Modo simple ──────────────────────────────────────────────
+  const totalSimple = cantidad && costoUnit && +cantidad > 0 && +costoUnit > 0 ? +cantidad * +costoUnit : 0;
+
+  async function submitSimple() {
+    if (!insumoId) { toast("Seleccioná un insumo", "warn"); return; }
+    if (!cantidad || +cantidad <= 0) { toast("Ingresá la cantidad", "warn"); return; }
+    if (costoUnit === "" || +costoUnit < 0) { toast("Ingresá el costo unitario", "warn"); return; }
+    setLoading(true);
+    try {
+      await registrarCompraInsumo(+insumoId, {
+        cantidad: +cantidad, costoUnitario: +costoUnit,
+        proveedor: proveedor || null, fechaVencimiento: vencimiento || null,
+        notas: notas || null, numeroLote: numeroLote || null,
+      });
+      toast("Ingreso registrado ✓", "ok");
+      resetForm();
+    } catch(e) { toast((e?.message || "Error").slice(0, 80), "err"); }
+    finally { setLoading(false); }
+  }
+
+  // ── Modo bultos ──────────────────────────────────────────────
+  const cantTotal = cantBultos && unidadesPorBulto ? +cantBultos * +unidadesPorBulto : null;
+  const costoCalc = precioPorBulto && unidadesPorBulto && +unidadesPorBulto > 0 ? +precioPorBulto / +unidadesPorBulto : null;
+  const totalBultos = cantBultos && precioPorBulto ? +cantBultos * +precioPorBulto : 0;
+
+  async function submitBultos() {
+    if (!insumoId) { toast("Seleccioná un insumo", "warn"); return; }
+    if (!cantBultos || +cantBultos <= 0) { toast("Ingresá la cantidad de bultos", "warn"); return; }
+    if (!unidadesPorBulto || +unidadesPorBulto <= 0) { toast("Ingresá unidades por bulto", "warn"); return; }
+    if (precioPorBulto === "" || +precioPorBulto < 0) { toast("Ingresá el precio por bulto", "warn"); return; }
+    setLoading(true);
+    try {
+      await registrarCompraInsumo(+insumoId, {
+        cantidad: +cantBultos * +unidadesPorBulto,
+        costoUnitario: +precioPorBulto / +unidadesPorBulto,
+        tipoPresentacion: tipoPres,
+        cantidadBultos: +cantBultos,
+        unidadesPorBulto: +unidadesPorBulto,
+        precioPorBulto: +precioPorBulto,
+        proveedor: proveedor || null, fechaVencimiento: vencimiento || null,
+        notas: notas || null, numeroLote: numeroLote || null,
+      });
+      toast("Ingreso registrado ✓", "ok");
+      resetForm();
+    } catch(e) { toast((e?.message || "Error").slice(0, 80), "err"); }
+    finally { setLoading(false); }
+  }
+
+  // ── Modo masivo ──────────────────────────────────────────────
+  function addFila() {
+    setFilas(fs => [...fs, { id: Date.now(), insumoId: "", q: "", cantBultos: "", unidadesPorBulto: "1", precioPorBulto: "", vencimiento: "" }]);
+  }
+  function removeFila(id) {
+    setFilas(fs => fs.length > 1 ? fs.filter(f => f.id !== id) : fs);
+  }
+  function updateFila(id, key, val) {
+    setFilas(fs => fs.map(f => f.id === id ? { ...f, [key]: val } : f));
+  }
+  function selectFilaInsumo(id, ins) {
+    if (!ins) { updateFila(id, "insumoId", ""); return; }
+    setFilas(fs => fs.map(f => f.id === id ? { ...f, insumoId: String(ins.id), q: ins.nombre } : f));
+  }
+
+  const totalMasivoSinFlete = filas.reduce((acc, f) => {
+    const sub = f.cantBultos && f.precioPorBulto ? +f.cantBultos * +f.precioPorBulto : 0;
+    return acc + sub;
+  }, 0);
+  const totalMasivo = totalMasivoSinFlete + (+flete || 0);
+
+  async function submitMasivo() {
+    const itemsValidos = filas.filter(f => f.insumoId && f.cantBultos && +f.cantBultos > 0 && f.precioPorBulto !== "");
+    if (itemsValidos.length === 0) { toast("Agregá al menos un insumo con cantidad y precio", "warn"); return; }
+    setLoading(true);
+    try {
+      await registrarIngresoMasivo({
+        proveedor: provMasivo || null,
+        notas: notasMasivo || null,
+        flete: flete ? +flete : 0,
+        items: itemsValidos.map(f => ({
+          insumoId: +f.insumoId,
+          tipoPresentacion: "unidad",
+          cantidadBultos: +f.cantBultos,
+          unidadesPorBulto: +f.unidadesPorBulto || 1,
+          precioPorBulto: +f.precioPorBulto,
+          fechaVencimiento: f.vencimiento || null,
+        })),
+      });
+      toast(`${itemsValidos.length} insumos registrados ✓`, "ok");
+      setFilas([{ id: Date.now(), insumoId: "", q: "", cantBultos: "", unidadesPorBulto: "1", precioPorBulto: "", vencimiento: "" }]);
+      setFlete(""); setProvMasivo(""); setNotasMasivo("");
+    } catch(e) { toast((e?.message || "Error").slice(0, 80), "err"); }
+    finally { setLoading(false); }
+  }
+
+  const MODOS = [
+    { id: "simple", label: "Simple" },
+    { id: "bultos", label: "Por bultos" },
+    { id: "masivo", label: "Masivo" },
+  ];
 
   return (
     <div className="anim-in pad-x stack gap-14" style={{ paddingTop: 16, paddingBottom: 80 }}>
 
-      {/* Selección de insumo */}
-      <div>
-        <div className="section-title" style={{ marginBottom: 10 }}>¿Qué compraste?</div>
-
-        {loadingInsumos ? (
-          <div style={{ textAlign: "center", padding: "24px 0", color: "var(--txt-3)", fontSize: 13 }}>
-            Cargando insumos…
-          </div>
-        ) : (
-          <>
-            <div style={{ position: "relative", marginBottom: 8 }}>
-              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--txt-3)", pointerEvents: "none" }}>
-                <Icon name="search" size={16} />
-              </span>
-              <input value={q} onChange={e => { setQ(e.target.value); if (insumoId) setInsumoId(""); }}
-                placeholder="Buscar o elegir insumo…"
-                style={{ ...inp, paddingLeft: 38 }} />
-            </div>
-
-            {(!insumoId || q !== (insumoSel?.nombre || "")) && (
-              <div style={{
-                maxHeight: 220, overflowY: "auto", borderRadius: 12,
-                background: "var(--card)", border: "1px solid var(--border)",
-              }}>
-                {filtrados.length === 0
-                  ? <div style={{ padding: "16px", color: "var(--txt-3)", fontSize: 13, textAlign: "center" }}>Sin resultados</div>
-                  : filtrados.map((ins, i) => (
-                    <div key={ins.id} onClick={() => selectInsumo(ins)} style={{
-                      padding: "12px 16px", cursor: "pointer",
-                      display: "flex", alignItems: "center", gap: 12,
-                      background: String(insumoId) === String(ins.id) ? "var(--amber-soft)" : "transparent",
-                      borderBottom: i < filtrados.length - 1 ? "1px solid var(--border)" : "none",
-                    }}>
-                      <div style={{
-                        width: 8, height: 8, borderRadius: 99, flexShrink: 0,
-                        background: ins.bajo_stock ? "var(--red)" : "var(--green)",
-                      }} />
-                      <div className="grow">
-                        <div style={{ fontSize: 13.5, fontWeight: 500 }}>{ins.nombre}</div>
-                        <div style={{ fontSize: 11, color: "var(--txt-3)" }}>
-                          Stock: {Math.round(ins.stock_actual * 10) / 10} {ins.unidad_medida}
-                          {ins.bajo_stock ? " · ⚠ bajo mínimo" : ""}
-                        </div>
-                      </div>
-                      {String(insumoId) === String(ins.id) && <Icon name="check" size={16} style={{ color: "var(--amber-bright)" }} />}
-                    </div>
-                  ))
-                }
-              </div>
-            )}
-          </>
-        )}
+      {/* Selector de modo */}
+      <div style={{ display: "flex", gap: 8 }}>
+        {MODOS.map(m => (
+          <button key={m.id} onClick={() => setModo(m.id)} style={{
+            padding: "7px 14px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+            background: modo === m.id ? "var(--amber-bright)" : "var(--card)",
+            color: modo === m.id ? "#1a0f00" : "var(--txt-3)",
+            transition: "all 0.15s",
+          }}>{m.label}</button>
+        ))}
       </div>
 
-      {/* Detalle del ingreso */}
-      {insumoId && q === (insumoSel?.nombre || "") && (
+      {loadingInsumos && modo !== "masivo" && (
+        <div style={{ textAlign: "center", padding: "24px 0", color: "var(--txt-3)", fontSize: 13 }}>Cargando insumos…</div>
+      )}
+
+      {/* ── MODO SIMPLE ── */}
+      {!loadingInsumos && modo === "simple" && (<>
+        <div>
+          <div className="section-title" style={{ marginBottom: 8 }}>¿Qué compraste?</div>
+          <InsumoDropdown insumos={insumos} insumoId={insumoId} q={q} setQ={setQ} onSelect={selectInsumo} inp={inp} />
+        </div>
+        {insumoId && q === (insumoSel?.nombre || "") && (
+          <div className="stack gap-12">
+            <div className="divider" />
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--txt-2)" }}>
+              Ingreso de <span style={{ color: "var(--amber-bright)" }}>{insumoSel?.nombre}</span>
+            </div>
+            <div className="row gap-12">
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Cantidad ({insumoSel?.unidad_medida || "u."})</div>
+                <input type="number" min="0" step="any" value={cantidad} onChange={e => setCantidad(e.target.value)} placeholder="0" style={inp} />
+              </div>
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Costo / unidad ($)</div>
+                <input type="number" min="0" step="any" value={costoUnit} onChange={e => setCostoUnit(e.target.value)} placeholder="0.00" style={inp} />
+              </div>
+            </div>
+            {totalSimple > 0 && (
+              <div style={{ background: "var(--green-soft)", borderRadius: 12, padding: "12px 16px", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, color: "var(--txt-3)" }}>Total</span>
+                <span style={{ fontSize: 17, fontWeight: 750, color: "var(--green)" }}>{ARS(totalSimple)}</span>
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Proveedor — opcional</div>
+              <input value={proveedor} onChange={e => setProveedor(e.target.value)} placeholder="Nombre del proveedor" style={inp} />
+            </div>
+            <div className="row gap-12">
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Vencimiento — opcional</div>
+                <input type="date" value={vencimiento} onChange={e => setVencimiento(e.target.value)} style={{ ...inp, colorScheme: "dark" }} />
+              </div>
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Nº Lote — opcional</div>
+                <input value={numeroLote} onChange={e => setNumeroLote(e.target.value)} placeholder="ej: L-2024-001" style={inp} />
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Notas — opcional</div>
+              <input value={notas} onChange={e => setNotas(e.target.value)} placeholder="Nº remito, observaciones…" style={inp} />
+            </div>
+            <button onClick={submitSimple} disabled={loading} style={{
+              background: loading ? "var(--border)" : "var(--green)", color: loading ? "var(--txt-3)" : "#001209",
+              border: "none", borderRadius: 14, padding: "15px", fontSize: 15, fontWeight: 700,
+              cursor: loading ? "not-allowed" : "pointer", width: "100%",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}>
+              {loading ? "Registrando…" : <><Icon name="download" size={18} />Registrar ingreso</>}
+            </button>
+          </div>
+        )}
+      </>)}
+
+      {/* ── MODO BULTOS ── */}
+      {!loadingInsumos && modo === "bultos" && (<>
+        <div>
+          <div className="section-title" style={{ marginBottom: 8 }}>¿Qué compraste?</div>
+          <InsumoDropdown insumos={insumos} insumoId={insumoId} q={q} setQ={setQ} onSelect={selectInsumo} inp={inp} />
+        </div>
+        {insumoId && q === (insumoSel?.nombre || "") && (
+          <div className="stack gap-12">
+            <div className="divider" />
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--txt-2)" }}>
+              Ingreso por bultos — <span style={{ color: "var(--amber-bright)" }}>{insumoSel?.nombre}</span>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Tipo de presentación</div>
+              <select value={tipoPres} onChange={e => setTipoPres(e.target.value)} style={{ ...inp, cursor: "pointer" }}>
+                {["bolsa","saco","caja","bidón","tambor","fardo","paquete"].map(t => (
+                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="row gap-12">
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Cantidad de {tipoPres}s</div>
+                <input type="number" min="1" step="1" value={cantBultos} onChange={e => setCantBultos(e.target.value)} placeholder="ej: 3" style={inp} />
+              </div>
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Unidades / {tipoPres}</div>
+                <input type="number" min="1" step="any" value={unidadesPorBulto} onChange={e => setUnidadesPorBulto(e.target.value)} placeholder="ej: 50" style={inp} />
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Precio por {tipoPres} ($)</div>
+              <input type="number" min="0" step="any" value={precioPorBulto} onChange={e => setPrecioPorBulto(e.target.value)} placeholder="0.00" style={inp} />
+            </div>
+            {cantTotal !== null && costoCalc !== null && (
+              <div style={{ background: "var(--blue-soft)", borderRadius: 12, padding: "12px 16px" }} className="stack gap-4">
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: "var(--txt-3)" }}>Total unidades</span>
+                  <span style={{ fontWeight: 700 }}>{Math.round(cantTotal * 100) / 100} {insumoSel?.unidad_medida || "u."}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: "var(--txt-3)" }}>Costo unitario</span>
+                  <span style={{ fontWeight: 700 }}>{ARS(costoCalc)} / {insumoSel?.unidad_medida || "u."}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: "var(--txt-3)" }}>Total compra</span>
+                  <span style={{ fontWeight: 750, fontSize: 17, color: "var(--blue)" }}>{ARS(totalBultos)}</span>
+                </div>
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Proveedor — opcional</div>
+              <input value={proveedor} onChange={e => setProveedor(e.target.value)} placeholder="Nombre del proveedor" style={inp} />
+            </div>
+            <div className="row gap-12">
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Vencimiento — opcional</div>
+                <input type="date" value={vencimiento} onChange={e => setVencimiento(e.target.value)} style={{ ...inp, colorScheme: "dark" }} />
+              </div>
+              <div className="grow">
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Nº Lote — opcional</div>
+                <input value={numeroLote} onChange={e => setNumeroLote(e.target.value)} placeholder="del proveedor" style={inp} />
+              </div>
+            </div>
+            <button onClick={submitBultos} disabled={loading} style={{
+              background: loading ? "var(--border)" : "var(--green)", color: loading ? "var(--txt-3)" : "#001209",
+              border: "none", borderRadius: 14, padding: "15px", fontSize: 15, fontWeight: 700,
+              cursor: loading ? "not-allowed" : "pointer", width: "100%",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}>
+              {loading ? "Registrando…" : <><Icon name="download" size={18} />Registrar {cantBultos || "?"} {tipoPres}s</>}
+            </button>
+          </div>
+        )}
+      </>)}
+
+      {/* ── MODO MASIVO ── */}
+      {modo === "masivo" && (
         <div className="stack gap-12">
+          <div style={{ fontSize: 13, color: "var(--txt-3)" }}>
+            Registrá múltiples insumos de una misma compra. El flete se distribuye proporcionalmente.
+          </div>
+
+          {filas.map((fila, idx) => {
+            const filaSel = insumos.find(i => String(i.id) === String(fila.insumoId));
+            const subtotal = fila.cantBultos && fila.precioPorBulto ? +fila.cantBultos * +fila.precioPorBulto : 0;
+            return (
+              <div key={fila.id} style={{ background: "var(--card)", borderRadius: 14, padding: "14px 16px" }} className="stack gap-10">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--amber-bright)" }}>Insumo {idx + 1}</div>
+                  {filas.length > 1 && (
+                    <button onClick={() => removeFila(fila.id)} style={{
+                      background: "none", border: "none", color: "var(--red)", cursor: "pointer", padding: "2px 6px", fontSize: 18,
+                    }}>×</button>
+                  )}
+                </div>
+                <InsumoDropdown
+                  insumos={insumos} insumoId={fila.insumoId} q={fila.q}
+                  setQ={v => updateFila(fila.id, "q", v)}
+                  onSelect={ins => selectFilaInsumo(fila.id, ins)}
+                  inp={{ ...inp, fontSize: 13, padding: "10px 12px 10px 36px" }}
+                />
+                <div className="row gap-10">
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 4 }}>Cantidad</div>
+                    <input type="number" min="1" step="any" value={fila.cantBultos}
+                      onChange={e => updateFila(fila.id, "cantBultos", e.target.value)}
+                      placeholder="0" style={{ ...inp, fontSize: 13, padding: "10px 12px" }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 4 }}>Precio total ($)</div>
+                    <input type="number" min="0" step="any" value={fila.precioPorBulto}
+                      onChange={e => updateFila(fila.id, "precioPorBulto", e.target.value)}
+                      placeholder="0.00" style={{ ...inp, fontSize: 13, padding: "10px 12px" }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 4 }}>Venc.</div>
+                    <input type="date" value={fila.vencimiento}
+                      onChange={e => updateFila(fila.id, "vencimiento", e.target.value)}
+                      style={{ ...inp, fontSize: 12, padding: "10px 8px", colorScheme: "dark" }} />
+                  </div>
+                </div>
+                {subtotal > 0 && (
+                  <div style={{ fontSize: 12, color: "var(--txt-3)", textAlign: "right" }}>
+                    Subtotal: <span style={{ color: "var(--txt)", fontWeight: 600 }}>{ARS(subtotal)}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          <button onClick={addFila} style={{
+            background: "none", border: "1.5px dashed var(--border)", borderRadius: 12,
+            color: "var(--amber-bright)", padding: "12px", fontSize: 14, fontWeight: 600,
+            cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}>
+            <Icon name="plus" size={16} />Agregar insumo
+          </button>
+
           <div className="divider" />
 
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--txt-2)" }}>
-            Ingreso de <span style={{ color: "var(--amber-bright)" }}>{insumoSel?.nombre}</span>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Flete / Costo extra ($) — opcional</div>
+            <input type="number" min="0" step="any" value={flete} onChange={e => setFlete(e.target.value)} placeholder="0.00" style={inp} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Proveedor global — opcional</div>
+            <input value={provMasivo} onChange={e => setProvMasivo(e.target.value)} placeholder="Nombre del proveedor" style={inp} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>Notas — opcional</div>
+            <input value={notasMasivo} onChange={e => setNotasMasivo(e.target.value)} placeholder="Nº remito, observaciones…" style={inp} />
           </div>
 
-          <div className="row gap-12">
-            <div className="grow">
-              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
-                Cantidad ({insumoSel?.unidad_medida || "u."})
+          {totalMasivoSinFlete > 0 && (
+            <div style={{ background: "var(--green-soft)", borderRadius: 12, padding: "14px 16px" }} className="stack gap-6">
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, color: "var(--txt-3)" }}>Subtotal insumos</span>
+                <span style={{ fontWeight: 600 }}>{ARS(totalMasivoSinFlete)}</span>
               </div>
-              <input type="number" min="0" step="any" value={cantidad}
-                onChange={e => setCantidad(e.target.value)} placeholder="0" style={inp} />
-            </div>
-            <div className="grow">
-              <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
-                Costo / unidad ($)
+              {+flete > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: "var(--txt-3)" }}>Flete</span>
+                  <span style={{ fontWeight: 600 }}>{ARS(+flete)}</span>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>Total</span>
+                <span style={{ fontSize: 18, fontWeight: 750, color: "var(--green)" }}>{ARS(totalMasivo)}</span>
               </div>
-              <input type="number" min="0" step="any" value={costoUnit}
-                onChange={e => setCostoUnit(e.target.value)} placeholder="0.00" style={inp} />
-            </div>
-          </div>
-
-          {totalCompra > 0 && (
-            <div style={{
-              background: "var(--green-soft)", borderRadius: 12, padding: "12px 16px",
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-            }}>
-              <span style={{ fontSize: 13, color: "var(--txt-3)" }}>Total de la compra</span>
-              <span style={{ fontSize: 17, fontWeight: 750, color: "var(--green)" }}>{ARS(totalCompra)}</span>
             </div>
           )}
 
-          <div>
-            <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
-              Proveedor <span style={{ fontWeight: 400 }}>— opcional</span>
-            </div>
-            <input value={proveedor} onChange={e => setProveedor(e.target.value)}
-              placeholder="Nombre del proveedor" style={inp} />
-          </div>
-
-          <div>
-            <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
-              Fecha de vencimiento <span style={{ fontWeight: 400 }}>— opcional</span>
-            </div>
-            <input type="date" value={vencimiento} onChange={e => setVencimiento(e.target.value)}
-              style={{ ...inp, colorScheme: "dark" }} />
-          </div>
-
-          <div>
-            <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 6, fontWeight: 500 }}>
-              Notas <span style={{ fontWeight: 400 }}>— opcional</span>
-            </div>
-            <input value={notas} onChange={e => setNotas(e.target.value)}
-              placeholder="Nº de remito, observaciones…" style={inp} />
-          </div>
-
-          <button onClick={submit} disabled={loading} style={{
-            background: loading ? "var(--border)" : "var(--green)",
-            color: loading ? "var(--txt-3)" : "#001209",
+          <button onClick={submitMasivo} disabled={loading} style={{
+            background: loading ? "var(--border)" : "var(--green)", color: loading ? "var(--txt-3)" : "#001209",
             border: "none", borderRadius: 14, padding: "15px", fontSize: 15, fontWeight: 700,
             cursor: loading ? "not-allowed" : "pointer", width: "100%",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            transition: "all 0.18s ease",
           }}>
-            {loading ? "Registrando…" : <><Icon name="download" size={18} />Registrar ingreso</>}
+            {loading ? "Registrando…" : <><Icon name="download" size={18} />Registrar {filas.filter(f => f.insumoId && f.cantBultos).length} insumos</>}
           </button>
         </div>
       )}
@@ -846,7 +1236,7 @@ function RegistrarCompra({ toast }) {
 function FabricaPanel({ user, toast }) {
   const [sub, setSub] = oUseState("lotes");
   const [batches, setBatches] = oUseState(() => BATCH_SEED.map(b => ({ ...b })));
-  const [cantModal, setCantModal] = oUseState(null);
+  const [finalizarModal, setFinalizarModal] = oUseState(null);
 
   function recargarLotes() {
     fetchEtapasProduccion()
@@ -856,27 +1246,24 @@ function FabricaPanel({ user, toast }) {
 
   oUseEffect(() => { recargarLotes(); }, []);
 
-  async function advance(batch) {
-    if (batch.stage === 2 || (batch.etapa || "").toLowerCase().includes("armado")) {
-      setCantModal(batch);
-      return;
-    }
-    await doAdvance(batch.id, null);
-  }
+  function advance(batch) { setFinalizarModal(batch); }
 
-  async function doAdvance(id, cantidad) {
-    setCantModal(null);
+  async function doAdvance(id, data) {
+    setFinalizarModal(null);
     try {
-      await avanzarEtapaProduccion(id, cantidad);
+      await avanzarEtapaProduccion(id, data || {});
       recargarLotes();
-      toast(cantidad ? `${cantidad} alfajores registrados ✓` : "Etapa avanzada", "ok");
-    } catch {
+      const msg = data?.cantidad ? `${data.cantidad} alfajores registrados ✓`
+                : data?.tapas_reales ? `${data.tapas_reales} tapas registradas ✓`
+                : "Producción finalizada ✓";
+      toast(msg, "ok");
+    } catch(e) {
       setBatches(bs => bs.map(b => {
         if (b.id !== id) return b;
         const nextIdx = typeof b.stage === "number" ? Math.min(b.stage + 1, 3) : 3;
         return { ...b, stage: nextIdx, progress: nextIdx >= 3 ? 100 : Math.min(100, (b.progress || 0) + 34) };
       }));
-      toast("Avanzado (sin conexión)", "warn");
+      toast((e?.message || "Error").slice(0, 80), "warn");
     }
   }
 
@@ -922,11 +1309,11 @@ function FabricaPanel({ user, toast }) {
         {sub === "compras" && <RegistrarCompra toast={toast} />}
       </div>
 
-      {cantModal && (
-        <ModalCantidadAlfajores
-          batch={cantModal}
-          onConfirm={n => doAdvance(cantModal.id, n)}
-          onCancel={() => setCantModal(null)}
+      {finalizarModal && (
+        <FinalizarProduccionSheet
+          batch={finalizarModal}
+          onConfirm={data => doAdvance(finalizarModal.id, data)}
+          onCancel={() => setFinalizarModal(null)}
         />
       )}
     </div>
