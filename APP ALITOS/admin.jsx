@@ -520,12 +520,12 @@ function AdminEquipo({ vendors, onAssign, onDetail }) {
 }
 
 function AdminPrecios() {
-  const [listas, setListas] = pUseState([]);
-  const [saving, setSaving] = pUseState(null);
-  const [vals, setVals]     = pUseState({});
-  const toast = pUseContext(ToastCtx);
+  const [listas, setListas] = aUseState([]);
+  const [saving, setSaving] = aUseState(null);
+  const [vals, setVals]     = aUseState({});
+  const toast = aUseContext(ToastCtx);
 
-  pUseEffect(() => {
+  aUseEffect(() => {
     fetchListasPrecio().then(ls => {
       setListas(ls);
       const v = {};
