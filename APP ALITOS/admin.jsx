@@ -185,12 +185,13 @@ function AdminApp({ onLogout, user }) {
 
   const nav = [
     { id: "inicio",    icon: "home",    label: "Inicio"   },
-    { id: "mapa",      icon: "map",     label: "Mapa"     },
     { id: "cuentas",   icon: "wallet",  label: "Cuentas"  },
-    { id: "pedidos",   icon: "list",    label: "Pedidos"  },
-    { id: "analytics", icon: "chart",   label: "BI"       },
-    { id: "equipo",    icon: "users",   label: "Equipo"   },
     { id: "fabrica",   icon: "factory", label: "Fábrica"  },
+    { id: "pedidos",   icon: "list",    label: "Pedidos"  },
+    { id: "equipo",    icon: "users",   label: "Equipo"   },
+    { id: "precios",   icon: "tag",     label: "Precios"  },
+    { id: "mapa",      icon: "map",     label: "Mapa"     },
+    { id: "analytics", icon: "chart",   label: "BI"       },
   ];
 
   return (
@@ -210,6 +211,7 @@ function AdminApp({ onLogout, user }) {
         {tab === "analytics" && <AnalyticsView />}
         {tab === "equipo"    && <AdminEquipo vendors={vendors} onAssign={setAssignVendor} onDetail={setVendorDetail} />}
         {tab === "fabrica"   && <FabricaPanel user={user} toast={toast} />}
+        {tab === "precios"   && <AdminPrecios />}
       </PullToRefresh>
 
       <BotNav items={nav} value={tab} onChange={setTab} />
@@ -509,6 +511,63 @@ function AdminEquipo({ vendors, onAssign, onDetail }) {
           ))}
         </div>
       </div>
+      <div style={{ height: 8 }} />
+    </div>
+  );
+}
+
+function AdminPrecios() {
+  const [listas, setListas] = pUseState([]);
+  const [saving, setSaving] = pUseState(null);
+  const [vals, setVals]     = pUseState({});
+  const toast = pUseContext(ToastCtx);
+
+  pUseEffect(() => {
+    fetchListasPrecio().then(ls => {
+      setListas(ls);
+      const v = {};
+      ls.forEach(l => { v[l.slug] = { docena: l.precio_docena, media: l.precio_media }; });
+      setVals(v);
+    }).catch(() => toast("Error cargando precios", "error"));
+  }, []);
+
+  async function guardar(slug) {
+    setSaving(slug);
+    try {
+      await actualizarListaPrecio(slug, { precioDocena: Number(vals[slug].docena), precioMedia: Number(vals[slug].media) });
+      toast("Precio actualizado", "ok");
+    } catch { toast("Error al guardar", "error"); }
+    finally { setSaving(null); }
+  }
+
+  function set(slug, campo, val) {
+    setVals(v => ({ ...v, [slug]: { ...v[slug], [campo]: val } }));
+  }
+
+  return (
+    <div className="anim-in pad stack gap-16">
+      <div className="section-title">Listas de precio</div>
+      {listas.filter(l => l.slug !== "regalo" && l.slug !== "personalizado").map(l => (
+        <div className="card card-pad" key={l.slug}>
+          <div style={{ fontWeight: 700, marginBottom: 12 }}>{l.nombre}</div>
+          <div className="row gap-10" style={{ marginBottom: 10 }}>
+            <div className="grow">
+              <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 4 }}>Precio x docena</div>
+              <input type="number" value={vals[l.slug]?.docena ?? ""} onChange={e => set(l.slug, "docena", e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--txt)", fontSize: 15, fontWeight: 700 }} />
+            </div>
+            <div className="grow">
+              <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 4 }}>Precio x 6 u.</div>
+              <input type="number" value={vals[l.slug]?.media ?? ""} onChange={e => set(l.slug, "media", e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--txt)", fontSize: 15, fontWeight: 700 }} />
+            </div>
+          </div>
+          <button className={"btn btn-primary btn-block btn-sm" + (saving === l.slug ? " loading" : "")}
+            onClick={() => guardar(l.slug)} disabled={saving === l.slug}>
+            {saving === l.slug ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      ))}
       <div style={{ height: 8 }} />
     </div>
   );
