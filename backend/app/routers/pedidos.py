@@ -2,13 +2,14 @@ from datetime import datetime
 import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import text
+from sqlalchemy import text, func
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.events import broadcast_event
 from app.models.pedido import PedidoVendedor
 from app.models.usuario import Usuario
 from app.routers.auth import require_user, permiso
+from app.services.stock_service import consumir_stock_producto_fefo
 from app.templates import templates
 
 router = APIRouter(prefix="/pedidos", tags=["pedidos"])
@@ -216,6 +217,26 @@ def listar_pedidos(
     return [_fmt(p) for p in pedidos]
 
 
+@router.get("/api/stock-alfajores")
+def stock_alfajores(db: Session = Depends(get_db)):
+    """Stock de alfajores disponible agrupado por producto (público)."""
+    from app.models.producto import ProductoTerminado, LoteProductoTerminado
+    rows = db.query(
+        ProductoTerminado.id,
+        ProductoTerminado.nombre,
+        func.coalesce(func.sum(LoteProductoTerminado.cantidad_actual), 0).label("stock"),
+    ).outerjoin(
+        LoteProductoTerminado,
+        (LoteProductoTerminado.producto_id == ProductoTerminado.id)
+        & (LoteProductoTerminado.tipo == "alfajor")
+        & (LoteProductoTerminado.activo == True)
+        & (LoteProductoTerminado.cantidad_actual > 0),
+    ).filter(ProductoTerminado.activo == True).group_by(
+        ProductoTerminado.id, ProductoTerminado.nombre
+    ).all()
+    return [{"id": r.id, "nombre": r.nombre, "stock": int(r.stock)} for r in rows]
+
+
 @router.get("/api/{pedido_id}")
 def obtener_pedido(
     pedido_id: int,
@@ -369,9 +390,56 @@ def entregar_pedido(
     p.monto_deuda = monto_deuda
     p.entregado_at = datetime.utcnow()
     p.updated_at = datetime.utcnow()
+
+    # Descontar stock FEFO por cada producto entregado
+    for prod_item in json.loads(p.productos_json or "[]"):
+        pid = prod_item.get("id")
+        qty = prod_item.get("qty", 0)
+        if pid and qty:
+            try:
+                consumir_stock_producto_fefo(db, int(pid), float(qty))
+            except Exception:
+                pass  # stock insuficiente — no bloquea la entrega
+
     db.commit()
     db.refresh(p)
     return _fmt(p)
+
+
+@router.post("/api/publico", status_code=201)
+def crear_pedido_publico(data: dict, db: Session = Depends(get_db)):
+    """Pedido desde la tienda virtual — no requiere autenticación."""
+    productos = data.get("productos", [])
+    unidades = int(data.get("units", sum(i.get("qty", 0) for i in productos)))
+    monto = float(data.get("amount", sum(i.get("qty", 0) * i.get("price", 0) for i in productos)))
+    p = PedidoVendedor(
+        vendedor_id=None,
+        vendedor_nombre="Tienda Virtual",
+        lugar=data.get("place", "Tienda Online"),
+        unidades=unidades,
+        monto=monto,
+        estado="pendiente",
+        productos_json=json.dumps(productos) if productos else None,
+        notas=data.get("notas") or None,
+        tipo_cliente=data.get("tipo_cliente", "cliente"),
+        cliente_nombre=data.get("cliente_nombre") or None,
+        cliente_localidad=data.get("cliente_localidad") or None,
+        forma_pago=data.get("forma_pago") or None,
+        lista_precio=data.get("lista_precio") or "cliente",
+        monto_lista=monto,
+    )
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    broadcast_event("pedido", {
+        "vendedor_nombre": "Tienda Virtual",
+        "vendedor_id": None,
+        "lugar": p.lugar,
+        "unidades": unidades,
+        "monto": monto,
+        "cliente": data.get("cliente_nombre") or "Cliente Tienda",
+    })
+    return {"id": p.id, "ok": True}
 
 
 @router.delete("/api/{pedido_id}")

@@ -721,6 +721,31 @@ async function actualizarPerfil(data) {
   return apiFetch("/api/mobile/perfil", { method: "PATCH", body: JSON.stringify(data) });
 }
 
+async function fetchStockAlfajores() {
+  return apiGet("/pedidos/api/stock-alfajores");
+}
+
+async function crearPedidoPublico({ place, productos, notas, tipoCliente, clienteNombre, clienteLocalidad, formaPago, listaPrecio, amount, units }) {
+  const res = await fetch("/pedidos/api/publico", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      place:            place || "Tienda Online",
+      productos:        productos || [],
+      notas:            notas || "",
+      tipo_cliente:     tipoCliente || "cliente",
+      cliente_nombre:   clienteNombre || "",
+      cliente_localidad: clienteLocalidad || "",
+      forma_pago:       formaPago || null,
+      lista_precio:     listaPrecio || "cliente",
+      amount:           amount || 0,
+      units:            units || 0,
+    }),
+  });
+  if (!res.ok) throw new Error("Error al crear pedido");
+  return res.json();
+}
+
 Object.assign(window, { cambiarPassword,
   saveRememberedUser, getRememberedUser, clearRememberedUser, triggerBiometric, checkBiometricAvailable,
   loginUser, logoutUser, isLoggedIn, loginAndSetupPush, apiPost,
@@ -739,4 +764,5 @@ Object.assign(window, { cambiarPassword,
   fetchVentasAdmin, fetchGastos, crearGasto, eliminarGasto, fetchFinanzasSalud,
   fetchAlertas, resolverAlerta, verificarAlertas,
   fetchUsuariosAdmin, crearUsuario, actualizarUsuario, desactivarUsuario, resetPinUsuario,
+  fetchStockAlfajores, crearPedidoPublico,
 });

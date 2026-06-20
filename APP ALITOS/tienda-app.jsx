@@ -13,6 +13,8 @@ function Store() {
   const [checkout, setCheckout] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const { enrichedProducts, stockMap, precios, ready: dataReady } = useTiendaInit();
+  const activeProducts = dataReady && enrichedProducts.length ? enrichedProducts : PRODUCTS;
 
   // efectos visuales: reveal-on-scroll + header compacto + parallax (hero y franjas)
   useEffect(() => {
@@ -83,10 +85,16 @@ function Store() {
     setCart((c) => {const n = { ...c };if (q <= 0) delete n[id];else n[id] = q;return n;});
   }
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
-  const items = Object.entries(cart).map(([id, q]) => ({ item: ITEM_BY_ID[id], qty: q }));
+  const allItemsMap = useMemo(() => {
+    const m = Object.assign({}, ITEM_BY_ID);
+    activeProducts.forEach(p => { m[p.id] = p; });
+    BOXES.forEach(b => { m[b.id] = b; });
+    return m;
+  }, [activeProducts]);
+  const items = Object.entries(cart).map(([id, q]) => ({ item: allItemsMap[id], qty: q })).filter(x => x.item);
   const subtotal = items.reduce((a, { item, qty }) => a + priceOf(item) * qty, 0);
 
-  const shown = cat === "all" ? PRODUCTS : cat === "cajas" ? [] : PRODUCTS.filter((p) => p.cat === cat);
+  const shown = cat === "all" ? activeProducts : cat === "cajas" ? [] : activeProducts.filter((p) => p.cat === cat);
   const showBoxes = cat === "all" || cat === "cajas";
 
   return (
@@ -166,7 +174,7 @@ function Store() {
       onCheckout={() => {setCartOpen(false);setCheckout(true);}} onShop={() => {setCartOpen(false);document.getElementById("catalogo").scrollIntoView();}} />
 
       {/* CHECKOUT */}
-      <Checkout open={checkout} items={items} mode={mode} priceOf={priceOf} subtotal={subtotal}
+      <Checkout open={checkout} items={items} mode={mode} priceOf={priceOf} subtotal={subtotal} user={user}
       onClose={() => setCheckout(false)} onDone={() => {setCart({});}} />
 
       {/* TOASTS */}
@@ -650,19 +658,55 @@ function CartDrawer({ open, items, mode, priceOf, subtotal, onClose, onQty, onCh
 }
 
 /* ---------- Checkout ---------- */
-function Checkout({ open, items, mode, priceOf, subtotal, onClose, onDone }) {
-  const [step, setStep] = useState("form"); // form | done
+function Checkout({ open, items, mode, priceOf, subtotal, onClose, onDone, user }) {
+  const [step, setStep] = useState("form"); // form | saving | done | error
   const [delivery, setDelivery] = useState("envio"); // envio | retiro
   const [pay, setPay] = useState("mp"); // efectivo | transfer | mp
+  const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [direccion, setDireccion] = useState("");
   const [orderNo, setOrderNo] = useState("");
+  const [errMsg, setErrMsg] = useState("");
   const shipping = mode === "mayorista" || delivery === "retiro" ? 0 : subtotal >= 12000 ? 0 : 1500;
   const total = subtotal + shipping;
 
-  function confirm() {
-    setOrderNo("A" + Math.floor(1000 + Math.random() * 9000));
-    setStep("done");
+  async function confirm() {
+    setStep("saving");
+    setErrMsg("");
+    const base = window.TIENDA_BASE_URL || "";
+    const productos = items.map(({ item, qty }) => ({
+      id:    item.backendId || item.id,
+      name:  item.name,
+      qty:   qty,
+      price: priceOf(item),
+    }));
+    try {
+      const res = await fetch(base + "/pedidos/api/publico", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          place:            delivery === "retiro" ? "Retiro en fábrica" : "Envío a domicilio",
+          productos,
+          notas:            (delivery === "envio" && direccion ? "Dir: " + direccion + ". " : "") + "Tel: " + telefono,
+          tipo_cliente:     mode === "mayorista" ? "negocio" : "cliente",
+          cliente_nombre:   nombre || (user && user.name) || "Cliente Tienda",
+          cliente_localidad: delivery === "envio" ? (direccion || "") : "Morón (retiro)",
+          forma_pago:       pay,
+          lista_precio:     mode === "mayorista" ? "mayorista" : "cliente",
+          amount:           total,
+          units:            items.reduce((a, i) => a + i.qty, 0),
+        }),
+      });
+      if (!res.ok) throw new Error("Error del servidor");
+      const data = await res.json();
+      setOrderNo(String(data.id || "TV" + Math.floor(Math.random() * 9000)));
+      setStep("done");
+    } catch (e) {
+      setErrMsg("No pudimos registrar tu pedido. Intentá de nuevo o contactanos por WhatsApp.");
+      setStep("error");
+    }
   }
-  function close() {if (step === "done") onDone();setStep("form");setDelivery("envio");setPay("mp");onClose();}
+  function close() {if (step === "done") onDone();setStep("form");setDelivery("envio");setPay("mp");setNombre("");setTelefono("");setDireccion("");setErrMsg("");onClose();}
 
   if (!open) return null;
   return (
@@ -676,8 +720,8 @@ function Checkout({ open, items, mode, priceOf, subtotal, onClose, onDone }) {
             </div>
             <div className="modal-body">
               <div className="field-row">
-                <div className="field"><label className="lab">Nombre</label><input className="input" placeholder="Tu nombre" /></div>
-                <div className="field"><label className="lab">Teléfono</label><input className="input" placeholder="11 5555 5555" /></div>
+                <div className="field"><label className="lab">Nombre</label><input className="input" placeholder="Tu nombre" value={nombre} onChange={e => setNombre(e.target.value)} /></div>
+                <div className="field"><label className="lab">Teléfono</label><input className="input" placeholder="11 5555 5555" value={telefono} onChange={e => setTelefono(e.target.value)} /></div>
               </div>
 
               <div className="field">
@@ -695,7 +739,7 @@ function Checkout({ open, items, mode, priceOf, subtotal, onClose, onDone }) {
               </div>
 
               {delivery === "envio" &&
-            <div className="field"><label className="lab">Dirección de entrega</label><input className="input" placeholder="Calle, número, localidad" /></div>
+            <div className="field"><label className="lab">Dirección de entrega</label><input className="input" placeholder="Calle, número, localidad" value={direccion} onChange={e => setDireccion(e.target.value)} /></div>
             }
 
               <div className="field">
@@ -716,9 +760,14 @@ function Checkout({ open, items, mode, priceOf, subtotal, onClose, onDone }) {
                 <div className="summary-row total"><span>Total</span><span className="tabular"><span className="cur">$</span>{total.toLocaleString("es-AR")}</span></div>
               </div>
             </div>
+            {step === "error" && (
+              <div style={{ padding: "8px 20px 0", color: "var(--danger, #e53)", fontSize: 13 }}>{errMsg}</div>
+            )}
             <div className="modal-foot">
-              <button className="btn btn-ghost" onClick={close} style={{ flex: "0 0 auto" }}>Volver</button>
-              <button className="btn btn-primary btn-block" onClick={confirm}>Confirmar pedido · {ARS(total)}</button>
+              <button className="btn btn-ghost" onClick={close} style={{ flex: "0 0 auto" }} disabled={step === "saving"}>Volver</button>
+              <button className="btn btn-primary btn-block" onClick={confirm} disabled={step === "saving"}>
+                {step === "saving" ? "Enviando…" : "Confirmar pedido · " + ARS(total)}
+              </button>
             </div>
           </React.Fragment> :
 

@@ -107,4 +107,44 @@ function CountUp(props) {
   return React.createElement("span", { ref: ref, className: "v" }, value);
 }
 
-Object.assign(window, { ARS, TIcon, TICONS, CATS, PRODUCTS, BOXES, ALL_ITEMS, ITEM_BY_ID, useScrollReveal, CountUp });
+/* ---------- Hook: datos reales del backend ---------- */
+function useTiendaInit() {
+  const [backendProds, setBackendProds] = React.useState([]);
+  const [stockMap, setStockMap]         = React.useState({});
+  const [precios, setPrecios]           = React.useState([]);
+  const [ready, setReady]               = React.useState(false);
+
+  React.useEffect(function () {
+    var base = window.TIENDA_BASE_URL || "";
+    Promise.all([
+      fetch(base + "/productos/api").then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+      fetch(base + "/pedidos/api/stock-alfajores").then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+      fetch(base + "/pedidos/api/precios").then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+    ]).then(function (results) {
+      var prods = results[0], stock = results[1], precio = results[2];
+      setBackendProds(prods);
+      var sm = {};
+      stock.forEach(function (s) { sm[s.id] = s.stock; });
+      setStockMap(sm);
+      setPrecios(precio);
+      setReady(true);
+    });
+  }, []);
+
+  // Enriquecer PRODUCTS con datos reales: backendId + stock + precio real
+  var enriched = PRODUCTS.map(function (p, i) {
+    var real = backendProds[i] || null;
+    var clienteLista = precios.find(function (l) { return l.slug === "cliente"; });
+    var mayLista     = precios.find(function (l) { return l.slug === "mayorista"; });
+    return Object.assign({}, p, {
+      backendId: real ? real.id : null,
+      stock: real ? (stockMap[real.id] != null ? stockMap[real.id] : null) : null,
+      unit: clienteLista && clienteLista.precio_docena ? Math.round(clienteLista.precio_docena / 12) : p.unit,
+      may:  mayLista     && mayLista.precio_docena     ? Math.round(mayLista.precio_docena / 12)     : p.may,
+    });
+  });
+
+  return { enrichedProducts: enriched, stockMap, precios, ready };
+}
+
+Object.assign(window, { ARS, TIcon, TICONS, CATS, PRODUCTS, BOXES, ALL_ITEMS, ITEM_BY_ID, useScrollReveal, CountUp, useTiendaInit });

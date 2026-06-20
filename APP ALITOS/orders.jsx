@@ -702,18 +702,22 @@ function NewOrderSheet({ open, onClose, onSaved }) {
   const [notas, setNotas]         = pUseState("");
   const [precioCustom, setPrecioCustom] = pUseState("");
   const [saving, setSaving]       = pUseState(false);
+  const [stockMap, setStockMap]   = pUseState({});
 
   pUseEffect(() => {
     if (open) {
       setStep(1); setTipo("cliente");
       setClienteId(null); setClienteNombre(""); setClienteLocalidad("");
       setNegocioSel(null); setQty({}); setFechaEntrega(""); setNotas("");
-      setPrecioCustom("");
+      setPrecioCustom(""); setStockMap({});
       fetchNegocios().then(setNegocios).catch(() => {});
       fetchProductos().then(setProductos).catch(() => {});
       fetchListasPrecio().then(ls => {
         setListas(ls);
         setListaSel(ls[0]?.slug || "cliente");
+      }).catch(() => {});
+      fetchStockAlfajores().then(st => {
+        setStockMap(Object.fromEntries(st.map(s => [String(s.id), s.stock])));
       }).catch(() => {});
     }
   }, [open]);
@@ -878,19 +882,25 @@ function NewOrderSheet({ open, onClose, onSaved }) {
             <Icon name="info" size={15} />
             Escribí la cantidad exacta o usá +/−.
           </div>
-          {productos.map(prod => (
-            <div className="prow" key={prod.id}>
-              <div className="pimg"><img src={"assets/alfajor-maicena.png"} alt="" /></div>
-              <div className="grow">
-                <div className="pname">{prod.nombre || prod.name}</div>
-                <div className="pmeta">unidades</div>
+          {productos.map(prod => {
+            const stockDisp = stockMap[String(prod.id)];
+            const agotado = stockDisp != null && stockDisp === 0;
+            return (
+              <div className="prow" key={prod.id} style={agotado ? { opacity: 0.5 } : {}}>
+                <div className="pimg"><img src={"assets/alfajor-maicena.png"} alt="" /></div>
+                <div className="grow">
+                  <div className="pname">{prod.nombre || prod.name}</div>
+                  <div className="pmeta" style={{ color: agotado ? "var(--danger, #e53)" : stockDisp != null && stockDisp <= 12 ? "var(--warn, #f90)" : undefined }}>
+                    {stockDisp != null ? stockDisp + " disponibles" : "unidades"}
+                  </div>
+                </div>
+                <QtyInput
+                  value={qty[String(prod.id)] || 0}
+                  onChange={v => setQty(q => ({ ...q, [String(prod.id)]: v }))}
+                />
               </div>
-              <QtyInput
-                value={qty[String(prod.id)] || 0}
-                onChange={v => setQty(q => ({ ...q, [String(prod.id)]: v }))}
-              />
-            </div>
-          ))}
+            );
+          })}
           {totalUnits > 0 && (
             <div className="card-2" style={{ padding: 12, marginTop: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
