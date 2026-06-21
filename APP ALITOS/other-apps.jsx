@@ -35,7 +35,7 @@ function FinalizarProduccionSheet({ batch, onConfirm, onCancel }) {
     if (notas) data.notas = notas;
     if (tipo === "masa") {
       if (masaRealG) data.masa_real_g = +masaRealG;
-      if (masaRealG) data.cantidad    = +masaRealG;
+      data.cantidad = masaRealG ? +masaRealG : (est ? Math.round(est) : 1);
     } else if (tipo === "tapas") {
       data.tapas_reales = tapasReales ? +tapasReales : (est ? Math.round(est) : undefined);
       if (tapasRotas)   data.tapas_rotas = +tapasRotas;

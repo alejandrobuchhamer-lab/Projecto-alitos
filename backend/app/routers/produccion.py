@@ -1290,7 +1290,9 @@ def avanzar_etapa_mobile(
             ).filter(Produccion.id == produccion_id).first()
             if prod_full and prod_full.receta_version and prod_full.receta_version.producto:
                 cant = (body.cantidad if body and body.cantidad and body.cantidad > 0 else None) \
-                    or float(prod_full.cantidad_producida or 0)
+                    or float(prod_full.cantidad_producida or 0) \
+                    or float(prod_full.tapas_teoricas or 0) \
+                    or float((prod_full.cantidad_recetas or 1) * 240)
                 if cant > 0:
                     lote_exist = db.query(LoteProductoTerminado).filter(
                         LoteProductoTerminado.produccion_id == produccion_id,
