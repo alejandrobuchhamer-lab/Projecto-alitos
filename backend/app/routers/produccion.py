@@ -311,6 +311,46 @@ def costo_detalle_alfajor(lote_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/api/{produccion_id}/reparar-lote")
+def reparar_lote_masa(produccion_id: int, body: dict = None, db: Session = Depends(get_db)):
+    """Crea el LoteProductoTerminado faltante para una producción de masa ya finalizada."""
+    from datetime import datetime, timedelta
+    from sqlalchemy.orm import joinedload as _jl
+    prod = db.query(Produccion).options(
+        _jl(Produccion.receta_version).joinedload(RecetaVersion.producto)
+    ).filter(Produccion.id == produccion_id).first()
+    if not prod:
+        raise HTTPException(404, "Producción no encontrada")
+    if prod.tipo_produccion != "masa":
+        raise HTTPException(400, "Solo aplica a producciones de masa")
+    if not prod.receta_version or not prod.receta_version.producto:
+        raise HTTPException(400, "La producción no tiene receta o producto asociado")
+    lote_exist = db.query(LoteProductoTerminado).filter(
+        LoteProductoTerminado.produccion_id == produccion_id,
+        LoteProductoTerminado.tipo == "masa",
+    ).first()
+    if lote_exist:
+        return {"ok": True, "mensaje": "El lote ya existe", "lote_id": lote_exist.id, "cantidad": lote_exist.cantidad_actual}
+    cantidad = float((body or {}).get("cantidad", 0)) or float(prod.cantidad_producida or 0) \
+               or float(prod.tapas_teoricas or 0) or float((prod.cantidad_recetas or 1) * 240)
+    lote = LoteProductoTerminado(
+        producto_id=prod.receta_version.producto.id,
+        produccion_id=prod.id,
+        numero_lote=prod.numero_lote_produccion or f"MASA-REP-{produccion_id}",
+        cantidad_inicial=cantidad,
+        cantidad_actual=cantidad,
+        fecha_produccion=prod.fecha_fin or datetime.utcnow(),
+        fecha_vencimiento=(prod.fecha_fin or datetime.utcnow()) + timedelta(days=7),
+        tipo="masa",
+        activo=True,
+    )
+    db.add(lote)
+    prod.cantidad_producida = cantidad
+    db.commit()
+    db.refresh(lote)
+    return {"ok": True, "mensaje": "Lote creado", "lote_id": lote.id, "cantidad": lote.cantidad_actual}
+
+
 @router.post("/api/iniciar", response_model=ProduccionOut, status_code=201)
 def iniciar(data: ProduccionCreate, db: Session = Depends(get_db)):
     receta_id = data.receta_version_id
