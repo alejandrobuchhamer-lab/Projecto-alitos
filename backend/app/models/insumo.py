@@ -51,6 +51,25 @@ class Insumo(Base):
     def bajo_stock(self) -> bool:
         return self.stock_actual < self.stock_minimo
 
+    @property
+    def costo_unitario_promedio(self) -> float:
+        """Costo promedio ponderado por unidad, considerando solo lotes activos con stock."""
+        lotes = [l for l in self.lotes if l.activo and l.cantidad_actual > 0]
+        total_qty = sum(l.cantidad_actual for l in lotes)
+        if total_qty <= 0:
+            # Si no hay stock, usar el último lote registrado
+            todos = [l for l in self.lotes if l.activo]
+            if todos:
+                ultimo = max(todos, key=lambda l: l.fecha_ingreso)
+                return ultimo.costo_unitario
+            return 0.0
+        return sum(l.cantidad_actual * l.costo_unitario for l in lotes) / total_qty
+
+    @property
+    def valor_stock(self) -> float:
+        """Valor total del stock actual = stock_actual × costo_unitario_promedio."""
+        return round(self.stock_actual * self.costo_unitario_promedio, 2)
+
 
 class OrdenCompra(Base):
     """Agrupa múltiples lotes comprados en una misma operación."""

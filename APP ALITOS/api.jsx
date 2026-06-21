@@ -725,6 +725,10 @@ async function fetchStockAlfajores() {
   return apiGet("/pedidos/api/stock-alfajores");
 }
 
+async function fetchCostoDetalleAlfajor(loteId) {
+  return apiGet("/produccion/api/lote-alfajor/" + loteId + "/costo-detalle");
+}
+
 async function crearPedidoPublico({ place, productos, notas, tipoCliente, clienteNombre, clienteLocalidad, formaPago, listaPrecio, amount, units }) {
   const res = await fetch("/pedidos/api/publico", {
     method: "POST",
@@ -764,5 +768,5 @@ Object.assign(window, { cambiarPassword,
   fetchVentasAdmin, fetchGastos, crearGasto, eliminarGasto, fetchFinanzasSalud,
   fetchAlertas, resolverAlerta, verificarAlertas,
   fetchUsuariosAdmin, crearUsuario, actualizarUsuario, desactivarUsuario, resetPinUsuario,
-  fetchStockAlfajores, crearPedidoPublico,
+  fetchStockAlfajores, crearPedidoPublico, fetchCostoDetalleAlfajor,
 });

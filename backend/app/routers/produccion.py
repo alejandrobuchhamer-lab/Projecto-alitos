@@ -194,6 +194,123 @@ def origen_masa(produccion_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/api/lote-alfajor/{lote_id}/costo-detalle")
+def costo_detalle_alfajor(lote_id: int, db: Session = Depends(get_db)):
+    """Desglose completo de costos de producción para un lote de alfajores terminados."""
+    from app.models.produccion import ProduccionInsumo, ProduccionTacho
+    from sqlalchemy.orm import joinedload as _jl3
+
+    lote = db.query(LoteProductoTerminado).options(
+        _jl3(LoteProductoTerminado.producto),
+        _jl3(LoteProductoTerminado.produccion),
+    ).filter(LoteProductoTerminado.id == lote_id, LoteProductoTerminado.tipo == "alfajor").first()
+    if not lote:
+        raise HTTPException(404, "Lote de alfajor no encontrado")
+
+    def _uso_a_dict(uso):
+        if uso.lote_insumo and uso.lote_insumo.insumo:
+            ins = uso.lote_insumo.insumo
+            return {
+                "nombre": ins.nombre, "unidad": ins.unidad_medida,
+                "cantidad": round(uso.cantidad_usada, 4),
+                "costo_unitario": round(uso.costo_unitario, 4),
+                "costo_total": round(uso.cantidad_usada * uso.costo_unitario, 2),
+            }
+        if uso.lote_producto and uso.lote_producto.producto:
+            pt = uso.lote_producto.producto
+            return {
+                "nombre": pt.nombre, "unidad": "u.",
+                "cantidad": round(uso.cantidad_usada, 2),
+                "costo_unitario": round(uso.costo_unitario, 4),
+                "costo_total": round(uso.cantidad_usada * uso.costo_unitario, 2),
+            }
+        return None
+
+    etapas = []
+    costo_total_global = 0.0
+
+    # ── Armado ────────────────────────────────────────────────────────────────
+    armado = lote.produccion
+    armado_items = []
+    armado_tacho_items = []
+    if armado:
+        for uso in armado.insumos_usados:
+            d = _uso_a_dict(uso)
+            if d:
+                armado_items.append(d)
+        # Tachos (chocolate, dulce de leche, envoltorio, etc.)
+        for tacho in db.query(ProduccionTacho).filter(ProduccionTacho.produccion_id == armado.id).all():
+            if tacho.tipo == "insumo" and tacho.insumo_id:
+                from app.models.insumo import Insumo as _Ins
+                ins = db.query(_Ins).filter(_Ins.id == tacho.insumo_id).first()
+                if ins and tacho.cantidad_usada and tacho.costo_unitario:
+                    armado_tacho_items.append({
+                        "nombre": ins.nombre, "unidad": ins.unidad_medida,
+                        "cantidad": round(tacho.cantidad_usada, 4),
+                        "costo_unitario": round(tacho.costo_unitario, 4),
+                        "costo_total": round(tacho.cantidad_usada * tacho.costo_unitario, 2),
+                    })
+    all_armado = armado_items + armado_tacho_items
+    sub_armado = sum(i["costo_total"] for i in all_armado)
+    if all_armado:
+        etapas.append({"etapa": "Armado", "icono": "box", "items": all_armado, "subtotal": sub_armado})
+    costo_total_global += sub_armado
+
+    # ── Tapas ─────────────────────────────────────────────────────────────────
+    tapas = None
+    lote_tapas = None
+    if armado and armado.lote_origen_id:
+        lote_tapas = db.query(LoteProductoTerminado).options(
+            _jl3(LoteProductoTerminado.produccion)
+        ).filter(LoteProductoTerminado.id == armado.lote_origen_id).first()
+        if lote_tapas:
+            tapas = lote_tapas.produccion
+    tapas_items = []
+    if tapas:
+        for uso in tapas.insumos_usados:
+            d = _uso_a_dict(uso)
+            if d:
+                tapas_items.append(d)
+    sub_tapas = sum(i["costo_total"] for i in tapas_items)
+    if tapas_items:
+        etapas.append({"etapa": "Tapas", "icono": "flame", "items": tapas_items, "subtotal": sub_tapas})
+    costo_total_global += sub_tapas
+
+    # ── Masa ──────────────────────────────────────────────────────────────────
+    masa = None
+    if tapas and tapas.lote_origen_id:
+        lote_masa = db.query(LoteProductoTerminado).options(
+            _jl3(LoteProductoTerminado.produccion)
+        ).filter(LoteProductoTerminado.id == tapas.lote_origen_id).first()
+        if lote_masa:
+            masa = lote_masa.produccion
+    masa_items = []
+    if masa:
+        for uso in masa.insumos_usados:
+            d = _uso_a_dict(uso)
+            if d:
+                masa_items.append(d)
+    sub_masa = sum(i["costo_total"] for i in masa_items)
+    if masa_items:
+        etapas.append({"etapa": "Masa", "icono": "package", "items": masa_items, "subtotal": sub_masa})
+    costo_total_global += sub_masa
+
+    cant = lote.cantidad_inicial or lote.cantidad_actual or 1
+    costo_unit = round(costo_total_global / cant, 4) if cant > 0 else 0
+
+    return {
+        "lote_id": lote.id,
+        "numero_lote": lote.numero_lote,
+        "producto": lote.producto.nombre if lote.producto else "",
+        "cantidad_inicial": lote.cantidad_inicial,
+        "cantidad_actual": lote.cantidad_actual,
+        "costo_total": round(costo_total_global, 2),
+        "costo_unitario": costo_unit,
+        "etapas": etapas,
+        "tiene_datos": len(etapas) > 0,
+    }
+
+
 @router.post("/api/iniciar", response_model=ProduccionOut, status_code=201)
 def iniciar(data: ProduccionCreate, db: Session = Depends(get_db)):
     receta_id = data.receta_version_id

@@ -30,6 +30,8 @@ class InsumoOut(InsumoBase):
     activo: bool
     stock_actual: float = 0.0
     bajo_stock: bool = False
+    costo_unitario_promedio: float = 0.0
+    valor_stock: float = 0.0
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -260,6 +260,9 @@ const STAGE_API = [
 function StockTerminado() {
   const [lotes, setLotes] = oUseState([]);
   const [loading, setLoading] = oUseState(true);
+  const [detalleOpen, setDetalleOpen] = oUseState(false);
+  const [detalle, setDetalle] = oUseState(null);
+  const [loadingDetalle, setLoadingDetalle] = oUseState(false);
 
   oUseEffect(() => {
     setLoading(true);
@@ -268,7 +271,17 @@ function StockTerminado() {
       .catch(() => setLoading(false));
   }, []);
 
+  function verDetalle(lote) {
+    setDetalleOpen(true);
+    setDetalle(null);
+    setLoadingDetalle(true);
+    fetchCostoDetalleAlfajor(lote.id)
+      .then(d => { setDetalle(d); setLoadingDetalle(false); })
+      .catch(() => { setDetalle({ tiene_datos: false, numero_lote: lote.numero_lote }); setLoadingDetalle(false); });
+  }
+
   const total = lotes.reduce((a, l) => a + (l.cantidad_actual || 0), 0);
+  const valorTotal = lotes.reduce((a, l) => a + (l.cantidad_actual || 0) * (l.costo_unitario || 0), 0);
   const proxVencer = lotes.filter(l => l.dias_para_vencer !== null && l.dias_para_vencer <= 5).length;
 
   return (
@@ -291,6 +304,17 @@ function StockTerminado() {
           </div>
         </div>
       </div>
+      {valorTotal > 0 && (
+        <div className="card card-pad" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px" }}>
+          <div className="m-ico" style={{ background: "var(--green-soft)", color: "var(--green)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon name="dollar" size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 500 }}>Costo total en stock</div>
+            <div style={{ fontSize: 17, fontWeight: 750, color: "var(--txt)" }}>{ARS(Math.round(valorTotal))}</div>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div style={{ textAlign: "center", padding: "40px 0", color: "var(--txt-3)" }}>
@@ -314,34 +338,130 @@ function StockTerminado() {
             const warn = l.dias_para_vencer !== null && l.dias_para_vencer <= 5;
             return (
               <div key={l.id}>
-                <div className="lrow" style={{ padding: "14px 16px", alignItems: "center" }}>
-                  <img src={_guessImg(l.producto)} style={{ width: 44, height: 44, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} alt="" />
-                  <div className="grow" style={{ marginLeft: 12, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 650 }}>{l.producto}</div>
-                    <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 2 }}>
-                      Lote {l.numero_lote}{l.operario ? ` · ${l.operario}` : ""} · {l.fecha_produccion}
+                <button onClick={() => verDetalle(l)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
+                  <div className="lrow" style={{ padding: "14px 16px", alignItems: "center" }}>
+                    <img src={_guessImg(l.producto)} style={{ width: 44, height: 44, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} alt="" />
+                    <div className="grow" style={{ marginLeft: 12, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 650 }}>{l.producto}</div>
+                      <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 2 }}>
+                        Lote {l.numero_lote}{l.operario ? ` · ${l.operario}` : ""} · {l.fecha_produccion}
+                      </div>
+                      <div style={{ height: 3, background: "var(--border)", borderRadius: 99, overflow: "hidden", marginTop: 5 }}>
+                        <div style={{ height: "100%", width: pct + "%", borderRadius: 99, background: warn ? "var(--red)" : "var(--green)", transition: "width 0.4s" }} />
+                      </div>
                     </div>
-                    <div style={{ height: 3, background: "var(--border)", borderRadius: 99, overflow: "hidden", marginTop: 5 }}>
-                      <div style={{ height: "100%", width: pct + "%", borderRadius: 99, background: warn ? "var(--red)" : "var(--green)", transition: "width 0.4s" }} />
+                    <div style={{ textAlign: "right", marginLeft: 12, flexShrink: 0 }}>
+                      <div style={{ fontSize: 20, fontWeight: 750, color: warn ? "var(--red)" : "var(--txt)" }}>
+                        {Math.round(l.cantidad_actual)}
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--txt-3)" }}>unid.</div>
+                      {warn && <div style={{ fontSize: 9.5, color: "var(--red)", fontWeight: 700 }}>⚠ {l.dias_para_vencer}d</div>}
                     </div>
                   </div>
-                  <div style={{ textAlign: "right", marginLeft: 12, flexShrink: 0 }}>
-                    <div style={{ fontSize: 20, fontWeight: 750, color: warn ? "var(--red)" : "var(--txt)" }}>
-                      {Math.round(l.cantidad_actual)}
-                    </div>
-                    <div style={{ fontSize: 10, color: "var(--txt-3)" }}>unid.</div>
-                    {warn && <div style={{ fontSize: 9.5, color: "var(--red)", fontWeight: 700 }}>⚠ {l.dias_para_vencer}d</div>}
-                  </div>
+                </button>
+                <div style={{ fontSize: 11, color: "var(--txt-3)", padding: "0 16px 10px 72px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <span>Costo/u: {l.costo_unitario > 0 ? ARS(l.costo_unitario) : "—"}</span>
+                  {l.costo_unitario > 0 && <span>Valor stock: {ARS(Math.round(l.costo_unitario * l.cantidad_actual))}</span>}
+                  {l.fecha_vencimiento && <span>Vence: {l.fecha_vencimiento}</span>}
+                  <span style={{ color: "var(--amber-bright)" }}>Ver costos ›</span>
                 </div>
-                {l.costo_unitario > 0 && (
-                  <div style={{ fontSize: 11, color: "var(--txt-3)", padding: "0 16px 10px 72px" }}>
-                    Costo unit: ${l.costo_unitario.toFixed(2)} · Total: ${(l.costo_unitario * l.cantidad_actual).toFixed(0)}
-                  </div>
-                )}
                 {i < lotes.length - 1 && <div className="divider" style={{ marginLeft: 72 }} />}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Detalle de costos por lote ────────────────────────── */}
+      {detalleOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div onClick={() => setDetalleOpen(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)" }} />
+          <div style={{ position: "relative", background: "var(--card)", borderRadius: "20px 20px 0 0", maxHeight: "88vh", overflowY: "auto", paddingBottom: 32 }}>
+            {/* Handle */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
+              <div style={{ width: 40, height: 4, borderRadius: 99, background: "var(--border)" }} />
+            </div>
+            {/* Header */}
+            <div style={{ padding: "8px 20px 16px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 11, color: "var(--txt-3)", textTransform: "uppercase", letterSpacing: 1 }}>Análisis de costos</div>
+              <div style={{ fontSize: 17, fontWeight: 700, marginTop: 2 }}>
+                {loadingDetalle ? "Cargando…" : detalle ? detalle.producto : "Sin datos"}
+              </div>
+              {detalle && <div style={{ fontSize: 11, color: "var(--txt-3)" }}>Lote {detalle.numero_lote}</div>}
+            </div>
+
+            {loadingDetalle && (
+              <div style={{ padding: 40, textAlign: "center", color: "var(--txt-3)", fontSize: 13 }}>Calculando costos…</div>
+            )}
+
+            {!loadingDetalle && detalle && !detalle.tiene_datos && (
+              <div style={{ padding: 40, textAlign: "center" }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Sin trazabilidad</div>
+                <div style={{ fontSize: 12, color: "var(--txt-3)", marginTop: 4 }}>Este lote no tiene registros de producción vinculados.</div>
+              </div>
+            )}
+
+            {!loadingDetalle && detalle && detalle.tiene_datos && (
+              <div style={{ padding: "16px 20px 0" }}>
+                {/* KPIs globales */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
+                  <div style={{ background: "var(--surface)", borderRadius: 12, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, color: "var(--txt-3)" }}>Unidades</div>
+                    <div style={{ fontSize: 18, fontWeight: 750 }}>{detalle.cantidad_inicial}</div>
+                  </div>
+                  <div style={{ background: "var(--surface)", borderRadius: 12, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, color: "var(--txt-3)" }}>Costo/u</div>
+                    <div style={{ fontSize: 18, fontWeight: 750 }}>{ARS(detalle.costo_unitario)}</div>
+                  </div>
+                  <div style={{ background: "var(--surface)", borderRadius: 12, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, color: "var(--txt-3)" }}>Total lote</div>
+                    <div style={{ fontSize: 18, fontWeight: 750 }}>{ARS(detalle.costo_total)}</div>
+                  </div>
+                </div>
+
+                {/* Etapas */}
+                {detalle.etapas.map((etapa, ei) => (
+                  <div key={ei} style={{ marginBottom: 16 }}>
+                    {/* Etapa header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <div style={{ fontSize: 18 }}>
+                        {etapa.icono === "box" ? "📦" : etapa.icono === "flame" ? "🔥" : "🌾"}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>{etapa.etapa}</div>
+                      <div style={{ flex: 1 }} />
+                      <div style={{ fontSize: 13, fontWeight: 650, color: "var(--txt-2)" }}>{ARS(etapa.subtotal)}</div>
+                    </div>
+
+                    {/* Items */}
+                    <div style={{ background: "var(--surface)", borderRadius: 12, overflow: "hidden" }}>
+                      {etapa.items.map((item, ii) => (
+                        <div key={ii}>
+                          <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", gap: 8 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.nombre}</div>
+                              <div style={{ fontSize: 11, color: "var(--txt-3)" }}>
+                                {item.cantidad % 1 === 0 ? item.cantidad : item.cantidad.toFixed(2)} {item.unidad}
+                                {item.costo_unitario > 0 && <span> · {ARS(item.costo_unitario)}/{item.unidad}</span>}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 650, flexShrink: 0 }}>{ARS(item.costo_total)}</div>
+                          </div>
+                          {ii < etapa.items.length - 1 && <div style={{ height: 1, background: "var(--border)", marginLeft: 14 }} />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Total footer */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", background: "var(--green-soft)", borderRadius: 12, marginTop: 4 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--green)" }}>Costo total</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--green)" }}>{ARS(detalle.costo_total)}</div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -440,6 +560,7 @@ function StockInsumos() {
 
   const lista = insumos.filter(i => !q || i.nombre.toLowerCase().includes(q.toLowerCase()));
   const bajoStock = insumos.filter(i => i.bajo_stock).length;
+  const valorTotal = insumos.reduce((a, i) => a + (i.valor_stock || 0), 0);
 
   return (
     <div className="anim-in pad-x stack gap-14" style={{ paddingTop: 16, paddingBottom: 80 }}>
@@ -462,6 +583,17 @@ function StockInsumos() {
           </div>
         </div>
       </div>
+      {valorTotal > 0 && (
+        <div className="card card-pad" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px" }}>
+          <div className="m-ico" style={{ background: "var(--amber-soft)", color: "var(--amber-bright)", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon name="dollar" size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 500 }}>Valor total del stock</div>
+            <div style={{ fontSize: 17, fontWeight: 750, color: "var(--txt)" }}>{ARS(Math.round(valorTotal))}</div>
+          </div>
+        </div>
+      )}
 
       <div style={{ position: "relative" }}>
         <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--txt-3)", pointerEvents: "none" }}>
@@ -517,14 +649,21 @@ function StockInsumos() {
                       </div>
                     )}
                     <div style={{ fontSize: 11, color: "var(--txt-3)" }}>
-                      {ins.stock_minimo > 0 ? `Mín: ${ins.stock_minimo} ${ins.unidad_medida}` : ins.unidad_medida}
-                      {ins.proveedor_default ? ` · ${ins.proveedor_default}` : ""}
+                      {ins.costo_unitario_promedio > 0
+                        ? `${ARS(ins.costo_unitario_promedio)} / ${ins.unidad_medida}`
+                        : ins.unidad_medida}
+                      {ins.stock_minimo > 0 ? ` · mín: ${ins.stock_minimo}` : ""}
                     </div>
+                    {ins.valor_stock > 0 && (
+                      <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 1 }}>
+                        Stock: {ARS(ins.valor_stock)}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ textAlign: "right", marginLeft: 12, flexShrink: 0 }}>
                     <div style={{ fontSize: 19, fontWeight: 750, color: low ? "var(--red)" : "var(--txt)" }}>
-                      {Math.round(ins.stock_actual * 10) / 10}
+                      {Math.round(ins.stock_actual * 100) / 100}
                     </div>
                     <div style={{ fontSize: 10, color: "var(--txt-3)" }}>{ins.unidad_medida}</div>
                     {low && <div style={{ fontSize: 9.5, color: "var(--red)", fontWeight: 700, letterSpacing: "0.04em" }}>↓ BAJO</div>}
