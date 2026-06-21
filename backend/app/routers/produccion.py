@@ -214,6 +214,23 @@ def iniciar(data: ProduccionCreate, db: Session = Depends(get_db)):
                 receta_id = receta_fallback.id
         if receta_id is None:
             raise HTTPException(400, "No hay recetas en el sistema. Creá una en la sección Recetas primero.")
+    # Para tapas sin receta: buscar automáticamente igual que armado
+    if receta_id is None and data.tipo_produccion == "tapas" and data.lote_origen_id:
+        from app.models.producto import LoteProductoTerminado
+        lote = db.query(LoteProductoTerminado).filter(LoteProductoTerminado.id == data.lote_origen_id).first()
+        if lote and lote.producto_id:
+            receta = db.query(RecetaVersion).filter(
+                RecetaVersion.producto_id == lote.producto_id,
+                RecetaVersion.activo == True,
+            ).order_by(RecetaVersion.version.desc()).first()
+            if receta:
+                receta_id = receta.id
+        if receta_id is None:
+            receta_fallback = db.query(RecetaVersion).filter(RecetaVersion.activo == True).first()
+            if receta_fallback:
+                receta_id = receta_fallback.id
+        if receta_id is None:
+            raise HTTPException(400, "No hay recetas en el sistema. Creá una en la sección Recetas primero.")
     try:
         produccion = iniciar_produccion(
             db, receta_id, data.operario, data.notas, data.tipo_produccion,
@@ -1214,6 +1231,14 @@ def avanzar_etapa_mobile(
                     )
                     db.add(lote)
                     prod.cantidad_producida = tapas_cant
+                    # BUG 2 FIX: Reducir lote de masa origen (toda la masa fue convertida en tapas)
+                    if prod_full.lote_origen_id:
+                        lote_masa = db.query(LoteProductoTerminado).filter(
+                            LoteProductoTerminado.id == prod_full.lote_origen_id,
+                            LoteProductoTerminado.tipo == "masa",
+                        ).first()
+                        if lote_masa and lote_masa.cantidad_actual > 0:
+                            lote_masa.cantidad_actual = 0
 
     # ── Armado ────────────────────────────────────────────────────────────────
     elif prod.tipo_produccion == "armado" and prod.receta_version_id:
@@ -1251,6 +1276,18 @@ def avanzar_etapa_mobile(
                 )
                 db.add(lote)
                 prod.cantidad_producida = cant
+                # BUG 3 FIX: Reducir lote de tapas origen
+                if prod_full.lote_origen_id:
+                    lote_tapas = db.query(LoteProductoTerminado).filter(
+                        LoteProductoTerminado.id == prod_full.lote_origen_id,
+                        LoteProductoTerminado.tipo == "tapas",
+                    ).first()
+                    if lote_tapas:
+                        tapas_usadas = float(prod_full.tapas_teoricas or cant or 0)
+                        if tapas_usadas > 0:
+                            lote_tapas.cantidad_actual = max(0.0, lote_tapas.cantidad_actual - tapas_usadas)
+                        else:
+                            lote_tapas.cantidad_actual = 0
             else:
                 if body and body.cantidad and body.cantidad > 0:
                     lote_exist.cantidad_actual = body.cantidad
